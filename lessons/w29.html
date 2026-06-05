@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 29 · CNNs II: ResNets, Transfer Learning &amp; Segmentation — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w29">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 29</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 5 · Deep Learning › Lesson 29</div>
+        <span class="eyebrow">🧠 Part 5 · Deep Learning</span>
+        <h1>CNNs II: ResNets, Transfer Learning &amp; Segmentation</h1>
+        <div class="lesson-meta"><span>⏱️ 55 min</span><span>🎯 Going deep, borrowing eyes, labelling every pixel</span><span>📦 Week 29</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain why stacking more layers eventually <em>hurts</em>, and how a <strong>residual skip connection</strong> \(y=F(x)+x\) fixes it.</li>
+          <li>Train a real CNN sensibly with <strong>data augmentation</strong>, batches and a validation split.</li>
+          <li>Read what a CNN learns by <strong>visualising feature maps</strong> — edges, then parts, then objects.</li>
+          <li>Use <strong>transfer learning</strong>: freeze a pretrained backbone and retrain just the head.</li>
+          <li>Describe <strong>segmentation</strong> (U-Net, pixel-wise labels) and how 1D and 3D CNNs extend the idea to audio and video.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">If deeper networks see richer hierarchies, why did the field hit a wall around 20 layers — and how did one tiny rewiring let researchers train networks <em>152 layers</em> deep, win ImageNet, and hand the rest of us a pretrained "pair of eyes" we can borrow in an afternoon?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>29.1 Residual networks: a shortcut past the vanishing gradient</h2>
+      <p>Last week (Week 28) we built CNNs by stacking <strong>conv → ReLU → pool</strong> blocks, and saw the lovely hierarchy: edges → parts → objects. The obvious next move is "stack more blocks." But around 2015 researchers found something shocking: a plain 56-layer network was <em>worse</em> than a 20-layer one — not just on test data (that would be overfitting) but on the <em>training</em> set too. The deep net couldn't even fit the data it had seen.</p>
+      <p>The culprit is the <strong>vanishing gradient</strong>. Recall backprop from Week 25: to update an early layer, the gradient must travel backward through every later layer, getting multiplied by each layer's local derivative on the way. Multiply 50 numbers that are each a bit less than 1 and you get something microscopic. The early layers receive almost no learning signal — the message decays to a whisper before it arrives.</p>
+      <p>Kaiming He and colleagues fixed this with a stunningly simple idea: add a <strong>skip connection</strong> (or shortcut) that lets the input <em>bypass</em> a block and be added back to its output. Instead of asking a block to learn the full desired mapping \(H(x)\), we ask it to learn only the <strong>residual</strong> — the leftover difference \(F(x) = H(x)-x\) — and then add the input back:</p>
+      <p>\[ y \;=\; F(x,\{W_i\}) \;+\; x \]</p>
+      <p>Here \(F\) is the usual couple of conv layers with weights \(\{W_i\}\), and the bare \(+\,x\) is the shortcut. Why does this help so much? Two reasons. First, if a layer has nothing useful to add, learning \(F(x)\approx 0\) (driving the weights toward zero) is far easier than learning \(H(x)\approx x\) (an exact identity through nonlinear layers). The block can always "do nothing" cheaply. Second — and this is the magic — when you differentiate \(y=F(x)+x\), the \(+x\) contributes a clean \(+1\) to the gradient. There is now a <strong>gradient highway</strong> that carries the learning signal straight back to early layers, no matter how deep the network. The whisper becomes a shout again.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine passing a message down a line of 50 friends. By the end it's garbled — that's a deep network "forgetting" what it learned. Now give every friend a walkie-talkie straight back to the start. Even if one friend mumbles, the original message still gets through clearly. A skip connection is that walkie-talkie: it lets information (and learning) jump straight across, so very deep networks can still hear themselves think.</p>
+      </div>
+
+      <figure class="figure">
+        <svg viewBox="0 0 480 220" aria-label="A residual block: input splits into two convolution layers and a skip connection that are added">
+          <!-- input -->
+          <circle cx="50" cy="110" r="6" fill="#4f46e5"/>
+          <text x="30" y="98" font-size="13" fill="#4f46e5">x</text>
+          <!-- main path -->
+          <line x1="56" y1="110" x2="120" y2="110" stroke="#767c93" stroke-width="2" marker-end="url(#ah)"/>
+          <rect x="120" y="92" width="86" height="36" rx="6" fill="#14b8a6" fill-opacity="0.15" stroke="#14b8a6"/>
+          <text x="130" y="115" font-size="12" fill="#14b8a6">conv → ReLU</text>
+          <line x1="206" y1="110" x2="250" y2="110" stroke="#767c93" stroke-width="2" marker-end="url(#ah)"/>
+          <rect x="250" y="92" width="60" height="36" rx="6" fill="#14b8a6" fill-opacity="0.15" stroke="#14b8a6"/>
+          <text x="262" y="115" font-size="12" fill="#14b8a6">conv</text>
+          <text x="225" y="80" font-size="12" fill="#767c93">F(x)</text>
+          <!-- skip arc -->
+          <path d="M50,104 C50,40 360,40 360,104" fill="none" stroke="#f59e0b" stroke-width="2.5" marker-end="url(#ah2)"/>
+          <text x="180" y="38" font-size="12" fill="#f59e0b">skip connection (identity x)</text>
+          <!-- merge -->
+          <line x1="310" y1="110" x2="350" y2="110" stroke="#767c93" stroke-width="2"/>
+          <circle cx="360" cy="110" r="13" fill="#fff" stroke="#f43f5e" stroke-width="2"/>
+          <text x="354" y="116" font-size="16" fill="#f43f5e">+</text>
+          <line x1="373" y1="110" x2="420" y2="110" stroke="#767c93" stroke-width="2" marker-end="url(#ah)"/>
+          <text x="426" y="98" font-size="13" fill="#f43f5e">y = F(x)+x</text>
+          <defs>
+            <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#767c93"/></marker>
+            <marker id="ah2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#f59e0b"/></marker>
+          </defs>
+        </svg>
+        <figcaption>A residual block. The data flows through two conv layers (\(F(x)\), teal) <em>and</em> down an untouched shortcut (amber). The two are summed (rose). The shortcut's clean \(+x\) is the gradient highway that defeats vanishing gradients.</figcaption>
+      </figure>
+
+      <p>This single trick produced <strong>ResNet</strong> (Residual Network), which won ImageNet 2015 with 152 layers and an error rate below human level on that benchmark. ResNet-18, ResNet-50 and friends are still everyday workhorses today.</p>
+
+      <h2>29.2 Training a CNN: augmentation and good habits</h2>
+      <p>A deep CNN has millions of parameters and will happily memorise your training images (overfitting — Week 14). The cheapest, most powerful defence is <strong>data augmentation</strong>: on every epoch, randomly perturb each image — flip it horizontally, rotate a few degrees, crop, shift, jitter the brightness. A cat is still a cat when mirrored, so the label is unchanged, but the network now sees effectively infinite variations and learns features that are robust to position, scale and lighting rather than memorising exact pixels.</p>
+      <p>The rest of the recipe reuses tools you already have: train in <strong>mini-batches</strong> with an adaptive optimiser like Adam (Week 26), sprinkle in <strong>dropout</strong> and <strong>batch normalisation</strong> (Week 27) to regularise and stabilise, hold out a <strong>validation set</strong> to watch for overfitting, and stop early when validation accuracy plateaus. Batch norm in particular pairs beautifully with residual blocks — together they make very deep nets train smoothly.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🏋️</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Data augmentation is like a coach who never lets you practise the exact same drill twice. Mirror the field, change the lighting, shift the ball — so you learn the <em>game</em>, not one memorised play. A student who only ever drills one fixed exam paper aces that paper and fails the real test. Augmentation forces the network to generalise.</p>
+      </div>
+
+      <h2>29.3 Visualising feature maps: edges → parts → objects</h2>
+      <p>A trained CNN is not a black box if you peek inside. If you feed an image in and plot the <strong>feature maps</strong> (the activations) at each layer, a clear story emerges. The first conv layer's filters light up on <strong>oriented edges</strong> and colour blobs — almost identical to the edge detector we coded by hand last week. Go a few layers deeper and the maps respond to <strong>textures and simple shapes</strong>: corners, curves, grids. Deeper still and units fire for <strong>object parts</strong> — an eye, a wheel, a window frame. The final convolutional layers respond to <strong>whole objects</strong>. The network discovered this hierarchy on its own, from nothing but labels and backprop. This is exactly why the early layers are so reusable — and that observation leads straight to transfer learning.</p>
+
+      <h2>29.4 Transfer learning: borrow a pretrained pair of eyes</h2>
+      <p>Here is the payoff. Those early "edge and texture" layers are <strong>generic</strong> — they're useful for <em>any</em> vision task, not just the one the network was trained on. So why train them from scratch on your 2,000 medical scans when someone already trained them on ImageNet's 1.2 million photos? <strong>Transfer learning</strong> reuses a pretrained network: keep the <strong>backbone</strong> (the convolutional feature extractor), <strong>freeze</strong> its weights so they don't change, and replace just the final classification <strong>head</strong> with a fresh one sized to your classes. You then train only that small head on your data.</p>
+      <p>This is transformative when you have little data or little compute: you inherit features learned from millions of images and only have to learn the last "how do these features map to <em>my</em> labels?" step. Later, if you have enough data, you can <strong>fine-tune</strong> — unfreeze the top few backbone layers and train them gently with a small learning rate to specialise them to your domain.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">pytorch — transfer learning: freeze a pretrained ResNet, swap the head</span></div>
+<pre><code class="language-python">import torch
+import torch.nn as nn
+from torchvision import models
+
+# 1) Load a ResNet-18 already trained on 1.2M ImageNet photos.
+#    Its conv backbone is a ready-made edge/texture/part detector.
+net = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+
+# 2) FREEZE the backbone: turn off gradients so these weights stay fixed.
+#    We keep the "eyes" the network already learned.
+for param in net.parameters():
+    param.requires_grad = False
+
+# 3) REPLACE the head. ResNet ends in a Linear layer "fc" mapping
+#    512 features -> 1000 ImageNet classes. We swap it for OUR task,
+#    e.g. 3 classes (cat / dog / fox). A fresh Linear's params default
+#    to requires_grad=True, so ONLY the head will train.
+num_features = net.fc.in_features          # 512 for resnet18
+net.fc = nn.Linear(num_features, 3)        # new, trainable head
+
+# 4) Only the head's parameters go to the optimiser -> fast, data-light.
+trainable = [p for p in net.parameters() if p.requires_grad]
+optimizer = torch.optim.Adam(trainable, lr=1e-3)
+loss_fn   = nn.CrossEntropyLoss()
+
+# 5) One training step on a (fake) batch of 8 RGB 224x224 images.
+images = torch.randn(8, 3, 224, 224)       # pretend mini-batch
+labels = torch.randint(0, 3, (8,))         # 3 classes
+logits = net(images)                       # backbone (frozen) + new head
+loss   = loss_fn(logits, labels)
+optimizer.zero_grad(); loss.backward(); optimizer.step()
+print("logits shape:", logits.shape)       # -> torch.Size([8, 3])
+print("trainable tensors:", len(trainable))# -> just the head (weight + bias)
+</code></pre>
+
+      <h2>29.5 Segmentation: a label for every pixel (U-Net)</h2>
+      <p>Classification answers "<em>what</em> is in this image?" with one label. <strong>Semantic segmentation</strong> answers the harder question "<em>where</em> is it?" by labelling <em>every pixel</em> — road vs car vs pedestrian for a self-driving camera, tumour vs healthy tissue in a scan. The output is the same size as the input image, but each pixel carries a class.</p>
+      <p>The standard architecture is the <strong>U-Net</strong>, shaped like a U. The left arm is a normal CNN <strong>encoder</strong> that downsamples, compressing the image into a small, semantically rich representation ("there's a tumour somewhere here"). The right arm is a <strong>decoder</strong> that upsamples back to full resolution, recovering precise pixel locations. The clever part: <strong>skip connections</strong> (the same idea as ResNet!) copy high-resolution detail from each encoder level straight across to the matching decoder level, so the network combines "what it is" (deep, coarse) with "exactly where its edges are" (shallow, fine).</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0"><strong>Skip connections are the hero of this lesson.</strong> In a <em>ResNet</em> they add the input back to defeat vanishing gradients and let nets go 100+ layers deep. In a <em>U-Net</em> they carry fine spatial detail across to the decoder for crisp pixel-perfect masks. Same trick, two payoffs — and you'll meet it a third time as the residual connection inside every transformer block (Week 32).</p>
+      </div>
+
+      <h2>29.6 Image-to-image tasks: CNNs as image processors</h2>
+      <p>Once you can map an image to an image (as U-Net does), a whole family of <strong>image-processing</strong> tasks opens up. <strong>Denoising</strong> takes a grainy photo and outputs a clean one. <strong>Super-resolution</strong> upscales a blurry image to sharp. <strong>Colourisation</strong> turns black-and-white into colour. <strong>Style transfer</strong> repaints a photo in Van Gogh's brushstrokes. <strong>Depth estimation</strong> outputs how far each pixel is. All share the encoder–decoder shape: squeeze the image down to understand it, then expand back out to produce a new image. The features that make this work are exactly the learned hierarchy from §29.3.</p>
+
+      <h2>29.7 1D CNNs: convolution along time</h2>
+      <p>Nothing about convolution requires a 2D grid. A <strong>1D CNN</strong> slides its filter along a single axis — perfect for <strong>sequences</strong> like an audio waveform, an ECG trace, or a sensor stream. A length-5 1D kernel detects a local temporal pattern (a heartbeat spike, a phoneme) and reports wherever that pattern occurs along the signal. The same weight-sharing and translation-tolerance benefits apply: the pattern is found no matter <em>when</em> it happens. 1D CNNs are fast and strong on local patterns, though for long-range dependencies we'll soon prefer recurrent nets (next week) and attention (Week 32).</p>
+
+      <h2>29.8 3D CNNs: convolution through volume and time</h2>
+      <p>Add an axis instead of removing one and you get a <strong>3D CNN</strong>, whose kernel is a little cube that slides through a <em>volume</em>. This is the natural tool for <strong>video</strong> (height × width × time — the filter detects motion patterns across frames, not just spatial ones) and for <strong>volumetric medical imaging</strong> like CT and MRI scans (height × width × depth — finding 3D structures a per-slice 2D net would miss). The cost is steep: a 3D kernel has far more weights and the data is huge, so 3D CNNs are used where that extra dimension genuinely carries signal.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This builds directly on <strong>Week 28's</strong> conv→pool stacks, made trainable-when-deep by the <strong>vanishing-gradient</strong> idea from <strong>Week 25's</strong> backprop and the <strong>batch norm</strong> from <strong>Week 27</strong>. Transfer learning here is exactly the engine of <strong>Project 3 (Image Classifier with CNNs &amp; Transfer Learning)</strong> — you'll fine-tune a real ResNet. And the <strong>residual + normalisation</strong> pattern you just learned returns as the backbone of every transformer block in <strong>Week 32</strong>, where attention replaces convolution but the skip connection stays.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=KuXjwB4LzSA" target="_blank" rel="noopener">But what is a convolution?</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">The sliding multiply-and-sum that every layer in this lesson is built from — see it move and detect edges.</span></div></li>
+        <li><span class="r-ic">📄</span><div><a href="https://arxiv.org/abs/1512.03385" target="_blank" rel="noopener">Deep Residual Learning for Image Recognition (He et al., 2015)</a><span class="r-src">The original ResNet paper. Figure 2 is the residual block \(y=F(x)+x\) you just learned; the plots show plain nets degrading with depth.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html" target="_blank" rel="noopener">PyTorch — Transfer Learning Tutorial</a><span class="r-src">The exact freeze-backbone / swap-head workflow above, end to end on a real dataset. Your warm-up for Project 3.</span></div></li>
+        <li><span class="r-ic">📄</span><div><a href="https://arxiv.org/abs/1505.04597" target="_blank" rel="noopener">U-Net: Convolutional Networks for Biomedical Segmentation</a><span class="r-src">The U-shaped encoder–decoder with skip connections from §29.5, in its original medical-imaging context.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">In a residual block \(y=F(x)+x\), why does the skip connection help train very deep networks?</div>
+        <button class="opt">It deletes half the layers to save memory.</button>
+        <button class="opt">It makes every weight exactly 1.</button>
+        <button class="opt">The \(+x\) gives the gradient a clean path (a "+1") straight back to early layers, fighting vanishing gradients.</button>
+        <button class="opt">It converts the image to grayscale.</button>
+        <div class="explain">Differentiating \(F(x)+x\) leaves a \(+1\) term, creating a gradient highway. The block also only needs to learn the residual \(F(x)\), and "doing nothing" (\(F\approx0\)) is easy.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">In transfer learning, what do "freeze the backbone, replace the head" mean?</div>
+        <button class="opt">Cool the GPU and buy a new monitor.</button>
+        <button class="opt">Keep the pretrained conv layers fixed (no gradient updates) and train a new final classifier sized to your classes.</button>
+        <button class="opt">Randomly reinitialise every layer.</button>
+        <button class="opt">Train the whole network from scratch on ImageNet.</button>
+        <div class="explain">Freezing keeps the generic edge/texture/part features the backbone already learned; the small new head learns to map those features to your specific labels — fast and data-efficient.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">What makes semantic segmentation (e.g. U-Net) different from plain image classification?</div>
+        <button class="opt">It outputs a class label for every pixel, not one label for the whole image.</button>
+        <button class="opt">It only works on black-and-white images.</button>
+        <button class="opt">It never uses convolution.</button>
+        <button class="opt">It requires no training data.</button>
+        <div class="explain">Segmentation produces a full-resolution map — "what class is each pixel?" — using an encoder to understand the scene and a decoder (with skip connections) to recover precise pixel locations.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

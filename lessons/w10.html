@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 10 · Image, Video &amp; Audio Processing — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w10">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 10</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 3 · The Worlds of AI › Lesson 10</div>
+        <span class="eyebrow">🌐 Part 3 · The Worlds of AI</span>
+        <h1>Image, Video &amp; Audio Processing: Pixels &amp; Waveforms are Numbers Too</h1>
+        <div class="lesson-meta"><span>⏱️ 45 min</span><span>🎯 Senses as tensors</span><span>📦 Week 10</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>See an image as what it really is to a computer: a grid (tensor) of pixel numbers.</li>
+          <li>Name the three core vision tasks — classification, detection, segmentation — and place video as "images over time."</li>
+          <li>Understand sound as a 1-D waveform of samples, and how a spectrogram turns audio into an image.</li>
+          <li>Appreciate how the same pixel/tensor framing powers medicine, satellites, and more.</li>
+          <li>Load a real image as a NumPy array, read its shape <code>(H, W, 3)</code>, and normalise its pixels.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A photo, a movie clip, and a song feel completely different to us. To a machine they're all just numbers. What numbers, arranged how — and why does that make them ready for the very same maths we've already learned?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>10.1 An image is a grid of numbers</h2>
+      <p>Last lesson we turned words into vectors. Images are easier in one sense: they're <em>born</em> as numbers. Zoom into any digital photo far enough and you hit <strong>pixels</strong> — tiny coloured squares. Each pixel is a brightness value, usually an integer from <strong>0 (black) to 255 (white)</strong>.</p>
+      <p>A greyscale image is therefore a 2-D grid: <code>height × width</code> numbers. A colour image stacks <strong>three</strong> such grids — one each for Red, Green and Blue — so it's a 3-D block of numbers with shape <code>(H, W, 3)</code>. Mix the three channels and you get any colour. That 3-D block is called a <strong>tensor</strong>: just a vector/matrix with more axes, exactly the objects from Lesson 2 grown an extra dimension.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 480 240" aria-label="A colour image is three stacked grids of pixel numbers">
+          <!-- zoomed pixel grid with numbers -->
+          <text x="10" y="20" font-size="12" fill="#767c93">one channel, zoomed in:</text>
+          <g font-family="monospace" font-size="11">
+            <rect x="10" y="30" width="34" height="34" fill="#1f2430"/><text x="14" y="51" fill="#fff">12</text>
+            <rect x="44" y="30" width="34" height="34" fill="#5b6172"/><text x="48" y="51" fill="#fff">98</text>
+            <rect x="78" y="30" width="34" height="34" fill="#c9ccd6"/><text x="80" y="51" fill="#111">201</text>
+            <rect x="10" y="64" width="34" height="34" fill="#9499a8"/><text x="14" y="85" fill="#fff">150</text>
+            <rect x="44" y="64" width="34" height="34" fill="#e9eaef"/><text x="46" y="85" fill="#111">240</text>
+            <rect x="78" y="64" width="34" height="34" fill="#3b4150"/><text x="82" y="85" fill="#fff">60</text>
+            <rect x="10" y="98" width="34" height="34" fill="#e9eaef"/><text x="14" y="119" fill="#111">255</text>
+            <rect x="44" y="98" width="34" height="34" fill="#1f2430"/><text x="50" y="119" fill="#fff">3</text>
+            <rect x="78" y="98" width="34" height="34" fill="#7e8494"/><text x="80" y="119" fill="#fff">128</text>
+          </g>
+          <text x="10" y="158" font-size="11" fill="#767c93">0 = black … 255 = white</text>
+          <!-- three stacked channels -->
+          <text x="270" y="20" font-size="12" fill="#767c93">colour = 3 stacked grids:</text>
+          <rect x="300" y="40" width="90" height="90" fill="#f43f5e" opacity="0.85"/>
+          <rect x="320" y="60" width="90" height="90" fill="#14b8a6" opacity="0.85"/>
+          <rect x="340" y="80" width="90" height="90" fill="#4f46e5" opacity="0.85"/>
+          <text x="300" y="195" font-size="12" fill="#111" font-family="monospace">shape = (H, W, 3)</text>
+          <text x="300" y="212" font-size="11" fill="#767c93">R, G, B channels</text>
+        </svg>
+        <figcaption>Left: one channel is a grid of 0–255 brightness values. Right: a colour image stacks three such grids (R, G, B), giving a tensor of shape (H, W, 3).</figcaption>
+      </figure>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Think of a giant paint-by-numbers poster. Every little square has a number, and the number tells you how bright to colour it — 0 means "leave it black," 255 means "paint it brightest white." A photo on a computer is just one of those posters with a few million squares. And for colour, you stack three posters — a red one, a green one and a blue one — on top of each other. The computer never sees a "cat." It only ever sees the grid of numbers.</p>
+      </div>
+
+      <h2>10.2 What we ask of images: the three vision tasks</h2>
+      <p>Once an image is a tensor, computer vision asks three escalating questions:</p>
+      <ul>
+        <li><strong>Classification:</strong> "What is in this image?" → one label for the whole picture ("cat"). The simplest task.</li>
+        <li><strong>Detection:</strong> "What is in it, and <em>where</em>?" → draw boxes around each object ("cat here, dog there"). Powers self-driving cars and face-finders.</li>
+        <li><strong>Segmentation:</strong> "Which exact pixels belong to each thing?" → colour in every pixel by category. The most fine-grained, used in medical scans and photo-editing "select subject."</li>
+      </ul>
+
+      <h2>10.3 Video = images over time</h2>
+      <p>A video adds one more axis: <strong>time</strong>. It's just a stack of images (frames) played fast enough — typically 24–30 per second — that our eyes blend them into motion. So a colour video clip is a 4-D tensor of shape <code>(frames, H, W, 3)</code>. Every still-image task above still applies, plus new ones that need the time axis: action recognition ("is this person waving or falling?") and object tracking.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🎞️</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">A video is an old-fashioned flip-book. Each page is a single drawing (an image tensor); flip them fast and a character seems to walk. The computer literally stores the flip-book as a tall stack of grids of numbers. Add the page-order (time) and you can ask not just "what's drawn?" but "what's <em>happening</em>?"</p>
+      </div>
+
+      <h2>10.4 Audio: sound as a waveform of samples</h2>
+      <p>Sound is a wave of air pressure wobbling over time. A microphone measures that pressure thousands of times a second — each measurement is a <strong>sample</strong>. CD-quality audio takes 44,100 samples per second (44.1 kHz). So a sound clip is simply a long 1-D list of numbers: amplitude versus time. Same golden rule again — <strong>audio is a vector of numbers</strong>.</p>
+      <p>But raw waveforms are hard to learn from directly. The clever move is the <strong>spectrogram</strong>: slide a window along the audio and, at each moment, use a Fourier transform to ask "how much of each pitch (frequency) is present right now?" Stack those answers and you get a 2-D image — time across the bottom, frequency up the side, brightness = loudness of that pitch.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 480 210" aria-label="A waveform becomes a spectrogram image">
+          <!-- waveform -->
+          <text x="10" y="18" font-size="12" fill="#767c93">waveform (amplitude vs time)</text>
+          <polyline fill="none" stroke="#4f46e5" stroke-width="2"
+            points="10,70 30,40 50,95 70,55 90,100 110,45 130,85 150,60 170,95 190,50 210,80"/>
+          <line x1="10" y1="70" x2="210" y2="70" stroke="#e3e6f0"/>
+          <text x="250" y="70" font-size="22" fill="#f59e0b">→ FFT →</text>
+          <!-- spectrogram -->
+          <text x="360" y="18" font-size="12" fill="#767c93">spectrogram (an image)</text>
+          <g>
+            <rect x="360" y="30" width="20" height="20" fill="#1f2430"/><rect x="380" y="30" width="20" height="20" fill="#5b6172"/><rect x="400" y="30" width="20" height="20" fill="#c9ccd6"/><rect x="420" y="30" width="20" height="20" fill="#5b6172"/>
+            <rect x="360" y="50" width="20" height="20" fill="#5b6172"/><rect x="380" y="50" width="20" height="20" fill="#e9eaef"/><rect x="400" y="50" width="20" height="20" fill="#7e8494"/><rect x="420" y="50" width="20" height="20" fill="#1f2430"/>
+            <rect x="360" y="70" width="20" height="20" fill="#c9ccd6"/><rect x="380" y="70" width="20" height="20" fill="#3b4150"/><rect x="400" y="70" width="20" height="20" fill="#e9eaef"/><rect x="420" y="70" width="20" height="20" fill="#9499a8"/>
+            <rect x="360" y="90" width="20" height="20" fill="#3b4150"/><rect x="380" y="90" width="20" height="20" fill="#9499a8"/><rect x="400" y="90" width="20" height="20" fill="#1f2430"/><rect x="420" y="90" width="20" height="20" fill="#c9ccd6"/>
+          </g>
+          <text x="345" y="130" font-size="10" fill="#767c93" transform="rotate(-90 345 130)">frequency</text>
+          <text x="380" y="128" font-size="10" fill="#767c93">time →</text>
+        </svg>
+        <figcaption>A 1-D waveform becomes a 2-D spectrogram via the Fourier transform. Crucially, that spectrogram is just an image — so audio problems become vision problems.</figcaption>
+      </figure>
+
+      <p>This is a beautiful unification: by turning sound into a spectrogram <em>image</em>, the same models that recognise cats can recognise spoken words or a coughing patient. Speech-to-text, music tagging, and wake-word detection ("Hey Siri") all lean on this trick.</p>
+
+      <h2>10.5 The same framing everywhere</h2>
+      <p>Because every modality is "just a tensor of numbers," the same toolkit transfers across wildly different fields:</p>
+      <ul>
+        <li><strong>Medical imaging:</strong> an X-ray or MRI is a pixel grid; segmentation outlines a tumour, classification flags a fracture.</li>
+        <li><strong>Remote sensing:</strong> a satellite photo is an image with <em>extra</em> channels (infrared, thermal) — sometimes a dozen — used to map deforestation or crop health.</li>
+        <li><strong>Audio diagnostics &amp; sonar, seismology, even particle physics:</strong> all reduce a signal to a tensor and ask a classification/detection question.</li>
+      </ul>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">Text, images, video, audio — your machine never perceives any of them. It perceives <strong>tensors of numbers</strong>: a list (audio), a grid (image), a stack of grids (colour), a stack of stacks (video). Once everything is a tensor, one mathematical toolkit handles them all. That single idea is why a "vision" model and a "speech" model can share almost identical machinery.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — an image is just a NumPy array</span></div>
+<pre><code class="language-python">import numpy as np
+
+# We'll build a tiny 4x4 RGB image by hand so the numbers are visible.
+# Shape convention: (Height, Width, Channels). Channels = 3 for R, G, B.
+img = np.zeros((4, 4, 3), dtype=np.uint8)   # all-black image (every value 0)
+
+img[0, 0] = [255,   0,   0]   # top-left pixel -> pure RED
+img[0, 3] = [  0, 255,   0]   # top-right     -> pure GREEN
+img[3, 0] = [  0,   0, 255]   # bottom-left   -> pure BLUE
+img[3, 3] = [255, 255, 255]   # bottom-right  -> WHITE (all channels max)
+
+print(img.shape)        # -> (4, 4, 3)   height=4, width=4, 3 colour channels
+print(img.dtype)        # -> uint8       values are integers 0..255
+print(img[0, 0])        # -> [255 0 0]   the red pixel's three numbers
+
+# Models prefer small floats, so we NORMALISE pixels from 0..255 to 0..1
+img_norm = img.astype(np.float32) / 255.0
+print(img_norm[3, 3])   # -> [1. 1. 1.]  white is now (1,1,1)
+print(img_norm.min(), img_norm.max())   # -> 0.0 1.0  (range is now [0,1])
+
+# A real photo loads the same way and is just bigger:
+#   from PIL import Image
+#   arr = np.asarray(Image.open("cat.jpg"))   # e.g. shape (480, 640, 3)
+# It's still nothing but a grid of numbers.</code></pre>
+
+      <p>Notice what we just did. <strong>Normalising</strong> — rescaling pixels from \([0, 255]\) to \([0, 1]\) — is the same standardisation idea you'll meet formally in Week 19, and it makes training far more stable. The image went in as a picture and came out as an ordinary array we can add, scale, and dot-product, exactly like the vectors in Lesson 2.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This pixel-grid framing builds directly on Lesson 1's "everything is a vector" and Lesson 2's tensors, and it's the missing intuition for <strong>Week 28 (CNNs: Convolution &amp; Pooling)</strong>. A convolution simply slides a tiny window over this grid of numbers and computes dot products — so once you truly feel that an image <em>is</em> numbers in a grid, convolution stops being mysterious. These tensors are also the raw material for <strong>Project 3 (Image Classifier with CNNs &amp; Transfer Learning)</strong>. And the spectrogram trick — turning audio into an image — means everything you learn about vision in Part 5 transfers straight to sound.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=KuXjwB4LzSA" target="_blank" rel="noopener">But what is a convolution?</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">Once you accept "an image is a grid of numbers," this video shows what sliding a window over that grid does — the bridge from this lesson to Week 28.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=spUNpyF58BY" target="_blank" rel="noopener">But what is the Fourier Transform?</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">The maths that turns a waveform into a spectrogram. Watch after section 10.4 to see how "amount of each pitch" is computed.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://numpy.org/doc/stable/user/basics.indexing.html" target="_blank" rel="noopener">NumPy indexing basics</a><span class="r-src">Reference for slicing the (H, W, 3) arrays in the code above — how to grab a channel, a row, or a region of an image.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">A standard colour photograph is stored as a tensor of shape…</div>
+        <button class="opt">(3,) — just three numbers.</button>
+        <button class="opt">(H, W) — a single flat grid.</button>
+        <button class="opt">(H, W, 3) — a height × width grid, three times over for R, G, B.</button>
+        <button class="opt">(frames, H, W) — a stack of grids over time.</button>
+        <div class="explain">Colour images stack three grids (Red, Green, Blue), each H×W, giving shape (H, W, 3). The (frames, H, W, 3) option describes <em>video</em> — images over time.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">Why is a spectrogram such a useful representation of audio?</div>
+        <button class="opt">It turns sound into a 2-D image, so vision models can be reused on it.</button>
+        <button class="opt">It compresses the file so it takes less disk space.</button>
+        <button class="opt">It removes all the numbers and stores words instead.</button>
+        <button class="opt">It makes the audio play faster.</button>
+        <div class="explain">A spectrogram plots frequency vs time as a grid of brightness values — i.e. an image. That lets the same CNN machinery built for photos recognise spoken words, coughs, or music, which is why speech systems lean on it.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">We divided the pixel array by 255 to get values in [0, 1]. This step is called…</div>
+        <button class="opt">Tokenisation.</button>
+        <button class="opt">Normalisation — rescaling values to a small, consistent range.</button>
+        <button class="opt">Segmentation.</button>
+        <button class="opt">Compression.</button>
+        <div class="explain">Rescaling pixels from 0–255 down to 0–1 is normalisation. It keeps inputs in a small, consistent range, which makes neural-network training far more stable — the same idea you'll formalise in Week 19.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

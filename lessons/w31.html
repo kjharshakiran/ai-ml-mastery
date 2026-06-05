@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 31 · RNNs II: Seq2Seq &amp; Word Embeddings — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w31">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 31</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 5 · Deep Learning › Lesson 31</div>
+        <span class="eyebrow">🧠 Part 5 · Deep Learning</span>
+        <h1>RNNs II: Seq2Seq &amp; Word Embeddings</h1>
+        <div class="lesson-meta"><span>⏱️ 60 min</span><span>🎯 Turning words into geometry, and sequences into sequences</span><span>📦 Week 31</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Chain two RNNs into an <strong>encoder–decoder (seq2seq)</strong> for tasks like translation.</li>
+          <li>Spot the <strong>information bottleneck</strong> of a single context vector — and why it motivates attention.</li>
+          <li>Explain <strong>word embeddings</strong> (word2vec, GloVe): a dense vector per word, with similar words nearby.</li>
+          <li>Understand the famous analogy \(\text{king}-\text{man}+\text{woman}\approx\text{queen}\) as vector arithmetic.</li>
+          <li>Evaluate sequence models with <strong>perplexity</strong> and <strong>BLEU</strong>.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">Back in Week 1 we promised that "words become vectors." But which vectors? If we could place every word in space so that <em>meaning</em> becomes <em>distance</em> — so "Paris is to France as Tokyo is to Japan" turns into plain arithmetic — what could a machine then do with language?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>31.1 Sequential processing, recap and reach</h2>
+      <p>Last week (Week 30) we gave a network memory: an RNN reads a sequence one step at a time, carrying a hidden state forward, and LSTM/GRU gates let that memory survive across long stretches. We saw the shapes — many-to-one (classify a review), one-to-many (caption an image). This lesson tackles the hardest and most useful shape: <strong>many-to-many of different lengths</strong>, where a sequence comes in and a <em>differently sized</em> sequence comes out. The flagship example is <strong>machine translation</strong>: "the cat sat" (3 English words) → "le chat s'est assis" (4 French words). You can't tag word-for-word; the whole sentence must be understood first.</p>
+
+      <h2>31.2 Seq2Seq: encode, then decode</h2>
+      <p>The breakthrough idea (Sutskever et al., 2014) is to use <strong>two</strong> RNNs. The <strong>encoder</strong> reads the entire source sentence and squeezes everything it understood into a single fixed-length vector — the <strong>context vector</strong> (it's just the encoder's final hidden state). Think of it as a numerical summary of the sentence's meaning. The <strong>decoder</strong> is a second RNN that takes that context vector as its starting memory and generates the target sentence one word at a time, feeding each word it produces back in as the next input until it emits an end-of-sentence token.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 520 220" aria-label="Encoder-decoder: an encoder RNN compresses a source sentence into a context vector that seeds a decoder RNN">
+          <defs>
+            <marker id="eh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4f46e5"/></marker>
+            <marker id="eh2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#767c93"/></marker>
+          </defs>
+          <!-- encoder cells -->
+          <g font-size="12">
+            <rect x="20"  y="80" width="48" height="40" rx="7" fill="#14b8a6" fill-opacity="0.15" stroke="#14b8a6"/>
+            <rect x="92"  y="80" width="48" height="40" rx="7" fill="#14b8a6" fill-opacity="0.15" stroke="#14b8a6"/>
+            <rect x="164" y="80" width="48" height="40" rx="7" fill="#14b8a6" fill-opacity="0.15" stroke="#14b8a6"/>
+            <text x="44"  y="74" text-anchor="middle" fill="#f59e0b">the</text>
+            <text x="116" y="74" text-anchor="middle" fill="#f59e0b">cat</text>
+            <text x="188" y="74" text-anchor="middle" fill="#f59e0b">sat</text>
+          </g>
+          <line x1="68"  y1="100" x2="92"  y2="100" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#eh)"/>
+          <line x1="140" y1="100" x2="164" y2="100" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#eh)"/>
+          <text x="80" y="138" font-size="11" fill="#14b8a6">encoder</text>
+          <!-- context vector -->
+          <line x1="212" y1="100" x2="252" y2="100" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#eh)"/>
+          <rect x="252" y="84" width="56" height="32" rx="6" fill="#f43f5e" fill-opacity="0.18" stroke="#f43f5e"/>
+          <text x="280" y="104" text-anchor="middle" font-size="11" fill="#f43f5e">context</text>
+          <text x="280" y="138" text-anchor="middle" font-size="10" fill="#767c93">one fixed vector</text>
+          <line x1="308" y1="100" x2="348" y2="100" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#eh)"/>
+          <!-- decoder cells -->
+          <g font-size="12">
+            <rect x="348" y="80" width="48" height="40" rx="7" fill="#4f46e5" fill-opacity="0.12" stroke="#4f46e5"/>
+            <rect x="420" y="80" width="48" height="40" rx="7" fill="#4f46e5" fill-opacity="0.12" stroke="#4f46e5"/>
+          </g>
+          <line x1="396" y1="100" x2="420" y2="100" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#eh)"/>
+          <line x1="372" y1="80" x2="372" y2="50" stroke="#767c93" stroke-width="2" marker-end="url(#eh2)"/>
+          <line x1="444" y1="80" x2="444" y2="50" stroke="#767c93" stroke-width="2" marker-end="url(#eh2)"/>
+          <text x="372" y="44" text-anchor="middle" font-size="12" fill="#f59e0b">le</text>
+          <text x="444" y="44" text-anchor="middle" font-size="12" fill="#f59e0b">chat</text>
+          <text x="408" y="138" font-size="11" fill="#4f46e5">decoder</text>
+        </svg>
+        <figcaption>Seq2Seq. The encoder (teal) compresses the whole source into one context vector (rose). The decoder (indigo) unpacks it into the target, one word at a time. <em>All</em> the meaning must funnel through that single vector — the bottleneck.</figcaption>
+      </figure>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> The bottleneck</div>
+        <p style="margin-bottom:0">Cramming an entire 40-word sentence into one fixed-size vector is like summarising a novel on a single sticky note — fine for a short story, hopeless for <em>War and Peace</em>. The decoder, gazing at one frozen vector, struggles to recall details from the start of a long source. This <strong>information bottleneck</strong> is the precise weakness that <strong>attention</strong> (Week 32) was invented to remove: let the decoder look back at <em>all</em> the encoder states, not just the last one.</p>
+      </div>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">📞</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Seq2Seq is like a translator listening to a whole sentence, then closing their eyes and writing down one tight summary on an index card — and a second person who can <em>only</em> see that card must reproduce the sentence in French. For "the cat sat" the card is plenty. For a winding 40-word legal clause, everything important has to fit on the same small card, and details from the opening get squeezed out. That cramped card is the bottleneck.</p>
+      </div>
+
+      <h2>31.3 Word embeddings: meaning becomes geometry</h2>
+      <p>We've been glossing over a basic question: what is a "word" to a network? The naive answer is <strong>one-hot encoding</strong> — a vector as long as the vocabulary (say 50,000), all zeros except a single 1. But this is terrible: it's enormous, wasteful, and worst of all every pair of words is equally distant. "cat" and "kitten" are as unrelated as "cat" and "helicopter." There's no notion of <em>meaning</em>.</p>
+      <p><strong>Word embeddings</strong> fix this. Each word gets a short <strong>dense</strong> vector — maybe 300 real numbers — and these vectors are <em>learned</em> so that words used in similar contexts land near each other in space. This is the realisation of <strong>Week 1's</strong> promise that "words become vectors," and it leans entirely on <strong>Week 2's</strong> geometry: closeness is measured by <strong>cosine similarity</strong>, the normalised dot product. The guiding principle (the "distributional hypothesis") is delightfully simple: <em>you shall know a word by the company it keeps</em>. Words appearing in similar surroundings ("the ___ purred", "I fed the ___") get similar vectors.</p>
+      <p>The two classic methods learn exactly this. <strong>word2vec</strong> (Mikolov, 2013) trains a tiny network to predict a word from its neighbours (or vice-versa); its hidden weights <em>become</em> the embeddings. <strong>GloVe</strong> (Stanford) instead factorises a giant word-co-occurrence count matrix. Both yield the same magic.</p>
+      <p>And the magic is that <strong>directions in this space carry meaning</strong>. The vector offset from "man" to "woman" turns out to be roughly the same as from "king" to "queen" — a "gender" direction. So semantic relationships become arithmetic:</p>
+      <p>\[ \text{vec}(\text{king}) - \text{vec}(\text{man}) + \text{vec}(\text{woman}) \;\approx\; \text{vec}(\text{queen}) \]</p>
+      <p>We measure "nearby" with cosine similarity from Week 2:</p>
+      <p>\[ \cos(\theta) \;=\; \frac{\mathbf{a}\cdot\mathbf{b}}{\lVert\mathbf{a}\rVert\,\lVert\mathbf{b}\rVert} \]</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 380 250" aria-label="Four word vectors king queen man woman arranged as a parallelogram showing the gender direction">
+          <defs><marker id="wh" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#767c93"/></marker></defs>
+          <g stroke="#e3e6f0">
+            <line x1="30" y1="220" x2="360" y2="220"/><line x1="30" y1="20" x2="30" y2="220"/>
+          </g>
+          <!-- four points forming a parallelogram -->
+          <!-- man (low left), woman (low right), king (up left), queen (up right) -->
+          <circle cx="110" cy="180" r="5" fill="#4f46e5"/><text x="80" y="200" font-size="13" fill="#4f46e5">man</text>
+          <circle cx="250" cy="180" r="5" fill="#f43f5e"/><text x="258" y="200" font-size="13" fill="#f43f5e">woman</text>
+          <circle cx="110" cy="80"  r="5" fill="#4f46e5"/><text x="78" y="74" font-size="13" fill="#4f46e5">king</text>
+          <circle cx="250" cy="80"  r="5" fill="#f43f5e"/><text x="258" y="74" font-size="13" fill="#f43f5e">queen</text>
+          <!-- gender direction arrows (man->woman, king->queen) -->
+          <line x1="116" y1="180" x2="244" y2="180" stroke="#14b8a6" stroke-width="2.5" marker-end="url(#wh)"/>
+          <line x1="116" y1="80"  x2="244" y2="80"  stroke="#14b8a6" stroke-width="2.5" marker-end="url(#wh)"/>
+          <text x="140" y="172" font-size="11" fill="#14b8a6">+ "female" direction</text>
+          <!-- royalty direction (man->king) -->
+          <line x1="110" y1="174" x2="110" y2="98" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="4 3" marker-end="url(#wh)"/>
+          <text x="6" y="135" font-size="11" fill="#f59e0b" transform="rotate(-90 14,135)">+ "royalty"</text>
+          <text x="150" y="244" font-size="11" fill="#767c93">parallel offsets = consistent meaning directions</text>
+        </svg>
+        <figcaption>The four words form a parallelogram. The teal arrows (man→woman, king→queen) are the same "gender" offset; the amber arrows are the same "royalty" offset. Equal directions are why \(\text{king}-\text{man}+\text{woman}\approx\text{queen}\).</figcaption>
+      </figure>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine a magic map of all words, where words that mean similar things sit close together — "happy" near "glad," "dog" near "puppy." On this map, certain <em>directions</em> have meaning. Walking the "boy → girl" direction from "king" drops you right at "queen." So the computer can do word math: start at king, walk the girl direction, arrive at queen. Words turned into places, and meaning turned into walking directions.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — embedding lookup + cosine similarity + word math</span></div>
+<pre><code class="language-python">import numpy as np
+
+# A toy 3-dim embedding table (real ones are ~300-dim, learned from text).
+# Axes loosely mean [royalty, male-ness, female-ness] for illustration.
+embeddings = {
+    "king":  np.array([0.9, 0.9, 0.1]),
+    "queen": np.array([0.9, 0.1, 0.9]),
+    "man":   np.array([0.1, 0.9, 0.1]),
+    "woman": np.array([0.1, 0.1, 0.9]),
+}
+
+def cosine(a, b):
+    # Week 2's cosine similarity: dot product, normalised by lengths.
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+# 1) Embedding lookup is just dictionary access (a table row per word).
+print("cos(king, queen) =", round(cosine(embeddings["king"],
+                                          embeddings["queen"]), 3))
+print("cos(king, woman) =", round(cosine(embeddings["king"],
+                                          embeddings["woman"]), 3))
+
+# 2) The famous analogy as vector arithmetic:
+#    king - man + woman should land closest to "queen".
+result = embeddings["king"] - embeddings["man"] + embeddings["woman"]
+
+# 3) Find the nearest known word to that result vector.
+best_word, best_score = None, -1.0
+for word, vec in embeddings.items():
+    if word in ("king", "man", "woman"):     # exclude the inputs themselves
+        continue
+    s = cosine(result, vec)
+    if s > best_score:
+        best_word, best_score = word, s
+
+print("king - man + woman is closest to:", best_word)   # -> queen
+</code></pre>
+
+      <h2>31.4 Evaluation: perplexity and BLEU</h2>
+      <p>How do we score these models? For a <strong>language model</strong> (which predicts the next word) we use <strong>perplexity</strong> — roughly, "how surprised is the model by the real next word, on average?" It's the exponential of the average cross-entropy loss (Week 25); lower is better, and a perplexity of \(k\) means the model is as confused as if it were choosing uniformly among \(k\) words. For <strong>translation</strong>, where many outputs are valid, we use <strong>BLEU</strong>, which checks how many short word-sequences (n-grams) in the machine's output also appear in human reference translations. BLEU ranges 0–1 (often shown ×100); higher means closer to human translations. Neither metric is perfect — BLEU misses meaning-preserving paraphrases — but they let us compare models objectively.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">A <strong>word embedding</strong> is a learned dense vector per word where <em>distance means similarity</em> and <em>directions mean relationships</em>. It turns language into geometry so the dot product can measure meaning — and it's the input layer of essentially every modern NLP model, including the transformers and LLMs coming next.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This lesson <strong>realises Week 1's</strong> promise that "everything becomes a vector" and runs entirely on <strong>Week 2's cosine similarity</strong> to measure word meaning. The seq2seq architecture chains the <strong>RNNs from Week 30</strong>. Its single-context-vector <strong>bottleneck</strong> is the exact problem that <strong>attention &amp; transformers (Week 32)</strong> solve — letting the decoder peek at every encoder state. And these embeddings become the literal first layer of <strong>Project 4 (Mini-GPT)</strong>, where you'll build a transformer from embeddings up.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=wjZofJX0v4M" target="_blank" rel="noopener">But what is a GPT? — word embeddings &amp; meaning</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">The opening chapter visualises words as vectors and shows the king–queen direction arithmetic from §31.3 better than any text can.</span></div></li>
+        <li><span class="r-ic">📄</span><div><a href="https://arxiv.org/abs/1301.3781" target="_blank" rel="noopener">Efficient Estimation of Word Representations (word2vec, Mikolov 2013)</a><span class="r-src">The original word2vec paper that introduced the analogy arithmetic. Surprisingly readable.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://nlp.stanford.edu/projects/glove/" target="_blank" rel="noopener">GloVe: Global Vectors for Word Representation (Stanford)</a><span class="r-src">The co-occurrence-matrix alternative, with downloadable pretrained vectors you can load and play the king–queen game for real.</span></div></li>
+        <li><span class="r-ic">📄</span><div><a href="https://arxiv.org/abs/1409.3215" target="_blank" rel="noopener">Sequence to Sequence Learning with Neural Networks (Sutskever 2014)</a><span class="r-src">The encoder–decoder paper from §31.2 — where the context-vector bottleneck story begins.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">In a basic seq2seq model, what is the "context vector"?</div>
+        <button class="opt">The list of all the model's weights.</button>
+        <button class="opt">A one-hot encoding of the first word.</button>
+        <button class="opt">The encoder's final hidden state — a fixed-length summary of the whole source sentence, used to seed the decoder.</button>
+        <button class="opt">The learning rate schedule.</button>
+        <div class="explain">The encoder compresses the entire input into this one vector; the decoder generates from it. Forcing all meaning through one fixed vector is the bottleneck that attention later fixes.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">Why are word embeddings better than one-hot vectors?</div>
+        <button class="opt">They are longer and use more memory.</button>
+        <button class="opt">They are dense and place similar-meaning words near each other, so distance encodes meaning.</button>
+        <button class="opt">They make every pair of words equally distant.</button>
+        <button class="opt">They only work for numbers, not words.</button>
+        <div class="explain">One-hot vectors are huge and treat all words as equally unrelated. Embeddings are short, learned, and geometric — "cat" sits near "kitten," and directions capture relationships like gender or tense.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">\(\text{king}-\text{man}+\text{woman}\approx\text{queen}\) works because…</div>
+        <button class="opt">Consistent semantic relationships show up as consistent direction vectors in embedding space.</button>
+        <button class="opt">The words are sorted alphabetically.</button>
+        <button class="opt">All four vectors are identical.</button>
+        <button class="opt">Embeddings are random noise.</button>
+        <div class="explain">The "male→female" offset is roughly the same vector everywhere, so subtracting "man" and adding "woman" shifts "king" along that direction and lands near "queen."</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

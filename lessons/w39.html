@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 39 · Cloud Deployment — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w39">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 39</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 7 · Production &amp; Reinforcement Learning › Lesson 39</div>
+        <span class="eyebrow">⚙️ Part 7 · Production &amp; Reinforcement Learning</span>
+        <h1>Cloud Deployment: Containers, Serverless &amp; the Edge</h1>
+        <div class="lesson-meta"><span>⏱️ 50 min</span><span>🎯 From container to global scale</span><span>📦 Week 39</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain what "the cloud" actually rents you — compute, storage, and GPUs you pay for by the minute.</li>
+          <li>Containerise a model with Docker so it runs identically on your laptop and on a server farm.</li>
+          <li>Wrap a model in a tiny web API and reason about autoscaling, serverless, and edge deployment.</li>
+          <li>Name the cloud ML platforms (SageMaker, Vertex AI) and the big ideas — federated learning, AutoML, explainability — they bundle.</li>
+          <li>Talk sensibly about deploying an <strong>LLM</strong>: inference servers, quantisation, and why cost is the real boss.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">Your model runs beautifully on your laptop. A million users show up tomorrow morning. How do you serve every one of them — fast, cheap, and without waking up at 3am to restart a crashed server?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>39.1 What the cloud actually rents you</h2>
+      <p>Last week (<strong>Week 38, MLOps</strong>) we built the discipline of taking a model to production. This week we answer the very physical question: <em>on whose computer does it run?</em> For most teams the answer is <strong>the cloud</strong> — gigantic data centres owned by AWS, Google Cloud, or Azure that rent you slices of hardware by the second.</p>
+      <p>Strip away the marketing and the cloud sells you exactly three things:</p>
+      <ul>
+        <li><strong>Compute</strong> — virtual machines (CPUs) and, crucially for ML, <strong>GPUs/TPUs</strong>. A deep network that trains for a week on your laptop might train in an hour on eight rented GPUs — then you give them back and stop paying.</li>
+        <li><strong>Storage</strong> — somewhere durable to keep terabytes of data and model checkpoints (S3 on AWS, GCS on Google, Blob on Azure). Cheap, near-infinite, accessed over the network.</li>
+        <li><strong>Networking</strong> — the glue that lets a user's phone reach your model and lets your services talk to each other.</li>
+      </ul>
+      <p>The killer feature is <strong>elasticity</strong>: you rent what you need <em>right now</em> and release it the moment you don't. No data centre to build, no GPU to buy for $30,000 that's idle 90% of the time.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Buying a server is like buying a bouncy castle: it's huge, it costs a fortune, and most days it just sits in your garage. The cloud is renting a bouncy castle for the afternoon of the party. If 200 kids show up instead of 20, the rental company just drives over four more. When the party ends, you stop paying. You only ever pay for the fun you're actually having.</p>
+      </div>
+
+      <h2>39.2 Cloud ML services &amp; databases</h2>
+      <p>You <em>could</em> rent a bare GPU machine and install everything yourself. But the cloud providers also sell <strong>managed ML platforms</strong> that do the plumbing for you: <strong>Amazon SageMaker</strong> and <strong>Google Vertex AI</strong> are the two giants (Azure ML is the third). They bundle a hosted notebook to experiment in, one-click <em>training jobs</em> on rented GPUs, a <em>model registry</em> (the same idea as MLflow from Week 38), and a <em>one-click deploy</em> button that turns a trained model into a live web endpoint with autoscaling already wired up.</p>
+      <p>Alongside compute, your live app needs <strong>databases</strong>: a relational store (the SQL from Week 5) for users and orders, and — increasingly — a <strong>vector database</strong> (Pinecone, pgvector, Weaviate) that stores embeddings and answers "find me the most similar documents" with the cosine-similarity search you met in Week 2. That vector store is the backbone of the RAG chatbot you'll build in Project 5.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> Managed vs. do-it-yourself</div>
+        <p style="margin-bottom:0">Managed platforms (SageMaker/Vertex) trade <em>money and lock-in</em> for <em>speed and fewer 3am pages</em>. Raw VMs + your own Docker trade <em>more setup</em> for <em>full control and portability</em>. There's no universally right answer — but knowing what each layer does lets you choose on purpose.</p>
+      </div>
+
+      <h2>39.3 Containerisation: Docker</h2>
+      <p>Here is the oldest bug in deployment: <em>"but it works on my machine!"</em> Your laptop has Python 3.11, NumPy 1.26, and a CUDA driver from last March. The server has Python 3.9 and a different CUDA. The model crashes. <strong>Docker</strong> kills this bug forever by packaging your model <em>together with its entire environment</em> — the exact OS libraries, Python version, and dependencies — into a single sealed unit called an <strong>image</strong>. Run that image anywhere and you get a <strong>container</strong>: an identical, isolated copy of your app, byte-for-byte the same on your laptop, a teammate's Mac, and a thousand cloud servers.</p>
+      <p>You describe the image in a tiny recipe file called a <strong>Dockerfile</strong>. Each line is a build step, layered on top of the last:</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">Dockerfile — package the model + its world</span></div>
+<pre><code class="language-dockerfile"># Start from a slim official image that already has Python 3.11
+FROM python:3.11-slim
+
+# Everything from here runs inside /app in the container
+WORKDIR /app
+
+# Copy ONLY requirements first, so Docker can cache the (slow) pip
+# install layer and skip it whenever only our code changes.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Now copy our code and the trained model file
+COPY app.py model.joblib ./
+
+# The container will listen on port 8000
+EXPOSE 8000
+
+# The command Docker runs when the container starts:
+# launch the FastAPI app with the uvicorn web server.
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]</code></pre>
+
+      <p>Two commands turn that recipe into a running service. The first <em>builds</em> the image; the second <em>runs</em> it, mapping the container's port 8000 to your machine's port 8000:</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">bash — build &amp; run</span></div>
+<pre><code class="language-bash"># Build the image and tag it "iris-api"
+docker build -t iris-api .
+
+# Run it; -p maps host:container ports, --rm cleans up on exit
+docker run --rm -p 8000:8000 iris-api
+# -> now http://localhost:8000/predict is live</code></pre>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">📦</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Before shipping containers, dockworkers loaded ships by hand — barrels, crates, sacks, all different shapes, all loaded differently in every port. Then someone invented the standard steel container: seal anything inside, and every crane, truck, and ship on Earth handles it identically. Docker is that steel box for software. Your model, its libraries, its quirks — sealed inside one standard unit that every server knows how to lift.</p>
+      </div>
+
+      <h2>39.4 The serving API + scalability</h2>
+      <p>A model on disk does nothing. To <em>serve</em> it, you wrap it in a small web app that listens for requests, runs the model, and returns the answer as JSON. <strong>FastAPI</strong> (or Flask) makes this a few lines:</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">app.py — a tiny predict endpoint</span></div>
+<pre><code class="language-python">import joblib
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+# Load the trained model ONCE at startup, not on every request.
+# (This is the iris Random Forest we registered back in Week 38.)
+model = joblib.load("model.joblib")
+
+# Pydantic validates the incoming JSON: 4 floats, the iris features.
+class IrisInput(BaseModel):
+    features: list[float]   # e.g. [5.1, 3.5, 1.4, 0.2]
+
+@app.post("/predict")
+def predict(item: IrisInput):
+    # model.predict expects a 2D array (one row), so wrap in a list
+    pred = model.predict([item.features])[0]
+    return {"prediction": int(pred)}   # -> {"prediction": 0}
+
+# A health check so the cloud's load balancer knows we're alive
+@app.get("/health")
+def health():
+    return {"status": "ok"}</code></pre>
+
+      <p>One container serves maybe a few hundred requests per second. A million users need more. <strong>Autoscaling</strong> is the answer: a <em>load balancer</em> sits in front and spreads requests across many identical containers; an <em>autoscaler</em> watches the load and adds containers when traffic spikes, removes them when it falls. Because every container is a perfect Docker copy, you can spin up the 50th one in seconds. Kubernetes (often via Vertex/SageMaker under the hood) orchestrates this dance.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 480 280" aria-label="A request flows through an API gateway and load balancer to autoscaled inference containers">
+          <defs><marker id="fl" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4f46e5"/></marker></defs>
+
+          <!-- user -->
+          <rect x="20" y="115" width="78" height="48" rx="8" fill="#eef0fb" stroke="#4f46e5" stroke-width="2"/>
+          <text x="59" y="136" font-size="12" text-anchor="middle" fill="#4f46e5" font-weight="bold">User</text>
+          <text x="59" y="152" font-size="10" text-anchor="middle" fill="#767c93">POST /predict</text>
+
+          <!-- API gateway / load balancer -->
+          <rect x="150" y="108" width="96" height="62" rx="8" fill="#fef4e6" stroke="#f59e0b" stroke-width="2"/>
+          <text x="198" y="132" font-size="12" text-anchor="middle" fill="#b9770a" font-weight="bold">API +</text>
+          <text x="198" y="148" font-size="12" text-anchor="middle" fill="#b9770a" font-weight="bold">Load Balancer</text>
+          <text x="198" y="162" font-size="9" text-anchor="middle" fill="#767c93">routes &amp; scales</text>
+
+          <!-- three inference containers -->
+          <rect x="320" y="30" width="138" height="52" rx="8" fill="#e8f7f4" stroke="#14b8a6" stroke-width="2"/>
+          <text x="389" y="51" font-size="11" text-anchor="middle" fill="#0f9488" font-weight="bold">Container 1 · model</text>
+          <text x="389" y="67" font-size="9" text-anchor="middle" fill="#767c93">Docker image</text>
+
+          <rect x="320" y="113" width="138" height="52" rx="8" fill="#e8f7f4" stroke="#14b8a6" stroke-width="2"/>
+          <text x="389" y="134" font-size="11" text-anchor="middle" fill="#0f9488" font-weight="bold">Container 2 · model</text>
+          <text x="389" y="150" font-size="9" text-anchor="middle" fill="#767c93">identical copy</text>
+
+          <rect x="320" y="196" width="138" height="52" rx="8" fill="#e8f7f4" stroke="#14b8a6" stroke-width="2" stroke-dasharray="5 4"/>
+          <text x="389" y="217" font-size="11" text-anchor="middle" fill="#0f9488" font-weight="bold">Container 3 · model</text>
+          <text x="389" y="233" font-size="9" text-anchor="middle" fill="#767c93">spun up on spike</text>
+
+          <!-- arrows -->
+          <path d="M100,139 L146,139" fill="none" stroke="#4f46e5" stroke-width="2" marker-end="url(#fl)"/>
+          <path d="M248,128 L316,60" fill="none" stroke="#4f46e5" stroke-width="2" marker-end="url(#fl)"/>
+          <path d="M248,139 L316,139" fill="none" stroke="#4f46e5" stroke-width="2" marker-end="url(#fl)"/>
+          <path d="M248,150 L316,218" fill="none" stroke="#4f46e5" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#fl)"/>
+          <text x="265" y="270" font-size="10" fill="#767c93" font-style="italic">autoscaler adds/removes containers with traffic</text>
+        </svg>
+        <figcaption>The request path: a user hits the API; a load balancer spreads traffic across identical Docker containers; an autoscaler adds a third (dashed) when load spikes and retires it later.</figcaption>
+      </figure>
+
+      <h2>39.5 Serverless &amp; FaaS</h2>
+      <p>Even autoscaled containers cost money while idle — you still rent the minimum machines that are "always on." <strong>Serverless</strong> (also called <strong>Functions-as-a-Service</strong>: AWS Lambda, Google Cloud Functions) pushes elasticity to the extreme: you upload just a <em>function</em>, and the cloud runs it <em>only</em> when a request arrives, billing you per millisecond of execution. Zero traffic, zero cost. It's ideal for spiky, infrequent workloads.</p>
+      <p>The catch is the <strong>cold start</strong>: if a function hasn't run recently, the cloud must spin it up from scratch — loading your code and model — adding latency to that first request. For big models the cold start can be seconds, which is why heavyweight LLMs usually live in always-warm containers, while serverless shines for lightweight pre/post-processing.</p>
+
+      <h2>39.6 Edge computing</h2>
+      <p>Sometimes the cloud is too far away. A self-driving car can't wait 200ms for a round-trip to a data centre to decide whether to brake. <strong>Edge computing</strong> runs the model <em>on or near the device</em> — the phone, the camera, the car — so inference happens locally with near-zero latency and without shipping private data over the network. The trade-off: edge devices are small, so models must be shrunk (quantised, pruned) to fit. Tools like TensorFlow Lite and ONNX Runtime exist exactly for this.</p>
+
+      <h2>39.7 Federated learning</h2>
+      <p>Edge raises a beautiful idea: what if we could <em>train</em> without ever collecting users' raw data? <strong>Federated learning</strong> does just that. Instead of uploading your photos to a server, the model is sent <em>to</em> your phone, trained a little on your local data, and only the resulting <em>weight updates</em> (not the data) are sent back and averaged across millions of devices. Your private data never leaves your hands. This is how phone keyboards learn to predict your next word without Google reading your messages.</p>
+
+      <h2>39.8 AutoML</h2>
+      <p>Most cloud platforms offer <strong>AutoML</strong>: hand it a labelled dataset and it automatically searches over models, hyperparameters, and feature transforms to find a strong one — automating the trial-and-error you did by hand in Parts 4 and 5. It's a fast way to get a solid baseline, especially for non-experts, though a thoughtful human still usually beats it on hard, novel problems.</p>
+
+      <h2>39.9 Explainable AI on the cloud</h2>
+      <p>The SHAP and LIME explainability tools from Week 38 don't disappear in production — the cloud platforms bake them in. SageMaker Clarify and Vertex's Explainable AI attach <em>feature attributions</em> to live predictions and run <em>bias reports</em> as part of the deploy pipeline, so "why did the model decide this?" and "is it fair across groups?" become first-class, monitored outputs rather than afterthoughts.</p>
+
+      <h2>39.10 Cloud MLOps</h2>
+      <p>Everything from Week 38 — experiment tracking, model registry, CI/CD, drift monitoring — has a managed cloud equivalent (SageMaker Pipelines, Vertex Pipelines). The point of <strong>cloud MLOps</strong> is to wire the whole loop together: a code change triggers an automated test + retrain, the new model is registered, deployed to a few percent of traffic (a <em>canary</em>), monitored for drift, and either promoted or rolled back — all without anyone manually copying files to a server.</p>
+
+      <h2>39.11–12 Deploying LLMs: the cost is the catch</h2>
+      <p>Serving the transformers from Part 6 is its own discipline because they are <em>enormous</em>. Three ideas dominate:</p>
+      <ul>
+        <li><strong>Inference servers</strong> — specialised servers (vLLM, TGI, TensorRT-LLM) that batch many users' requests together, cache the attention keys/values, and stream tokens out one at a time to keep GPUs busy and latency low.</li>
+        <li><strong>Quantisation</strong> — storing the model's weights in <em>fewer bits</em> (16-bit, 8-bit, even 4-bit) instead of 32-bit floats. A 4-bit model uses roughly a quarter of the memory and runs faster, with a small, often acceptable, accuracy hit. This is also what makes edge deployment (39.6) feasible.</li>
+        <li><strong>Cost</strong> — an LLM might need a GPU costing several dollars per hour, and generation cost scales with the number of tokens. Smart deployment means right-sizing the model (do you need 70B parameters, or will a quantised 7B do?), caching common answers, and batching aggressively.</li>
+      </ul>
+      <p>The rough cost model that haunts every LLM product: total cost \(\approx N_{\text{requests}} \times \big(T_{\text{in}} + T_{\text{out}}\big) \times c_{\text{token}}\), where \(T_{\text{in}}\) and \(T_{\text{out}}\) are input and output tokens and \(c_{\text{token}}\) is the cost per token. Every word the model reads or writes is on the meter.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> The bill is the boss</div>
+        <p style="margin-bottom:0">A GPU left running overnight by accident can cost more than a developer's daily salary. The most common production mistake isn't a bug — it's forgetting to scale <em>down</em>. Always set autoscaling floors, idle timeouts, and budget alerts before you deploy anything on a GPU.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This lesson takes the Docker container and the MLOps loop hinted at in <strong>Week 38 (MLOps)</strong> and actually ships them — autoscaled, serverless, and at the edge. It also reaches back to the cosine similarity of <strong>Week 2</strong> (now powering a vector database) and the LLMs of <strong>Week 34</strong>. Most directly, it's the engine room of <strong>Project 5 (Ship It)</strong>, where you'll containerise a model, bolt on a RAG layer, and deploy the whole thing to the cloud with monitoring.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">📖</span><div><a href="https://docs.docker.com/get-started/" target="_blank" rel="noopener">Docker — Get Started guide</a><span class="r-src">The official, hands-on intro to images, containers, and Dockerfiles behind section 39.3.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://fastapi.tiangolo.com/tutorial/" target="_blank" rel="noopener">FastAPI Tutorial</a><span class="r-src">The exact path to building the <code>/predict</code> endpoint in section 39.4, request validation included.</span></div></li>
+        <li><span class="r-ic">📄</span><div><a href="https://ai.googleblog.com/2017/04/federated-learning-collaborative.html" target="_blank" rel="noopener">Federated Learning (Google AI Blog)</a><span class="r-src">The original, readable explainer for section 39.7 — training on-device without collecting raw data.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://docs.vllm.ai/en/latest/" target="_blank" rel="noopener">vLLM documentation</a><span class="r-src">A real-world LLM inference server — batching, KV-cache and streaming from section 39.11.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">What core problem does Docker solve for model deployment?</div>
+        <button class="opt">It makes the model more accurate.</button>
+        <button class="opt">It packages the model with its exact environment so it runs identically everywhere — killing "works on my machine."</button>
+        <button class="opt">It encrypts the training data.</button>
+        <button class="opt">It automatically labels new data.</button>
+        <div class="explain">A Docker image seals the OS libraries, Python version, and dependencies alongside your code and model. The resulting container behaves byte-for-byte the same on a laptop or a thousand cloud servers — accuracy is unchanged, reproducibility is the win.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">A self-driving car runs its perception model on a chip inside the car rather than calling a data centre. This is an example of…</div>
+        <button class="opt">Serverless / FaaS.</button>
+        <button class="opt">Federated learning.</button>
+        <button class="opt">Edge computing.</button>
+        <button class="opt">AutoML.</button>
+        <div class="explain">Edge computing runs inference on or near the device for near-zero latency and privacy — exactly what a car needs when 200ms of cloud round-trip is too slow to brake safely.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">Why is quantisation useful when deploying a large language model?</div>
+        <button class="opt">It stores weights in fewer bits (e.g. 4-bit), cutting memory and speeding inference for a small accuracy cost.</button>
+        <button class="opt">It increases the number of parameters.</button>
+        <button class="opt">It makes the model generate more tokens per answer.</button>
+        <button class="opt">It removes the need for any GPU entirely.</button>
+        <div class="explain">Quantisation shrinks each weight from 32-bit floats down to 16, 8, or 4 bits. A 4-bit model uses roughly a quarter of the memory and runs faster, usually with an acceptable accuracy hit — and it's what makes edge deployment of big models feasible.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script src="../assets/vendor/highlight/dockerfile.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

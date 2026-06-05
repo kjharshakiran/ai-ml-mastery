@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 27 · Dropout &amp; Batch Normalisation — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w27">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 27</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 5 · Deep Learning › Lesson 27</div>
+        <span class="eyebrow">🧠 Part 5 · Deep Learning</span>
+        <h1>Deep FFN II: Dropout &amp; Batch Normalisation</h1>
+        <div class="lesson-meta"><span>⏱️ 45 min</span><span>🎯 Two tricks that make deep nets trainable</span><span>📦 Week 27</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain <strong>dropout</strong> — randomly switching off neurons during training — and why it fights overfitting.</li>
+          <li>Distinguish dropout from its cousin <strong>dropconnect</strong>.</li>
+          <li>Say why we normalise activations, and place the common normalisation methods.</li>
+          <li>Derive and apply <strong>batch normalisation</strong>: normalise, then scale-and-shift.</li>
+          <li>Implement a dropout mask and a batchnorm forward pass in NumPy.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">We can now compute gradients (Week 25) and step smartly (Week 26). But very deep nets still overfit and still train painfully slowly. What two cheap tricks turned deep learning from finicky to reliable?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>27.1 Dropout: train a crowd, not a clique</h2>
+      <p>A big network can overfit by building fragile chains of co-dependent neurons — neuron A only works because neuron B is always there to correct it. <strong>Dropout</strong> (Srivastava et al., 2014) breaks these cliques with a brutally simple idea: on every training step, randomly switch off each neuron with probability \(p\) (set its output to zero). Different neurons vanish each step, so no neuron can rely on any other specific neuron always being present. Each must become individually useful. The effect is striking: a network that was memorising its training set (high training accuracy, poor test accuracy) suddenly generalises far better, often at the cost of just a slightly longer training time. Dropout is typically applied to the fully-connected layers of a network, with \(p\) around 0.5 for hidden layers and smaller (or zero) for the input.</p>
+      <p>Formally, draw a random binary mask \(\mathbf{r}\) where each entry is 1 with probability \(1-p\), and multiply it into the activations: \(\tilde{\mathbf{a}} = \mathbf{r}\odot\mathbf{a}\). At <strong>test time</strong> we want the full network, so dropout is switched off — but then each neuron receives more inputs than it did in training. We compensate with <strong>inverted dropout</strong>: during training, divide the surviving activations by \((1-p)\) so their expected total stays the same, and test time needs no change at all.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine a class doing a group project, but every day a random handful of kids stays home sick. Because you never know who'll be missing, <em>everyone</em> has to learn every part of the project instead of leaning on the one kid who's good at art. When the whole class finally shows up on presentation day, the project is fantastic — because no single kid was a single point of failure. Dropout makes neurons learn like that class.</p>
+      </div>
+
+      <figure class="figure">
+        <svg viewBox="0 0 440 230" aria-label="A network with some hidden neurons dropped out">
+          <!-- input -->
+          <circle cx="55" cy="80" r="15" fill="#e3e6f0"/><circle cx="55" cy="150" r="15" fill="#e3e6f0"/>
+          <!-- hidden: two dropped (greyed, dashed), three active -->
+          <circle cx="220" cy="40"  r="15" fill="#fff" stroke="#4f46e5" stroke-width="2"/>
+          <circle cx="220" cy="95"  r="15" fill="#f0f1f6" stroke="#c7cbe0" stroke-width="2" stroke-dasharray="3 3"/>
+          <line x1="210" y1="85" x2="230" y2="105" stroke="#f43f5e" stroke-width="2"/><line x1="230" y1="85" x2="210" y2="105" stroke="#f43f5e" stroke-width="2"/>
+          <circle cx="220" cy="150" r="15" fill="#fff" stroke="#4f46e5" stroke-width="2"/>
+          <circle cx="220" cy="205" r="15" fill="#f0f1f6" stroke="#c7cbe0" stroke-width="2" stroke-dasharray="3 3"/>
+          <line x1="210" y1="195" x2="230" y2="215" stroke="#f43f5e" stroke-width="2"/><line x1="230" y1="195" x2="210" y2="215" stroke="#f43f5e" stroke-width="2"/>
+          <!-- output -->
+          <circle cx="385" cy="120" r="15" fill="#fff" stroke="#14b8a6" stroke-width="2"/>
+          <!-- edges to active hidden only -->
+          <g stroke="#c7cbe0" stroke-width="1.2">
+            <line x1="69" y1="76" x2="206" y2="44"/><line x1="69" y1="84" x2="206" y2="146"/>
+            <line x1="69" y1="146" x2="206" y2="44"/><line x1="69" y1="154" x2="206" y2="146"/>
+            <line x1="235" y1="44" x2="371" y2="116"/><line x1="235" y1="150" x2="371" y2="124"/>
+          </g>
+          <text x="40" y="200" font-size="11" fill="#767c93">input</text>
+          <text x="180" y="228" font-size="11" fill="#4f46e5">hidden (2 of 4 dropped)</text>
+          <text x="358" y="158" font-size="11" fill="#14b8a6">output</text>
+        </svg>
+        <figcaption>Dropout in action: on this step two hidden neurons (greyed, crossed) are switched off. Their connections vanish, so the network learns to cope without them. Next step, a different pair drops.</figcaption>
+      </figure>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">⚽</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">A football coach who only ever practises with the same eleven star players builds a team that collapses the moment one is injured. A smarter coach rotates the squad, benching random players each session, so <em>every</em> player learns to cover every role. Come match day the full team is deep, flexible, and robust. Dropout is that rotation policy for neurons — and because each training step uses a different "thinned" team, the final network behaves like an <strong>ensemble</strong> of many smaller networks averaged together, which is exactly why it generalises so well.</p>
+      </div>
+
+      <h2>27.2 DropConnect: drop the wires, not the units</h2>
+      <p><strong>DropConnect</strong> (Wan et al., 2013) is dropout's close cousin. Instead of zeroing whole <em>neurons</em>, it zeroes individual <em>weights</em> (connections) at random. So a neuron may stay alive but receive only a random subset of its inputs each step. It is a finer-grained, more general version of the same regularising idea — every dropped neuron is equivalent to dropping all of its outgoing connections at once, but DropConnect can also drop them individually. Because it acts at the level of weights, the space of possible "thinned" networks is much larger, which can make the ensembling effect stronger. In practice plain dropout is simpler, faster, and far more common, but DropConnect occasionally squeezes out a little extra robustness on small datasets. The takeaway is the family resemblance: both inject random structural noise during training so the network cannot lean on any one fixed pathway.</p>
+
+      <h2>27.3 Why normalise activations at all?</h2>
+      <p>As signals pass through many layers, the distribution of each layer's inputs keeps shifting during training — the layer ahead must constantly chase a moving target. This <em>internal covariate shift</em> slows learning and forces tiny learning rates. The cure is the same instinct as feature normalisation from Week 19 (z-scoring inputs to mean 0, variance 1), but applied to the activations <em>inside</em> the network. Several flavours exist:</p>
+      <ul>
+        <li><strong>Batch normalisation</strong> — normalise each feature across the examples in a mini-batch (the workhorse, below).</li>
+        <li><strong>Layer normalisation</strong> — normalise across the features of a single example; independent of batch size, and the default inside transformers (Week 32).</li>
+        <li><strong>Instance / group normalisation</strong> — variants used mainly in image generation and small-batch vision.</li>
+      </ul>
+
+      <h2>27.4 Batch normalisation, precisely</h2>
+      <p>Batch normalisation (Ioffe &amp; Szegedy, 2015) standardises a layer's pre-activations over the current mini-batch, then lets the network re-scale them. For a feature with values \(\{z_1,\dots,z_m\}\) across a batch of size \(m\), first compute the batch mean and variance:</p>
+      <p>\[ \mu_B = \frac{1}{m}\sum_{i=1}^{m} z_i, \qquad \sigma_B^2 = \frac{1}{m}\sum_{i=1}^{m}(z_i-\mu_B)^2 \]</p>
+      <p>Normalise to zero mean and unit variance (the \(\epsilon\) guards against dividing by zero):</p>
+      <p>\[ \hat{z}_i = \frac{z_i - \mu_B}{\sqrt{\sigma_B^2 + \epsilon}} \]</p>
+      <p>Then — crucially — apply two <em>learnable</em> parameters, a scale \(\gamma\) and a shift \(\beta\), so the network can undo the normalisation if that turns out to help:</p>
+      <p>\[ y_i = \gamma\,\hat{z}_i + \beta \]</p>
+      <p>Why the last step? Forcing every activation to mean 0, variance 1 might be too rigid; \(\gamma\) and \(\beta\) give the layer the freedom to choose the best scale and offset, learned by backprop like any other weight. BatchNorm lets you use higher learning rates, makes training far less sensitive to weight initialisation, and adds a mild regularising effect (the batch statistics inject a little noise). At <strong>test time</strong> there's no batch, so we use running averages of \(\mu\) and \(\sigma^2\) collected during training. This is also why batchnorm's behaviour depends on batch size: with very small batches the per-batch statistics become noisy and unreliable, which is one reason transformers prefer layer normalisation instead. Placed after each layer's linear step (and usually before the activation), batchnorm became standard equipment in the deep convolutional networks of the late 2010s — it was a big part of why such networks suddenly trained in hours rather than weeks.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0"><strong>Dropout</strong> fights overfitting by randomly removing neurons so the network can't rely on any single one. <strong>Batch normalisation</strong> speeds and stabilises training by standardising each layer's activations (normalise → then scale-and-shift with learnable \(\gamma,\beta\)). One is mainly a regulariser, the other mainly a training accelerator — and together they make very deep nets practical.</p>
+      </div>
+
+      <figure class="figure">
+        <svg viewBox="0 0 460 200" aria-label="Batch normalisation: a skewed distribution centred and scaled to a clean bell">
+          <!-- before: shifted/wide bump -->
+          <g stroke="#e3e6f0"><line x1="30" y1="150" x2="210" y2="150"/></g>
+          <path d="M40,150 C90,150 100,70 140,70 C180,70 190,150 200,150" fill="none" stroke="#f43f5e" stroke-width="2"/>
+          <text x="70" y="172" font-size="11" fill="#f43f5e">before: shifted, wide</text>
+          <text x="225" y="100" font-size="22" fill="#4f46e5">→</text>
+          <text x="222" y="120" font-size="10" fill="#767c93">normalise</text>
+          <!-- after: centred bell -->
+          <g stroke="#e3e6f0"><line x1="270" y1="150" x2="450" y2="150"/><line x1="360" y1="55" x2="360" y2="150"/></g>
+          <path d="M280,150 C330,150 340,65 360,65 C380,65 390,150 440,150" fill="none" stroke="#14b8a6" stroke-width="2"/>
+          <text x="295" y="172" font-size="11" fill="#14b8a6">after: mean 0, var 1</text>
+        </svg>
+        <figcaption>Batch normalisation recentres and rescales each layer's activations into a clean, well-behaved distribution — then γ and β let the network adjust the scale and offset if needed.</figcaption>
+      </figure>
+
+      <h2>27.5 Both in NumPy</h2>
+      <p>Here is a dropout mask and a batchnorm forward pass, exactly as defined above. Read the comments and the printed shapes/statistics to see the equations come alive.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — a dropout mask &amp; a batchnorm forward pass</span></div>
+<pre><code class="language-python">import numpy as np
+np.random.seed(3)
+
+# ---------- DROPOUT (inverted dropout, training mode) ----------
+def dropout(a, p):
+    # p = probability of DROPPING a unit; keep prob = 1 - p
+    mask = (np.random.rand(*a.shape) &gt; p).astype(float)   # 1 = keep, 0 = drop
+    return a * mask / (1.0 - p)        # scale survivors so the mean is unchanged
+
+a = np.ones((1, 10))                   # 10 activations, all = 1.0
+out = dropout(a, p=0.5)
+print("dropout out:", np.round(out, 1))   # ~half are 0; survivors scaled to 2.0
+print("mean ~1.0  :", round(float(out.mean()), 2))  # expectation preserved -> ~1.0
+
+# ---------- BATCH NORMALISATION (forward pass) ----------
+def batchnorm(Z, gamma, beta, eps=1e-5):
+    mu  = Z.mean(axis=0)               # per-feature mean over the batch
+    var = Z.var(axis=0)                # per-feature variance over the batch
+    Z_hat = (Z - mu) / np.sqrt(var + eps)   # normalise to mean 0, var 1
+    return gamma * Z_hat + beta        # learnable scale &amp; shift
+
+# batch of 4 examples, 3 features, on very different scales
+Z = np.array([[10., 0.1, -50.],
+              [12., 0.3, -30.],
+              [ 8., 0.2, -70.],
+              [14., 0.4, -10.]])
+gamma = np.ones(3)                     # start scale = 1
+beta  = np.zeros(3)                    # start shift = 0
+Y = batchnorm(Z, gamma, beta)
+print("post-BN mean:", np.round(Y.mean(axis=0), 3))  # -> [0. 0. 0.]  (each feature centred)
+print("post-BN std :", np.round(Y.std(axis=0), 3))   # -> [1. 1. 1.]  (each feature unit-variance)</code></pre>
+      <p>The dropout output zeroes roughly half the units and scales the survivors so the average activation is preserved. The batchnorm output drives every feature — no matter how wildly different its original scale — to mean 0 and variance 1, exactly the clean, comparable signal the next layer wants. Notice how feature three, originally swinging between −70 and −10, ends up on the same footing as feature two, which only ever moved between 0.1 and 0.4. Before normalisation, that mismatch in scales would have made the gradients for some weights enormous and others tiny, forcing a painfully small learning rate; afterwards, all weights can learn at a comparable pace. In a real network you'd insert this step inside every layer and let backprop train \(\gamma\) and \(\beta\) alongside the ordinary weights.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Watch out</div>
+        <p style="margin-bottom:0">Both tricks behave <em>differently at training and test time</em>. Dropout is active during training and <strong>off</strong> at inference. BatchNorm uses the live batch statistics during training but <strong>running averages</strong> at inference. Forgetting to switch modes (in PyTorch, calling <code>model.eval()</code>) is one of the most common deep-learning bugs — your accuracy mysteriously tanks at test time.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Dropout is the same <strong>overfitting fight</strong> you first met with regularisation in <strong>Week 14</strong> and weight decay in <strong>Week 26</strong> — just a different weapon. Batch normalisation extends the input-normalisation idea from <strong>Week 19</strong> to the activations <em>inside</em> the network, using the gradients from <strong>backprop (Week 25)</strong> to learn its \(\gamma,\beta\). Together these two tools are what make very deep models trainable at all — the <strong>CNNs of Week 28</strong> lean heavily on batchnorm, and the <strong>transformers of Week 32</strong> rely on dropout and (layer) normalisation throughout. With this lesson, your feedforward toolkit is complete and you're ready to specialise it for images.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=aircAruvnKk" target="_blank" rel="noopener">But what is a neural network?</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">If the layer-and-activation picture ever feels shaky, this re-grounds the whole structure that dropout and batchnorm operate on.</span></div></li>
+        <li><span class="r-ic">📄</span><div><a href="https://jmlr.org/papers/v15/srivastava14a.html" target="_blank" rel="noopener">Dropout: A Simple Way to Prevent Neural Networks from Overfitting (Srivastava et al., 2014)</a><span class="r-src">The original dropout paper — clear, readable, with the inverted-dropout scaling derived in full.</span></div></li>
+        <li><span class="r-ic">📄</span><div><a href="https://arxiv.org/abs/1502.03167" target="_blank" rel="noopener">Batch Normalization (Ioffe &amp; Szegedy, 2015)</a><span class="r-src">The paper that introduced batchnorm and the internal-covariate-shift argument — source of the exact equations in §27.4.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm1d.html" target="_blank" rel="noopener">PyTorch BatchNorm1d reference</a><span class="r-src">How a real framework implements the normalise-then-scale-and-shift step, including the train/eval running-average behaviour.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">Why does dropout reduce overfitting?</div>
+        <button class="opt">It makes the gradient larger.</button>
+        <button class="opt">Randomly removing neurons stops the network relying on fragile co-dependent units, so each neuron must be individually useful.</button>
+        <button class="opt">It permanently deletes the least useful neurons.</button>
+        <button class="opt">It normalises the activations to mean 0.</button>
+        <div class="explain">By zeroing a random subset of neurons each step, no neuron can depend on any specific other always being present. This breaks brittle cliques and acts like training an ensemble of thinned networks.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">In batch normalisation, what is the role of the learnable parameters γ and β?</div>
+        <button class="opt">They set the dropout probability.</button>
+        <button class="opt">They compute the batch mean and variance.</button>
+        <button class="opt">They let the network re-scale and re-shift the normalised activations, so normalisation isn't forced to be rigid.</button>
+        <button class="opt">They are the running averages used at test time.</button>
+        <div class="explain">After normalising to mean 0 / variance 1, γ (scale) and β (shift) — learned by backprop — let the layer pick the best scale and offset, even undoing the normalisation if that helps.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">How do dropout and batchnorm behave at test (inference) time?</div>
+        <button class="opt">Dropout is turned off; batchnorm uses running averages from training instead of the live batch.</button>
+        <button class="opt">Both keep behaving exactly as during training.</button>
+        <button class="opt">Both are turned off entirely.</button>
+        <button class="opt">Dropout doubles its rate; batchnorm recomputes per test example.</button>
+        <div class="explain">At inference we want the full deterministic network: dropout is disabled (with inverted dropout, no rescaling needed), and batchnorm swaps live batch statistics for the running averages accumulated during training. Forgetting to switch modes is a classic bug.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

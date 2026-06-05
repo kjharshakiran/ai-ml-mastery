@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 4 · Probability — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w04">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 4</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 1 · Foundations › Lesson 4</div>
+        <span class="eyebrow">📐 Mathematical Foundations</span>
+        <h1>Probability: Reasoning Under Uncertainty</h1>
+        <div class="lesson-meta"><span>⏱️ 55 min</span><span>🎯 The mathematics of doubt</span><span>📦 Week 4</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Treat probability as <strong>honest betting</strong> — a number from 0 to 1 measuring how strongly you'd back an outcome.</li>
+          <li>Describe a <strong>random variable</strong> and tell discrete from continuous ones.</li>
+          <li>Read a <strong>PMF</strong> (for discrete) and a <strong>PDF</strong> (for continuous) and know why they differ.</li>
+          <li>Compute <strong>expectation</strong> (the mean) and <strong>variance</strong> as \(E[(X-\mu)^2]\).</li>
+          <li>Recognise the <strong>Normal (Gaussian)</strong> distribution, its \(\mu\) and \(\sigma\), and why the Central Limit Theorem makes it appear everywhere.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">The real world never hands us certainties — only noisy, partial clues. How do we turn "I'm not sure" into a number a machine can actually compute with?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. Probability is honest betting</h2>
+      <p>Linear algebra gave us space, calculus gave us change. <strong>Probability</strong> gives us the third language machines think in: <em>uncertainty</em>. A probability is simply a number between 0 and 1 that says how strongly you'd bet on something. \(P=0\) means "never," \(P=1\) means "certain," \(P=0.5\) means "I'd take even odds either way."</p>
+      <p>The rules are just bookkeeping for fair bets: every outcome's probability is between 0 and 1, and the probabilities of all possible outcomes must sum to exactly 1 (something has to happen).</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Probability is your <strong>fair-bet meter</strong>. If a friend says "I'll give you a sweet if it rains tomorrow," how many of your own sweets would you risk to play? If you'd risk a lot, you think rain is likely (high probability). If you'd risk almost nothing, you think it's unlikely (low probability). Probability is just that gut feeling written as a number between 0 (no way) and 1 (for sure). And the honest rule: if you list every possible thing that could happen, your bets have to add up to one whole.</p>
+      </div>
+
+      <h2>2. Random variables: numbers attached to chance</h2>
+      <p>A <strong>random variable</strong> (RV) is a number whose value depends on a random outcome. Roll a die → \(X\) is the face you get. Measure a stranger's height → \(H\) is the value in centimetres. The variable is a placeholder; the <em>distribution</em> tells you how its possible values share out the probability.</p>
+      <p>Two flavours, and the difference matters:</p>
+      <ul>
+        <li><strong>Discrete</strong> — countable, separate values (a die: 1, 2, 3, 4, 5, 6; the number of emails today).</li>
+        <li><strong>Continuous</strong> — any value in a range (height, temperature, a model's predicted score).</li>
+      </ul>
+
+      <h2>3. Discrete RVs: the PMF</h2>
+      <p>For a discrete RV, the <strong>probability mass function</strong> (PMF) gives the probability of each exact value, \(P(X = x)\). For a fair six-sided die, each face gets a clean \(\tfrac{1}{6}\):</p>
+      <p>\[ P(X = x) = \tfrac{1}{6}, \quad x \in \{1,2,3,4,5,6\}, \qquad \sum_{x} P(X=x) = 1 \]</p>
+      <p>"Mass" is a good word: imagine 1 kilogram of probability split into six lumps, one sitting on each face. The lumps must weigh 1 kg in total.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 360 200" aria-label="Bar chart PMF of a fair die, six equal bars">
+          <g stroke="#e3e6f0"><line x1="40" y1="160" x2="340" y2="160"/><line x1="40" y1="40" x2="40" y2="160"/></g>
+          <g fill="#4f46e5">
+            <rect x="55" y="80" width="32" height="80"/><rect x="100" y="80" width="32" height="80"/>
+            <rect x="145" y="80" width="32" height="80"/><rect x="190" y="80" width="32" height="80"/>
+            <rect x="235" y="80" width="32" height="80"/><rect x="280" y="80" width="32" height="80"/>
+          </g>
+          <g font-size="12" fill="#767c93" font-family="monospace">
+            <text x="67" y="176">1</text><text x="112" y="176">2</text><text x="157" y="176">3</text>
+            <text x="202" y="176">4</text><text x="247" y="176">5</text><text x="292" y="176">6</text>
+          </g>
+          <text x="46" y="78" font-size="11" fill="#767c93">1/6</text>
+        </svg>
+        <figcaption>The PMF of a fair die: six equal lumps of probability, each \(1/6\), summing to 1.</figcaption>
+      </figure>
+
+      <h2>4. Continuous RVs: the PDF</h2>
+      <p>For a continuous RV, asking "what's the probability the height is <em>exactly</em> 170.000…cm?" gives zero — there are infinitely many values, so each single point carries no mass. Instead we use a <strong>probability density function</strong> (PDF), \(f(x)\), where probability is the <em>area</em> under the curve over a range:</p>
+      <p>\[ P(a \le X \le b) = \int_a^b f(x)\,dx, \qquad \int_{-\infty}^{\infty} f(x)\,dx = 1 \]</p>
+      <p>So density isn't probability itself — it's probability <em>per unit width</em>. The total area under any PDF is 1 (using the integration from Week 3). A taller curve in some region just means values there are more likely to turn up.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> PMF vs PDF in one line</div>
+        <p style="margin-bottom:0">Discrete → <strong>heights are probabilities</strong> (sum to 1). Continuous → <strong>areas are probabilities</strong> (integral is 1). Bars for the countable, smooth curves for the uncountable.</p>
+      </div>
+
+      <h2>5. Expectation: the centre of gravity</h2>
+      <p>The <strong>expectation</strong> (or mean) \(E[X] = \mu\) is the long-run average value — the balance point of the distribution. For a discrete RV it's a probability-weighted sum; for continuous, an integral:</p>
+      <p>\[ E[X] = \sum_x x\,P(X=x) \qquad \text{or} \qquad E[X] = \int_{-\infty}^{\infty} x\,f(x)\,dx \]</p>
+      <p>A fair die's expectation is \(\tfrac{1}{6}(1+2+\dots+6) = 3.5\) — not a value you can roll, but the average you'd converge to over many throws.</p>
+      <p><strong>Variance</strong> measures spread: how far values tend to land from the mean. It's the expected squared distance from \(\mu\):</p>
+      <p>\[ \operatorname{Var}(X) = E\!\big[(X - \mu)^2\big], \qquad \sigma = \sqrt{\operatorname{Var}(X)} \]</p>
+      <p>We square so that overshoots and undershoots don't cancel out, then the square root \(\sigma\) (the <strong>standard deviation</strong>) brings us back to the original units. Small \(\sigma\) = tightly clustered; large \(\sigma\) = widely scattered.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🎯</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Think of an archer's arrows on a target. The <strong>mean</strong> is the average landing spot — where the cluster's centre sits. The <strong>variance</strong> is how spread out the arrows are. A sniper has low variance (tight cluster); a beginner has high variance (arrows all over). In ML we want models whose predictions are both well-centred (low bias) <em>and</em> consistent (low variance) — a tension you'll meet head-on in Week 14.</p>
+      </div>
+
+      <h2>6. The Normal distribution — the bell that's everywhere</h2>
+      <p>One distribution dominates statistics and ML: the <strong>Normal</strong> (or <strong>Gaussian</strong>), the famous bell curve. It's fully described by just two numbers — its mean \(\mu\) (where the peak sits) and its standard deviation \(\sigma\) (how wide it is):</p>
+      <p>\[ f(x) = \frac{1}{\sigma\sqrt{2\pi}}\, \exp\!\left(-\frac{(x-\mu)^2}{2\sigma^2}\right) \]</p>
+      <p>The curve is symmetric around \(\mu\), and about 68% of the mass sits within one \(\sigma\) of the mean, 95% within two. Why does it show up everywhere — heights, measurement errors, exam scores, noise? Because of the <strong>Central Limit Theorem</strong>: when you add up lots of small independent random effects, their sum tends toward a Normal distribution <em>regardless</em> of what each individual effect looked like. Heights are sums of many genetic and environmental nudges; errors are sums of many tiny disturbances — so both end up bell-shaped.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 380 220" aria-label="A Gaussian bell curve with mu and one-sigma markers">
+          <g stroke="#e3e6f0"><line x1="30" y1="180" x2="360" y2="180"/></g>
+          <path d="M30,179 C120,178 150,40 195,40 C240,40 270,178 360,179" fill="none" stroke="#4f46e5" stroke-width="3"/>
+          <line x1="195" y1="180" x2="195" y2="40" stroke="#f43f5e" stroke-width="2" stroke-dasharray="4 3"/>
+          <text x="186" y="198" font-size="13" fill="#f43f5e">μ</text>
+          <line x1="140" y1="180" x2="140" y2="120" stroke="#14b8a6" stroke-width="2" stroke-dasharray="3 3"/>
+          <line x1="250" y1="180" x2="250" y2="120" stroke="#14b8a6" stroke-width="2" stroke-dasharray="3 3"/>
+          <text x="120" y="198" font-size="12" fill="#14b8a6">μ−σ</text>
+          <text x="232" y="198" font-size="12" fill="#14b8a6">μ+σ</text>
+          <text x="160" y="100" font-size="12" fill="#767c93">≈ 68% of values</text>
+        </svg>
+        <figcaption>The Gaussian: centred at \(\mu\), width set by \(\sigma\). About 68% of the area falls within one \(\sigma\) of the mean.</figcaption>
+      </figure>
+
+      <p>Let's sample from a Gaussian and confirm the mean and variance come back close to what we asked for.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — sampling a Gaussian &amp; checking its stats</span></div>
+<pre><code class="language-python">import numpy as np
+
+rng = np.random.default_rng(seed=42)   # reproducible randomness
+
+mu, sigma = 170.0, 8.0                 # e.g. adult heights: mean 170 cm, sd 8 cm
+samples = rng.normal(mu, sigma, size=100_000)   # draw 100k values from N(mu, sigma^2)
+
+# Expectation E[X] estimated by the sample mean
+print(f"sample mean     : {samples.mean():.3f}")     # -> ~170.0  (matches mu)
+
+# Variance E[(X - mu)^2] estimated from the data; sd is its square root
+print(f"sample variance : {samples.var():.3f}")      # -> ~64.0   (sigma^2 = 8^2)
+print(f"sample std dev  : {samples.std():.3f}")      # -> ~8.0    (matches sigma)
+
+# The "68% within one sigma" rule of thumb, checked empirically
+within_1sd = np.mean(np.abs(samples - mu) &lt;= sigma)
+print(f"fraction within 1 sigma: {within_1sd:.3f}")  # -> ~0.683
+
+# Evaluate the Gaussian PDF formula by hand at the mean (its peak height)
+peak = 1 / (sigma * np.sqrt(2 * np.pi))
+print(f"PDF height at x=mu: {peak:.5f}")             # -> 0.04988</code></pre>
+
+      <p>The sample mean and variance land right on the values we requested, and almost exactly 68.3% of draws fall within one \(\sigma\) — the bell curve behaving exactly as the formula promises.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Probability completes the Part 1 toolkit alongside <strong>Week 2 (Linear Algebra)</strong> and <strong>Week 3 (Calculus)</strong> — note that computing the area under a PDF used the integration from last week. Looking ahead, the mean, variance and Gaussian you met here are the bedrock of <strong>Week 8 (Exploratory Data Analysis)</strong>, where you'll summarise real datasets with exactly these statistics, and of <strong>Week 16 (Bayes, Naïve Bayes &amp; GMM)</strong>, where classifiers model each class as a Gaussian and use probability to decide which one a new point most likely came from. Uncertainty isn't a nuisance in ML — it's the substance we model.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=zeJD6dqJ5lo" target="_blank" rel="noopener">But what is the Central Limit Theorem?</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">The clearest visual answer to "why is the Gaussian everywhere?" — watch after section 6 and the bell curve will feel inevitable.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=YXLVjCKVP7U" target="_blank" rel="noopener">The Normal Distribution, Clearly Explained</a><span class="r-src">StatQuest's friendly walk through \(\mu\), \(\sigma\) and the bell shape — perfect reinforcement for sections 5–6.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://numpy.org/doc/stable/reference/random/generator.html" target="_blank" rel="noopener">NumPy random Generator reference</a><span class="r-src">Documents <code>default_rng</code>, <code>.normal()</code> and friends used in the code — your toolkit for sampling distributions.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">For a <em>continuous</em> random variable, the probability that \(X\) equals one exact value (say exactly 170.000…) is…</div>
+        <button class="opt">equal to the height of the PDF at that point.</button>
+        <button class="opt">always 0.5 by symmetry.</button>
+        <button class="opt">0 — probability comes from <em>area</em> over a range, not a single point.</button>
+        <button class="opt">undefined and meaningless.</button>
+        <div class="explain">A PDF gives probability as area under the curve over an interval. A single point has zero width, hence zero area, hence zero probability. We only get nonzero probabilities for ranges: \(P(a \le X \le b) = \int_a^b f(x)\,dx\).</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">Variance is defined as \(E[(X-\mu)^2]\). Why square the distance from the mean?</div>
+        <button class="opt">To make the units match the original data.</button>
+        <button class="opt">So overshoots and undershoots don't cancel, and big deviations count more.</button>
+        <button class="opt">Because the mean is always negative.</button>
+        <button class="opt">It's an arbitrary choice with no reason.</button>
+        <div class="explain">Without squaring, positive and negative deviations would cancel to zero. Squaring makes every deviation positive and penalises large ones extra. Taking the square root afterward gives \(\sigma\), which is back in the original units.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">Why does the Gaussian (Normal) distribution show up so often in nature and data?</div>
+        <button class="opt">The Central Limit Theorem: sums of many small independent effects tend toward a Normal, whatever the pieces look like.</button>
+        <button class="opt">Because all data is secretly discrete.</button>
+        <button class="opt">Because it's the only distribution with a mean.</button>
+        <button class="opt">Because computers can only generate bell curves.</button>
+        <div class="explain">The Central Limit Theorem says that adding up many independent random contributions yields an approximately Normal result regardless of each contribution's own shape. Heights, errors, and noise are all such sums — so they end up bell-shaped.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

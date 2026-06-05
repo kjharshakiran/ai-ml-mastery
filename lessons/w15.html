@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 15 · Classification I: k-NN &amp; Evaluating Classifiers — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w15">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 15</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 4 · Classical Machine Learning › Lesson 15</div>
+        <span class="eyebrow">🧮 Part 4 · Classical Machine Learning</span>
+        <h1>Classification I: k-NN &amp; Evaluating Classifiers</h1>
+        <div class="lesson-meta"><span>⏱️ 55 min</span><span>🎯 Predicting categories, and proving you got them right</span><span>📦 Week 15</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain how <strong>classification</strong> differs from regression — predicting a label, not a number.</li>
+          <li>Run the <strong>k-nearest-neighbours</strong> algorithm by hand and in scikit-learn, and see why it leans on the Week 2 norm.</li>
+          <li>Read a <strong>confusion matrix</strong> and compute accuracy, precision, recall and F1.</li>
+          <li>Tell a vivid story about <strong>precision vs recall</strong> (and why "99% accurate" can be a lie).</li>
+          <li>Interpret an <strong>ROC curve</strong> and its <strong>AUC</strong>.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">If you wanted to guess whether a new email is spam, the laziest possible idea is: "find the emails most like it, and copy their label." Can something this simple actually work — and how would we ever <em>prove</em> a classifier is good?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. From numbers to categories</h2>
+      <p>In Weeks 13–14 we did <strong>regression</strong>: the answer was a number on a continuous line — a house price, a temperature. <strong>Classification</strong> asks a different question. The answer is a <em>category</em> from a fixed menu: spam or not-spam, cat / dog / horse, benign or malignant. The inputs are still a feature vector \(\mathbf{x}\) (Week 2's "everything is a vector"); only the output type changes.</p>
+      <p>Formally, a classifier learns a function \(f:\mathbb{R}^d \to \{1,2,\dots,C\}\) that maps a \(d\)-dimensional point to one of \(C\) class labels. Everything in this Part of the course — k-NN today, Bayes next week, the perceptron and SVMs after that — is a different recipe for drawing that map.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine a new kid joins your class and you have to guess whether they like football or chess. You look at the five kids sitting closest to them. Four play football, one plays chess — so you guess <em>football</em>. You just ran k-nearest-neighbours with k=5. The whole trick is "you're probably like the people near you."</p>
+      </div>
+
+      <h2>2. Nearest neighbour: copy your closest friend</h2>
+      <p>The simplest classifier of all stores every training point and, for a new point, finds the single closest stored point and copies its label. "Closest" needs a ruler — and we already built one in Week 2. The distance between two points is the <strong>norm of their difference</strong>, the Euclidean distance:</p>
+      <p>\[ d(\mathbf{x},\mathbf{x}') = \lVert \mathbf{x}-\mathbf{x}' \rVert_2 = \sqrt{\sum_{i=1}^{d}(x_i - x'_i)^2} \]</p>
+      <p>That single formula — straight from Pythagoras in Week 2 — is the entire engine of nearest-neighbour methods. Change the ruler (Manhattan distance, cosine distance) and you change the behaviour, but the idea is the same: similarity = small distance.</p>
+
+      <h2>3. k-NN: ask k friends and take a vote</h2>
+      <p>Trusting one neighbour is fragile — that neighbour might be a weird outlier. So <strong>k-nearest-neighbours (k-NN)</strong> looks at the \(k\) closest points and takes a <strong>majority vote</strong>:</p>
+      <ol>
+        <li>Compute the distance from the new point to every training point.</li>
+        <li>Keep the \(k\) smallest distances — the \(k\) nearest neighbours.</li>
+        <li>Count their labels; the most common label wins.</li>
+      </ol>
+      <p>There is <em>no training step</em> — k-NN just memorises the data and does all the work at prediction time. That makes it a "lazy learner." The one knob is \(k\): small \(k\) (e.g. 1) hugs every wiggle and overfits noise; large \(k\) smooths the boundary but can blur real structure. We pick \(k\) by cross-validation, exactly the discipline from Week 14.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 360 260" aria-label="k-NN classifying a new point by majority vote of its 5 nearest neighbours">
+          <rect x="20" y="20" width="320" height="210" fill="none" stroke="#e3e6f0"/>
+          <!-- class A: teal circles -->
+          <circle cx="80" cy="70" r="7" fill="#14b8a6"/>
+          <circle cx="120" cy="110" r="7" fill="#14b8a6"/>
+          <circle cx="150" cy="80" r="7" fill="#14b8a6"/>
+          <circle cx="95" cy="150" r="7" fill="#14b8a6"/>
+          <circle cx="60" cy="120" r="7" fill="#14b8a6"/>
+          <!-- class B: rose squares -->
+          <rect x="245" y="150" width="13" height="13" fill="#f43f5e"/>
+          <rect x="280" y="100" width="13" height="13" fill="#f43f5e"/>
+          <rect x="210" y="180" width="13" height="13" fill="#f43f5e"/>
+          <rect x="300" y="170" width="13" height="13" fill="#f43f5e"/>
+          <!-- query point -->
+          <circle cx="185" cy="140" r="40" fill="none" stroke="#767c93" stroke-dasharray="4 3"/>
+          <polygon points="185,132 191,144 179,144" fill="#f59e0b"/>
+          <text x="195" y="135" font-size="12" fill="#f59e0b">? new point</text>
+          <!-- lines to 5 nearest -->
+          <g stroke="#767c93" stroke-width="1">
+            <line x1="185" y1="140" x2="150" y2="80"/>
+            <line x1="185" y1="140" x2="120" y2="110"/>
+            <line x1="185" y1="140" x2="95" y2="150"/>
+            <line x1="185" y1="140" x2="245" y2="156"/>
+            <line x1="185" y1="140" x2="210" y2="186"/>
+          </g>
+          <text x="30" y="220" font-size="11" fill="#14b8a6">● class A (3 votes)</text>
+          <text x="200" y="220" font-size="11" fill="#f43f5e">■ class B (2 votes)</text>
+          <text x="30" y="40" font-size="12" fill="#767c93">k = 5 → A wins, 3 to 2</text>
+        </svg>
+        <figcaption>k-NN with k=5: the dashed circle holds the 5 nearest training points. Three are class A and two are class B, so the new point is labelled <strong>A</strong>. "Nearest" is measured with the Week 2 Euclidean norm.</figcaption>
+      </figure>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🏘️</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">k-NN is "you are the average of the people you stand next to." Move into a neighbourhood and a pollster guesses how you'll vote by asking your five closest neighbours. If most lean one way, that's their bet for you. No theory, no model of the world — just proximity.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">scikit-learn — KNeighborsClassifier</span></div>
+<pre><code class="language-python">import numpy as np
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import classification_report, confusion_matrix
+
+# A toy 2-class dataset: 200 points, 2 informative features
+X, y = make_classification(n_samples=200, n_features=2, n_redundant=0,
+                           n_clusters_per_class=1, class_sep=1.2, random_state=0)
+
+# Hold out 30% to test honestly (never grade on the training data!)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.30, random_state=0)
+
+# k-NN with k=5. "fit" just memorises the points — no real training.
+knn = KNeighborsClassifier(n_neighbors=5)
+knn.fit(X_tr, y_tr)
+
+pred = knn.predict(X_te)              # majority vote of 5 nearest neighbours
+
+print(confusion_matrix(y_te, pred))  # rows = truth, cols = prediction
+print(classification_report(y_te, pred, digits=2))
+# classification_report prints precision, recall, f1 and accuracy per class.</code></pre>
+
+      <h2>4. Was it any good? The confusion matrix</h2>
+      <p>A single "accuracy" number hides too much. The honest starting point is the <strong>confusion matrix</strong>: a small table that breaks predictions into four buckets for a yes/no problem.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 380 240" aria-label="A 2x2 confusion matrix labelled with TP, FP, FN, TN">
+          <text x="150" y="20" font-size="13" fill="#767c93">Predicted</text>
+          <text x="150" y="40" font-size="12" fill="#14b8a6">Positive</text>
+          <text x="240" y="40" font-size="12" fill="#f43f5e">Negative</text>
+          <text x="14" y="120" font-size="13" fill="#767c93" transform="rotate(-90 14 120)">Actual</text>
+          <text x="40" y="80" font-size="12" fill="#14b8a6">Positive</text>
+          <text x="40" y="160" font-size="12" fill="#f43f5e">Negative</text>
+          <rect x="120" y="50" width="100" height="60" fill="#dcfce7" stroke="#14b8a6"/>
+          <rect x="220" y="50" width="100" height="60" fill="#fee2e2" stroke="#f43f5e"/>
+          <rect x="120" y="110" width="100" height="60" fill="#fee2e2" stroke="#f43f5e"/>
+          <rect x="220" y="110" width="100" height="60" fill="#dcfce7" stroke="#14b8a6"/>
+          <text x="138" y="78" font-size="13" font-weight="bold">TP</text><text x="138" y="96" font-size="10" fill="#767c93">true positive</text>
+          <text x="238" y="78" font-size="13" font-weight="bold">FN</text><text x="238" y="96" font-size="10" fill="#767c93">missed it</text>
+          <text x="138" y="138" font-size="13" font-weight="bold">FP</text><text x="138" y="156" font-size="10" fill="#767c93">false alarm</text>
+          <text x="238" y="138" font-size="13" font-weight="bold">TN</text><text x="238" y="156" font-size="10" fill="#767c93">true negative</text>
+          <text x="40" y="205" font-size="11" fill="#767c93">Precision = TP / (TP + FP) &#160;&#160; Recall = TP / (TP + FN)</text>
+        </svg>
+        <figcaption>The four outcomes. The green diagonal is "correct"; the red off-diagonal are the two ways to be wrong — a false alarm (FP) or a miss (FN).</figcaption>
+      </figure>
+
+      <p>From these four numbers we build the standard metrics:</p>
+      <p>\[ \text{Accuracy} = \frac{TP+TN}{TP+TN+FP+FN}, \quad \text{Precision} = \frac{TP}{TP+FP}, \quad \text{Recall} = \frac{TP}{TP+FN} \]</p>
+      <ul>
+        <li><strong>Accuracy</strong> — fraction of all predictions that were correct. Easy, but treacherous when classes are imbalanced.</li>
+        <li><strong>Precision</strong> — of everything we <em>flagged</em> as positive, how many really were? ("Don't cry wolf.")</li>
+        <li><strong>Recall</strong> — of everything that <em>truly was</em> positive, how many did we catch? ("Don't miss the wolf.")</li>
+        <li><strong>F1</strong> — the harmonic mean of precision and recall, \(F_1 = \dfrac{2\,PR}{P+R}\), a single score when you need balance.</li>
+      </ul>
+
+      <h2>5. Precision vs recall: the disease-test story</h2>
+      <p>Suppose 1 in 1000 people has a rare disease, and you build a "test" that always says <em>healthy</em>. Its accuracy is 99.9% — and it is utterly useless, because it never catches a single sick person. This is why accuracy alone lies.</p>
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0"><strong>Recall</strong> is "how many real cases did we catch?" — what a cancer screening must maximise, because a <em>miss</em> (false negative) is deadly. <strong>Precision</strong> is "when we sound the alarm, are we right?" — what a spam filter must protect, because a <em>false alarm</em> (deleting a real email) is costly. You usually can't max both; you choose which mistake hurts more.</p>
+      </div>
+      <p>A cancer screen accepts more false alarms (low precision) to avoid missing tumours (high recall) — flagged patients just get a follow-up test. A spam filter does the opposite: better to let a little spam through (lower recall) than to bury a job offer in the spam folder (it guards precision).</p>
+
+      <h2>6. ROC and AUC: rating a classifier at every threshold</h2>
+      <p>Most classifiers output a <em>probability</em>, not a hard label; you pick a threshold to convert it. Slide the threshold from strict to lenient and you trade recall against false alarms. The <strong>ROC curve</strong> plots the <em>true-positive rate</em> (recall) against the <em>false-positive rate</em> \(FP/(FP+TN)\) across every threshold. The <strong>AUC</strong> (area under the curve) squeezes the whole curve into one number: 1.0 is a perfect classifier, 0.5 is a coin flip. AUC is the threshold-free way to ask "how well does this model rank positives above negatives?"</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">k-NN's "closeness" is literally the <strong>Euclidean norm from Week 2</strong> — the same ruler that powers cosine similarity and, later, attention. And the evaluation toolkit you learned here — confusion matrix, precision, recall, F1, ROC/AUC — is <em>universal</em>: you will grade <strong>Bayes &amp; Naïve Bayes (Week 16)</strong>, the <strong>perceptron (Week 17)</strong>, <strong>SVMs (Week 18)</strong>, trees, and even neural networks with these exact metrics. Naïve Bayes plus this evaluation kit is the backbone of <strong>Project 2 (the spam classifier)</strong>.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=HVXime0nQeI" target="_blank" rel="noopener">K-nearest neighbors, clearly explained</a> <span class="r-src">StatQuest. A friendly, visual walk through the voting idea and the choice of k.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=Kdsp6soqA7o" target="_blank" rel="noopener">The confusion matrix, clearly explained</a> <span class="r-src">StatQuest. Cements TP/FP/FN/TN and where precision and recall come from.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=4jRBRDbJemM" target="_blank" rel="noopener">ROC and AUC, clearly explained</a> <span class="r-src">StatQuest. The threshold-sliding picture that makes ROC finally click.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://scikit-learn.org/stable/modules/neighbors.html" target="_blank" rel="noopener">scikit-learn: Nearest Neighbors guide</a> <span class="r-src">Official docs for KNeighborsClassifier, distance metrics, and weighting.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">In k-NN, what does the "k" actually control?</div>
+        <button class="opt">The number of features in the dataset.</button>
+        <button class="opt">How many times the model is trained.</button>
+        <button class="opt">How many nearest neighbours get to vote on the label.</button>
+        <button class="opt">The learning rate of gradient descent.</button>
+        <div class="explain">k is the size of the voting committee. Small k overfits to noise; large k smooths the decision boundary. k-NN has no gradient-descent training at all.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">A disease affects 1 in 1000 people. A test that always predicts "healthy" achieves 99.9% accuracy. Why is it useless?</div>
+        <button class="opt">Its accuracy is too low.</button>
+        <button class="opt">Its recall for the disease is 0 — it never catches a single sick person.</button>
+        <button class="opt">Its precision is 100%, which is suspicious.</button>
+        <button class="opt">Accuracy is the only metric that matters here.</button>
+        <div class="explain">With heavy class imbalance, high accuracy can hide total failure on the rare class. Recall (caught cases ÷ real cases) exposes it: here it's zero.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">You measure distance between points in k-NN using…</div>
+        <button class="opt">the norm of their difference — the Week 2 Euclidean distance.</button>
+        <button class="opt">the determinant of the feature matrix.</button>
+        <button class="opt">the number of features that differ in sign.</button>
+        <button class="opt">the eigenvalue of the covariance matrix.</button>
+        <div class="explain">d(x, x') = ‖x − x'‖₂ = √Σ(xᵢ − x'ᵢ)². "Nearest" is defined by the very same norm you built in linear algebra.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 2 · Linear Algebra — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w02">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 2</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 1 · Foundations › Lesson 2</div>
+        <span class="eyebrow">📐 Mathematical Foundations</span>
+        <h1>Linear Algebra: Vectors, Matrices &amp; Eigen-everything</h1>
+        <div class="lesson-meta"><span>⏱️ 60 min</span><span>🎯 The language of data</span><span>📦 Week 2</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>See a vector two ways: as an arrow in space <em>and</em> as a list of data.</li>
+          <li>Add, scale, and measure vectors (norms) and find the angle between them (dot product).</li>
+          <li>Read a matrix as a machine that <strong>transforms</strong> space.</li>
+          <li>Understand eigenvectors/eigenvalues, eigendecomposition, and SVD — and why they power PCA, embeddings, and recommendation systems.</li>
+          <li>Do all of it in NumPy.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">If every photo, word, and customer is just a list of numbers, what can we <em>do</em> with those lists to make patterns appear?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. A vector is two things at once</h2>
+      <p>In Lesson 1 we said "everything becomes a vector." Now let's actually meet one. A vector like \(\mathbf{v} = \begin{bmatrix} 3 \\ 2 \end{bmatrix}\) has <strong>two equally true interpretations</strong>, and switching between them on demand is the single most useful skill in this course:</p>
+      <ol>
+        <li><strong>An arrow in space</strong> — start at the origin, walk 3 right and 2 up. This is the <em>geometric</em> view. It makes "distance," "direction," and "angle" meaningful.</li>
+        <li><strong>A list of features</strong> — e.g. a house = <code>[bedrooms, bathrooms]</code> = <code>[3, 2]</code>. This is the <em>data</em> view.</li>
+      </ol>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🗺️</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">A vector is like a treasure-map instruction: "3 paces east, 2 paces north." The instruction (the numbers) and the actual spot on the ground (the arrow) are the same information in two costumes. Data scientists wear the "list of numbers" costume; geometry wears the "arrow" costume. Pros switch costumes mid-sentence.</p>
+      </div>
+
+      <figure class="figure">
+        <svg viewBox="0 0 360 240" aria-label="A vector drawn as an arrow on a grid">
+          <defs><marker id="vh" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4f46e5"/></marker></defs>
+          <g stroke="#e3e6f0"><line x1="40" y1="200" x2="340" y2="200"/><line x1="40" y1="20" x2="40" y2="200"/>
+            <line x1="100" y1="20" x2="100" y2="200"/><line x1="160" y1="20" x2="160" y2="200"/><line x1="220" y1="20" x2="220" y2="200"/><line x1="280" y1="20" x2="280" y2="200"/>
+            <line x1="40" y1="140" x2="340" y2="140"/><line x1="40" y1="80" x2="340" y2="80"/></g>
+          <line x1="40" y1="200" x2="220" y2="80" stroke="#4f46e5" stroke-width="3" marker-end="url(#vh)"/>
+          <circle cx="220" cy="80" r="4" fill="#4f46e5"/>
+          <text x="226" y="76" font-size="14" fill="#4f46e5" font-family="monospace">(3, 2)</text>
+          <text x="120" y="155" font-size="13" fill="#767c93">3 right</text>
+          <text x="225" y="130" font-size="13" fill="#767c93">2 up</text>
+        </svg>
+        <figcaption>The vector [3, 2] as an arrow from the origin. The numbers <em>are</em> the directions.</figcaption>
+      </figure>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">A vector is just a <strong>list of numbers in a fixed order</strong> — like a recipe: <code>[2 eggs, 1 cup flour, 3 spoons sugar]</code>. Change the order and it's a different recipe. Computers love these lists because they can do maths on them. When we say "a cat photo is a vector," we just mean we wrote down a long list of numbers (the brightness of each dot) that stands for the picture.</p>
+      </div>
+
+      <h2>2. The two operations that build everything: add &amp; scale</h2>
+      <p>You only ever do two fundamental things to vectors, and every fancy algorithm later is built from these:</p>
+      <p><strong>Addition</strong> (tip-to-tail): \(\begin{bmatrix}3\\2\end{bmatrix} + \begin{bmatrix}1\\2\end{bmatrix} = \begin{bmatrix}4\\4\end{bmatrix}\). Geometrically, walk the first arrow, then walk the second from where you landed.</p>
+      <p><strong>Scaling</strong> (stretch/shrink): \(2 \cdot \begin{bmatrix}3\\2\end{bmatrix} = \begin{bmatrix}6\\4\end{bmatrix}\). Same direction, twice as long. A negative scalar flips it around.</p>
+      <p>Combine these — "add up scaled copies of some vectors" — and you get a <strong>linear combination</strong>, the most important phrase in linear algebra. A neural network layer? A giant pile of linear combinations. Hold that thought until Week 24.</p>
+
+      <h2>3. The dot product: how similar are two vectors?</h2>
+      <p>The <strong>dot product</strong> takes two vectors and returns a single number that measures how much they point the same way:</p>
+      <p>\[ \mathbf{a}\cdot\mathbf{b} = \sum_i a_i b_i = a_1 b_1 + a_2 b_2 + \dots = \lVert\mathbf{a}\rVert\,\lVert\mathbf{b}\rVert\cos\theta \]</p>
+      <ul>
+        <li>Big positive → they point the <strong>same</strong> way (similar).</li>
+        <li>Zero → they're <strong>perpendicular</strong> (unrelated). This is huge: "uncorrelated" = "orthogonal."</li>
+        <li>Negative → they point <strong>opposite</strong> ways.</li>
+      </ul>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> Why you'll never forget this</div>
+        <p style="margin-bottom:0">"How similar are two things?" is <em>the</em> question in machine learning — similar customers, similar documents, similar words. The dot product (and its cousin, cosine similarity) is the answer, and it shows up literally everywhere: in k-NN (Week 15), in SVMs (Week 18), and as the beating heart of <strong>attention</strong> in transformers (Week 32), where the model asks "how relevant is each word to this one?" with a dot product.</p>
+      </div>
+
+      <h2>4. The norm: how long is a vector?</h2>
+      <p>The <strong>norm</strong> \(\lVert\mathbf{v}\rVert\) is the vector's length — straight from Pythagoras:</p>
+      <p>\[ \lVert\mathbf{v}\rVert_2 = \sqrt{v_1^2 + v_2^2 + \dots + v_n^2} = \sqrt{\mathbf{v}\cdot\mathbf{v}} \]</p>
+      <p>The distance between two data points \(\mathbf{a}\) and \(\mathbf{b}\) is just \(\lVert\mathbf{a}-\mathbf{b}\rVert\). That one formula is how a model decides "these two houses are similar" or "this email looks like spam I've seen before."</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy</span></div>
+<pre><code class="language-python">import numpy as np
+
+a = np.array([3, 2])
+b = np.array([1, 2])
+
+a + b              # vector addition  -> array([4, 4])
+2 * a              # scaling          -> array([6, 4])
+np.dot(a, b)       # dot product      -> 3*1 + 2*2 = 7
+np.linalg.norm(a)  # length (norm)    -> sqrt(9+4) = 3.605...
+
+# Cosine similarity: dot product, normalised. The ML workhorse.
+cos = np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+print(round(float(cos), 3))   # -> 0.857  (they point in fairly similar directions)
+
+# Distance between two data points = norm of their difference
+print(np.linalg.norm(a - b))  # -> 2.0</code></pre>
+
+      <h2>5. A matrix is a <em>verb</em>, not a noun</h2>
+      <p>Most courses say "a matrix is a grid of numbers." True, but useless. The powerful idea, the one 3Blue1Brown will burn into your brain, is:</p>
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The big reframe</div>
+        <p style="margin-bottom:0">A matrix is a <strong>function that transforms space</strong>. Multiply a vector by a matrix and the vector gets rotated, stretched, squished, or sheared. The columns of the matrix tell you exactly where the basis arrows \(\hat{i}\) and \(\hat{j}\) land. Everything else follows.</p>
+      </div>
+      <p>Matrix–vector multiplication \(\mathbf{y} = A\mathbf{x}\) is just: "take \(\mathbf{x}\)'s coordinates, and use them to mix the columns of \(A\)." It's a linear combination of \(A\)'s columns. For example, the matrix that rotates everything 90° counter-clockwise sends \(\hat{i}=(1,0)\to(0,1)\) and \(\hat{j}=(0,1)\to(-1,0)\):</p>
+      <p>\[ A = \begin{bmatrix} 0 & -1 \\ 1 & 0 \end{bmatrix}, \qquad A\begin{bmatrix}3\\2\end{bmatrix} = \begin{bmatrix}-2\\3\end{bmatrix} \]</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 460 220" aria-label="A matrix transforming a grid">
+          <g stroke="#e3e6f0"><line x1="20" y1="180" x2="190" y2="180"/><line x1="105" y1="20" x2="105" y2="200"/></g>
+          <line x1="105" y1="180" x2="170" y2="180" stroke="#14b8a6" stroke-width="3"/>
+          <line x1="105" y1="180" x2="105" y2="110" stroke="#f59e0b" stroke-width="3"/>
+          <text x="60" y="210" font-size="12" fill="#767c93">before: normal grid</text>
+          <text x="225" y="105" font-size="26" fill="#4f46e5">→ A → </text>
+          <g stroke="#e3e6f0"><line x1="300" y1="180" x2="440" y2="180"/><line x1="370" y1="20" x2="370" y2="200"/></g>
+          <line x1="370" y1="180" x2="370" y2="115" stroke="#14b8a6" stroke-width="3"/>
+          <line x1="370" y1="180" x2="305" y2="180" stroke="#f59e0b" stroke-width="3"/>
+          <text x="300" y="210" font-size="12" fill="#767c93">after: rotated 90°</text>
+        </svg>
+        <figcaption>The matrix A grabs the whole grid and rotates it. î (teal) and ĵ (amber) land in new spots — those landing spots are A's columns.</figcaption>
+      </figure>
+
+      <p>The <strong>outer product</strong> \(\mathbf{a}\mathbf{b}^\top\) does the opposite of the dot product: it takes two vectors and builds a whole matrix (a rank-1 transformation). It's the atom that SVD (below) breaks matrices into.</p>
+
+      <h2>6. Eigenvectors: the directions a transformation doesn't knock off course</h2>
+      <p>When a matrix \(A\) transforms space, most arrows get knocked into a new direction. But a special few keep pointing exactly the same way — they only get stretched or shrunk. Those are the <strong>eigenvectors</strong>, and the stretch factor is the <strong>eigenvalue</strong> \(\lambda\):</p>
+      <p>\[ A\mathbf{v} = \lambda\mathbf{v} \]</p>
+      <p>Read it aloud: "applying the transformation \(A\) to \(\mathbf{v}\) does the same thing as simply scaling \(\mathbf{v}\) by \(\lambda\)." Eigenvectors are the <strong>skeleton</strong> of a transformation — its natural axes.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🌀</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Spin a globe. Almost every city moves. But the two poles stay put — they're on the axis of rotation. The rotation axis is the eigenvector of "spinning the Earth." Find a transformation's eigenvectors and you've found the directions along which it behaves most simply.</p>
+      </div>
+
+      <p><strong>Eigendecomposition</strong> rebuilds the whole matrix from its eigen-skeleton: \(A = Q\Lambda Q^{-1}\), where \(Q\) holds the eigenvectors and \(\Lambda\) is a diagonal matrix of eigenvalues. This is exactly the engine of <strong>PCA</strong> (Week 20): the eigenvectors of a data set's covariance matrix point along the directions of greatest variation — the data's "natural axes."</p>
+
+      <h2>7. SVD: the master decomposition</h2>
+      <p>Singular Value Decomposition says <em>any</em> matrix \(M\) — even non-square — can be written as three simple steps: <strong>rotate, stretch, rotate</strong>:</p>
+      <p>\[ M = U\,\Sigma\,V^\top \]</p>
+      <p>\(V^\top\) rotates, \(\Sigma\) (diagonal "singular values") stretches each axis, \(U\) rotates again. The singular values tell you which directions carry the most information. Keep only the biggest few and you've <strong>compressed</strong> the matrix while losing almost nothing — this is the math behind image compression, noise removal, topic modelling, and recommendation systems (the famous Netflix prize was SVD on a users × movies matrix).</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — eigen &amp; SVD</span></div>
+<pre><code class="language-python">import numpy as np
+
+A = np.array([[2., 1.],
+              [1., 2.]])
+
+# Eigen-decomposition: directions A only stretches (doesn't rotate)
+vals, vecs = np.linalg.eig(A)
+print(vals)            # eigenvalues  -> [3. 1.]
+print(vecs)            # eigenvectors (columns)
+
+# Verify A v = lambda v for the first eigenpair
+v0 = vecs[:, 0]
+print(np.allclose(A @ v0, vals[0] * v0))   # -> True
+
+# SVD: works on ANY matrix, even non-square
+M = np.array([[3., 1., 1.],
+              [-1., 3., 1.]])
+U, S, Vt = np.linalg.svd(M)
+print(S)               # singular values, largest first -> importance of each direction
+
+# Low-rank approximation: keep only the top singular value -> compression
+M_approx = U[:, :1] @ np.diag(S[:1]) @ Vt[:1, :]
+print(np.round(M_approx, 2))   # a compressed stand-in for M</code></pre>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Eigenvectors + SVD are not abstract trivia — they're the literal mechanism of <strong>Week 20 (PCA &amp; LDA)</strong> for squeezing 1000-dimensional data down to 2D you can plot, and the intuition behind how <strong>word embeddings</strong> (Week 31) place similar words near each other. Next lesson, <strong>Calculus</strong>, gives us the other half of the toolkit: how to <em>tune</em> all these numbers automatically so a model improves.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=fNk_zzaMoSs&list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab" target="_blank" rel="noopener">Essence of Linear Algebra (full series)</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">The gold standard. Watch chapters 1–4 (vectors, linear combinations, matrices as transformations) before re-reading sections 1–5 above. It will feel like cheating.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=PFDu9oVAE-g" target="_blank" rel="noopener">Eigenvectors and eigenvalues</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">Chapter 14. The "globe's poles" picture, animated. Pairs perfectly with section 6.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://numpy.org/doc/stable/reference/routines.linalg.html" target="_blank" rel="noopener">NumPy linear algebra reference</a><span class="r-src">Your lookup table for every operation above: dot, norm, eig, svd, solve.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">Two vectors have a dot product of exactly 0. What does that tell you?</div>
+        <button class="opt">They are identical.</button>
+        <button class="opt">One is twice as long as the other.</button>
+        <button class="opt">They are perpendicular — "unrelated" directions.</button>
+        <button class="opt">The dot product can never be 0.</button>
+        <div class="explain">A zero dot product means the angle is 90°. In data terms, that's the geometric meaning of "uncorrelated." This is why orthogonality matters so much in PCA and beyond.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">The best one-line description of a matrix in this course is:</div>
+        <button class="opt">A spreadsheet for storing numbers.</button>
+        <button class="opt">A function that transforms space — it rotates, stretches and shears vectors.</button>
+        <button class="opt">A vector with extra rows.</button>
+        <button class="opt">A list of eigenvalues.</button>
+        <div class="explain">Thinking of a matrix as an <em>action</em> on space (where do î and ĵ land?) is what makes eigenvectors, SVD, and later neural-network layers click.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">An eigenvector of a matrix A is special because…</div>
+        <button class="opt">A only stretches/shrinks it (by λ) without changing its direction.</button>
+        <button class="opt">It always has length 1 and points up.</button>
+        <button class="opt">It turns A into the identity matrix.</button>
+        <button class="opt">It has no real-world use.</button>
+        <div class="explain">A v = λ v: the transformation leaves the eigenvector's direction untouched and merely scales it. These are the natural axes that PCA exploits.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

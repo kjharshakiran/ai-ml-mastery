@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 5 · Ship It — Deploy a Model + RAG Chatbot — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-project="p5">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Project 5</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Capstone Projects › Project 5</div>
+        <span class="eyebrow">🏆 Capstone Project 5 · The Finale</span>
+        <h1>Ship It — Deploy a Model + RAG Chatbot to the Cloud</h1>
+        <div class="lesson-meta"><span>🟡 Difficulty: Intermediate</span><span>🎯 From notebook to product</span><span>🧰 FastAPI · RAG · Embeddings · Docker · MLOps</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>What you'll build</h4>
+        <ul>
+          <li>A <strong>FastAPI</strong> service that wraps a model behind a clean HTTP endpoint.</li>
+          <li>A working <strong>RAG pipeline</strong>: chunk docs → embed → store vectors → retrieve by cosine similarity → stuff into a prompt.</li>
+          <li>A <code>retrieve()</code> built from scratch on NumPy cosine similarity — the dot product of <strong>Week 2</strong>, in production.</li>
+          <li>A <strong>Dockerfile</strong> that containerises the whole thing into one reproducible image.</li>
+          <li>A concrete plan for cloud deployment, scaling, and <strong>monitoring</strong> (MLOps).</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A trained model sitting in a notebook helps no one. How do you turn it into a service the world can call — and how do you give an LLM access to <em>your</em> private documents without retraining it?</div>
+      </div>
+
+      <div class="prose">
+
+      <p>The previous four projects built models. This one <em>ships</em> one. We'll also solve the single most common real-world LLM problem: the model knows the internet but not <em>your</em> company handbook. The answer is <strong>RAG — Retrieval-Augmented Generation</strong> (Week 34): instead of retraining, we look up the relevant passages and hand them to the model as context.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine a super-smart friend who has read most books but has never seen your school's rulebook. Instead of making them re-read everything, you let them keep the rulebook open and say "answer using these pages." That's RAG: when you ask a question, the computer quickly finds the most relevant pages from your documents and slips them to the AI before it answers. "Deploying" is just putting your smart friend behind a doorbell (an API) so anyone can ring and ask a question.</p>
+      </div>
+
+      <h2>The serving + RAG architecture</h2>
+
+      <figure class="figure">
+        <svg viewBox="0 0 760 250" aria-label="RAG and serving architecture">
+          <defs><marker id="ar5" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#767c93"/></marker></defs>
+          <g font-family="sans-serif" font-size="11" text-anchor="middle">
+            <text x="160" y="26" font-size="12" fill="#767c93">① Offline: index your docs</text>
+            <rect x="30"  y="38" width="96" height="40" rx="7" fill="#eef0fb" stroke="#4f46e5"/><text x="78" y="62">Docs → chunks</text>
+            <rect x="156" y="38" width="104" height="40" rx="7" fill="#e7faf6" stroke="#14b8a6"/><text x="208" y="58">Embed</text><text x="208" y="72" fill="#767c93">sentence-T</text>
+            <rect x="290" y="38" width="96" height="40" rx="7" fill="#e7faf6" stroke="#14b8a6"/><text x="338" y="62">Vector store</text>
+
+            <text x="160" y="120" font-size="12" fill="#767c93">② Online: answer a question</text>
+            <rect x="30"  y="132" width="86" height="44" rx="7" fill="#fde8ee" stroke="#f43f5e"/><text x="73" y="152">User Q</text><text x="73" y="167" fill="#767c93">via API</text>
+            <rect x="146" y="132" width="104" height="44" rx="7" fill="#e7faf6" stroke="#14b8a6"/><text x="198" y="152">Embed Q</text><text x="198" y="167" fill="#767c93">+ retrieve</text>
+            <rect x="280" y="132" width="116" height="44" rx="7" fill="#fff4e0" stroke="#f59e0b"/><text x="338" y="152">Top-k chunks</text><text x="338" y="167" fill="#767c93">cosine sim (W2)</text>
+            <rect x="426" y="132" width="116" height="44" rx="7" fill="#fff4e0" stroke="#f59e0b"/><text x="484" y="152">Prompt + ctx</text><text x="484" y="167" fill="#767c93">→ LLM</text>
+            <rect x="572" y="132" width="96" height="44" rx="7" fill="#fde8ee" stroke="#f43f5e"/><text x="620" y="158">Answer</text>
+
+            <rect x="430" y="200" width="120" height="36" rx="7" fill="#eef0fb" stroke="#4f46e5"/><text x="490" y="222" font-size="10.5">FastAPI + Docker</text>
+            <rect x="572" y="200" width="120" height="36" rx="7" fill="#eef0fb" stroke="#4f46e5"/><text x="632" y="222" font-size="10.5">Cloud + monitor</text>
+          </g>
+          <g stroke="#767c93" stroke-width="1.5" marker-end="url(#ar5)">
+            <line x1="126" y1="58" x2="154" y2="58"/><line x1="260" y1="58" x2="288" y2="58"/>
+            <line x1="116" y1="154" x2="144" y2="154"/><line x1="250" y1="154" x2="278" y2="154"/><line x1="396" y1="154" x2="424" y2="154"/><line x1="542" y1="154" x2="570" y2="154"/>
+            <line x1="338" y1="78" x2="240" y2="130" stroke-dasharray="4 3"/>
+          </g>
+        </svg>
+        <figcaption>Offline you index documents into vectors once. Online, a question is embedded, the closest chunks are retrieved by cosine similarity, then handed to the LLM as context. FastAPI + Docker package it; the cloud runs and watches it.</figcaption>
+      </figure>
+
+      <h2>Step 1 — Index documents: chunk &amp; embed</h2>
+      <p>We split documents into bite-sized chunks and turn each into a dense vector with a pretrained sentence-transformer — the exact "swap TF-IDF for embeddings" upgrade from Project 2, and the same "reuse a frozen pretrained model" pattern from Project 3.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step1_index.py</span></div>
+<pre><code class="language-python">import numpy as np
+from sentence_transformers import SentenceTransformer
+
+# A small, fast, pretrained embedding model (384-dim vectors).
+embedder = SentenceTransformer("all-MiniLM-L6-v2")
+
+# In reality you'd load &amp; split real files; here are a few "knowledge" chunks.
+docs = [
+    "Our refund policy allows returns within 30 days of purchase.",
+    "Standard shipping takes 3-5 business days within the country.",
+    "Premium members get free express shipping and priority support.",
+    "To reset your password, click 'Forgot password' on the login page.",
+]
+
+# Embed every chunk once, offline. Normalise so cosine == dot product.
+doc_vecs = embedder.encode(docs, normalize_embeddings=True)  # (4, 384)
+doc_vecs = np.asarray(doc_vecs, dtype=np.float32)
+print("indexed", doc_vecs.shape[0], "chunks of dim", doc_vecs.shape[1])
+</code></pre>
+
+      <h2>Step 2 — Retrieve with NumPy cosine similarity (Week 2!)</h2>
+      <p>The "vector database" is, at its core, this one function. Cosine similarity is the dot product of unit vectors — the very first similarity measure from Week 2, now deciding which passages an LLM gets to read:</p>
+      <p>\[ \cos\theta = \frac{\mathbf{q}\cdot\mathbf{d}}{\lVert\mathbf{q}\rVert\,\lVert\mathbf{d}\rVert} \]</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step2_retrieve.py</span></div>
+<pre><code class="language-python">def retrieve(query, k=2):
+    # Embed the query the SAME way we embedded the docs.
+    q = embedder.encode([query], normalize_embeddings=True)[0]  # (384,)
+    q = np.asarray(q, dtype=np.float32)
+
+    # Because both q and doc_vecs are unit-normalised, the dot product
+    # IS the cosine similarity. One matrix-vector multiply ranks every chunk.
+    scores = doc_vecs @ q                       # (n_docs,) similarity to query
+
+    # Take the indices of the k highest-scoring chunks.
+    top = np.argsort(scores)[::-1][:k]
+    return [(docs[i], float(scores[i])) for i in top]
+
+for chunk, score in retrieve("how long do I have to send something back?"):
+    print(f"{score:.3f}  {chunk}")
+# -> the refund-policy chunk ranks first, even though the wording differs.
+# That semantic match is why embeddings beat keyword search.
+</code></pre>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> A vector DB is just this, at scale</div>
+        <p style="margin-bottom:0">Pinecone, FAISS, Chroma and friends do exactly what <code>retrieve()</code> does — embed, then rank by cosine similarity — but with clever indexes (HNSW, IVF) so it stays fast across millions of vectors. The <em>idea</em> never changes: the dot product from Week 2 is the retrieval engine of every RAG system on earth.</p>
+      </div>
+
+      <h2>Step 3 — Assemble the prompt &amp; call the LLM</h2>
+      <p>RAG's final move: stuff the retrieved chunks into the prompt as context, instruct the model to answer <em>only</em> from them, and generate. This grounds the answer in your data and slashes hallucination.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step3_rag.py</span></div>
+<pre><code class="language-python">def build_prompt(query):
+    chunks = retrieve(query, k=2)
+    context = "\n".join(f"- {c}" for c, _ in chunks)
+    return (
+        "Answer the question using ONLY the context below. "
+        "If the answer isn't there, say you don't know.\n\n"
+        f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
+    )
+
+def answer(query):
+    prompt = build_prompt(query)
+    # Plug in any LLM here -- a local model, or a hosted API.
+    # For a fully offline demo you could even reuse the Mini-GPT from Project 4.
+    return call_llm(prompt)          # returns the generated answer string
+
+# print(answer("Can I return an item after three weeks?"))
+</code></pre>
+
+      <h2>Step 4 — Wrap it in a FastAPI endpoint</h2>
+      <p>FastAPI turns a Python function into a typed HTTP service in a few lines. Run it with <code>uvicorn app:app</code> and you have a real API with automatic docs at <code>/docs</code>.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">app.py</span></div>
+<pre><code class="language-python">from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI(title="RAG Chatbot")
+
+class Query(BaseModel):
+    question: str            # request schema -> auto-validated &amp; documented
+
+@app.get("/health")          # liveness probe for the cloud load balancer
+def health():
+    return {"status": "ok"}
+
+@app.post("/ask")
+def ask(q: Query):
+    chunks = retrieve(q.question, k=2)
+    return {
+        "answer": answer(q.question),
+        "sources": [c for c, _ in chunks],   # show provenance -> trust
+    }
+# Run locally:  uvicorn app:app --host 0.0.0.0 --port 8000
+# Then POST {"question": "..."} to http://localhost:8000/ask
+</code></pre>
+
+      <h2>Step 5 — Containerise with Docker</h2>
+      <p>A container freezes your code, dependencies and runtime into one image that runs identically on your laptop and in the cloud (Week 39). "Works on my machine" becomes "works everywhere."</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">Dockerfile</span></div>
+<pre><code class="language-docker"># Small, pinned base image for reproducibility.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install deps first so Docker can cache this layer between code changes.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the app (and the prebuilt vector index).
+COPY . .
+
+EXPOSE 8000
+# Production server: uvicorn workers behind the container's port.
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+</code></pre>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">📦</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">A Docker image is a shipping container for software. A ship doesn't care whether it's carrying bananas or bicycles — the container is a standard box that fits any crane, any port, any vessel. Likewise the cloud doesn't care what's inside your image; it just runs the box. That standardisation is what makes "deploy anywhere" possible.</p>
+      </div>
+
+      <h2>Step 6 — Deploy &amp; monitor (MLOps, Week 38)</h2>
+      <p>Shipping isn't done at deploy — it's done when you can <em>watch</em> it. The MLOps checklist (Week 38) that turns a container into a reliable product:</p>
+      <ul>
+        <li><strong>Build &amp; push:</strong> <code>docker build -t rag-bot .</code>, push to a registry (ECR/GCR/Docker Hub).</li>
+        <li><strong>Run it:</strong> a managed container service (Cloud Run, ECS, or Kubernetes) pulls the image and exposes the API behind autoscaling + HTTPS.</li>
+        <li><strong>Health checks:</strong> the platform pings <code>/health</code> and restarts unhealthy instances automatically.</li>
+        <li><strong>Monitor:</strong> log latency, error rate, and tokens/request; alert on spikes. Track answer quality and watch for <em>data drift</em> (questions changing over time).</li>
+        <li><strong>Iterate safely:</strong> version the model and the vector index; roll out behind a canary so a bad release hits 5% of traffic, not 100%.</li>
+      </ul>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots — full circle</div>
+        <p style="margin-bottom:0">We've closed the loop. The cosine-similarity <code>retrieve()</code> is the dot product of <strong>Week 2</strong>; the embeddings come from <strong>Week 31</strong>; RAG and the LLM are <strong>Week 34</strong>; and the Docker + monitoring discipline is <strong>Weeks 38–39</strong>. You started this course with "everything is a vector" — and you just shipped a product whose retrieval engine is literally one vector dot product. From a number in a vector to a thinking machine in the cloud. That's the whole journey.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🧰 Concepts you're reusing</h2>
+      <ul class="refs">
+        <li><span class="r-ic">📐</span><div><a href="../lessons/w02.html">Week 2 · Linear Algebra</a><span class="r-src">Cosine similarity — the dot product that powers <code>retrieve()</code>.</span></div></li>
+        <li><span class="r-ic">🔤</span><div><a href="../lessons/w31.html">Week 31 · Word Embeddings</a><span class="r-src">Dense semantic vectors — what the sentence-transformer produces.</span></div></li>
+        <li><span class="r-ic">✨</span><div><a href="../lessons/w34.html">Week 34 · LLMs &amp; RAG</a><span class="r-src">Retrieval-augmented generation, the core of Steps 2–3.</span></div></li>
+        <li><span class="r-ic">⚙️</span><div><a href="../lessons/w38.html">Week 38 · MLOps</a><span class="r-src">Deployment, monitoring and drift detection from Step 6.</span></div></li>
+        <li><span class="r-ic">☁️</span><div><a href="../lessons/w39.html">Week 39 · Cloud &amp; Containers</a><span class="r-src">The Docker image and managed-container deployment of Steps 5–6.</span></div></li>
+      </ul>
+
+      <h2>🚀 Make it your own</h2>
+      <ul>
+        <li><strong>Use a real vector DB.</strong> Swap the NumPy <code>retrieve()</code> for FAISS or Chroma and index thousands of your own documents.</li>
+        <li><strong>Add citations in the answer.</strong> Have the LLM cite which chunk each claim came from for full traceability.</li>
+        <li><strong>Stream the response.</strong> Return tokens as they generate with FastAPI's <code>StreamingResponse</code> for a snappy chat feel.</li>
+        <li><strong>Add a rerank stage.</strong> Retrieve 20 chunks by cosine, then use a cross-encoder to rerank the top 5 for sharper context.</li>
+        <li><strong>Wire up observability.</strong> Add Prometheus metrics and a dashboard for latency, request volume, and retrieval scores.</li>
+      </ul>
+
+      <nav class="pager"><a class="prev" href="../index.html">← Home</a><a class="next" href="../index.html">Back to course home →</a></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

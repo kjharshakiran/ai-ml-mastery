@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 22 · Random Forests &amp; Boosting — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w22">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 22</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 4 · Classical Machine Learning › Lesson 22</div>
+        <span class="eyebrow">🧮 Part 4 · Classical Machine Learning</span>
+        <h1>Ensemble Methods: Random Forests &amp; Boosting</h1>
+        <div class="lesson-meta"><span>⏱️ 50 min</span><span>🎯 Many weak models, one strong one</span><span>📦 Week 22</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain why a crowd of models beats a single model ("wisdom of crowds").</li>
+          <li>Describe the combiner: <strong>voting</strong> for classification, <strong>averaging</strong> for regression.</li>
+          <li>Build a <strong>random forest</strong> via bagging — many trees on bootstrap samples with random features.</li>
+          <li>Build <strong>AdaBoost</strong> — sequential learners each fixing the last one's mistakes.</li>
+          <li>Contrast bagging (cuts variance) with boosting (cuts bias), in code.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A single decision tree is shaky and overfits. So why not just ask a thousand slightly-different trees and let them vote — and would that actually be better?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. The wisdom of crowds</h2>
+      <p>At a county fair in 1906, 800 people guessed the weight of an ox. No individual was exactly right, but the <em>average</em> of all guesses was off by just one pound. That's an <strong>ensemble</strong>: combine many imperfect predictions and the random errors cancel out, leaving the signal. In machine learning, an ensemble combines many models — usually the wobbly decision trees from Week 21 — into one prediction that's far more accurate and stable than any single tree.</p>
+      <p>The magic only works under one condition: the models must make <strong>different</strong> mistakes. A thousand identical trees just repeat the same error a thousand times. So every ensemble method is really a recipe for forcing <em>diversity</em> among its members.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Ask one friend to guess how many jellybeans are in a jar and they'll probably be way off. But ask the whole class and average everyone's guess — it's spookily close. Each kid's mistake (too high, too low) cancels someone else's. An ensemble is a classroom of models taking a vote.</p>
+      </div>
+
+      <h2>2. The combiner: voting and averaging</h2>
+      <p>Once you have many trained models, a <strong>combiner</strong> merges their outputs:</p>
+      <ul>
+        <li><strong>Classification → majority vote.</strong> Each model casts a ballot for a class; the class with the most votes wins. (Or "soft voting": average the predicted probabilities.)</li>
+        <li><strong>Regression → averaging.</strong> Take the mean of all the models' numeric predictions.</li>
+      </ul>
+      <p>Simple as it is, this is mathematically powerful. If each of \(M\) models has error variance \(\sigma^2\) and their errors are <em>independent</em>, the variance of their average collapses:</p>
+      <p>\[ \operatorname{Var}\!\left(\frac{1}{M}\sum_{m=1}^{M} f_m\right) = \frac{\sigma^2}{M} \]</p>
+      <p>More members → less variance — the same reason a survey of 1000 people is far more reliable than asking one. (In reality trees aren't perfectly independent, so the gain is smaller, which is exactly why we work so hard to make them diverse.)</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 440 200" aria-label="Many trees voting on a class">
+          <!-- three little trees -->
+          <g stroke="#14b8a6" stroke-width="2" fill="none">
+            <path d="M55 70 v25 M55 70 l-18 18 M55 70 l18 18"/>
+            <path d="M55 95 v20"/></g>
+          <text x="40" y="135" font-size="11" fill="#767c93">tree 1 → A</text>
+          <g stroke="#14b8a6" stroke-width="2" fill="none">
+            <path d="M170 70 v25 M170 70 l-18 18 M170 70 l18 18"/>
+            <path d="M170 95 v20"/></g>
+          <text x="155" y="135" font-size="11" fill="#767c93">tree 2 → B</text>
+          <g stroke="#14b8a6" stroke-width="2" fill="none">
+            <path d="M285 70 v25 M285 70 l-18 18 M285 70 l18 18"/>
+            <path d="M285 95 v20"/></g>
+          <text x="270" y="135" font-size="11" fill="#767c93">tree 3 → A</text>
+          <text x="345" y="100" font-size="20" fill="#767c93">→</text>
+          <rect x="370" y="78" width="56" height="34" rx="6" fill="#eef0fb" stroke="#4f46e5"/>
+          <text x="398" y="100" font-size="13" fill="#4f46e5" text-anchor="middle">vote: A</text>
+          <text x="120" y="180" font-size="12" fill="#767c93">Each tree votes; the majority (A) wins.</text>
+        </svg>
+        <figcaption>The combiner tallies the trees' votes. Two trees say A, one says B → the ensemble predicts A.</figcaption>
+      </figure>
+
+      <h2>3. Random Forest: bagging trees</h2>
+      <p>A <strong>random forest</strong> is the most popular ensemble, built on <strong>bagging</strong> (bootstrap aggregating). The diversity comes from two tricks:</p>
+      <ol>
+        <li><strong>Bootstrap samples.</strong> For each tree, draw a random sample of the rows <em>with replacement</em> — so each tree sees a slightly different dataset.</li>
+        <li><strong>Random feature subsets.</strong> At each split, the tree may only consider a random handful of the features (e.g. \(\sqrt{d}\) of them). This stops every tree from leaning on the same one dominant feature.</li>
+      </ol>
+      <p>Grow many such trees (deep, unpruned — they're <em>supposed</em> to overfit individually), then combine by voting/averaging. Each tree is high-variance on its own, but their errors are decorrelated, so averaging cancels the variance and leaves a stable, accurate model. Bagging's job is to <strong>reduce variance</strong>.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🌲</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Imagine diagnosing an illness by polling 500 doctors — but each doctor only saw a random subset of your symptoms and a random subset of your test results. No single one has the full picture, yet their majority opinion is remarkably reliable, because no shared blind spot can fool all of them at once. That deliberate "partial information" is bagging.</p>
+      </div>
+
+      <h2>4. Boosting &amp; AdaBoost: learn from your mistakes</h2>
+      <p>Boosting takes the opposite philosophy. Instead of training many trees <em>independently</em> and averaging, it trains them <strong>sequentially</strong>, where each new model focuses on the examples the previous ones got <em>wrong</em>.</p>
+      <p><strong>AdaBoost</strong> (Adaptive Boosting), the classic, works like this:</p>
+      <ol>
+        <li>Give every training point equal weight. Train a weak learner (often a tiny "stump" — a depth-1 tree).</li>
+        <li><strong>Increase the weight</strong> of the points it misclassified, so the next learner pays them more attention.</li>
+        <li>Train the next weak learner on the reweighted data; repeat.</li>
+        <li>Combine all learners by a <strong>weighted</strong> vote — more accurate learners get a louder say.</li>
+      </ol>
+      <p>Each learner is barely better than guessing, but chained together — each cleaning up the last one's errors — they form a strong classifier. Because boosting keeps attacking the errors the model still makes, its job is to <strong>reduce bias</strong> (turn underfitting weak learners into a sharp one).</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0"><strong>Bagging (random forest)</strong> trains many strong trees <em>in parallel</em> and averages them to <strong>reduce variance</strong>. <strong>Boosting (AdaBoost, gradient boosting)</strong> trains weak learners <em>in sequence</em>, each fixing the last's mistakes, to <strong>reduce bias</strong>. Parallel-and-average vs sequential-and-correct.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">scikit-learn — single tree vs forest vs boosting</span></div>
+<pre><code class="language-python">from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import cross_val_score
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+
+X, y = load_breast_cancer(return_X_y=True)
+
+models = {
+    "single tree":   DecisionTreeClassifier(random_state=0),
+    "random forest": RandomForestClassifier(n_estimators=200, random_state=0),  # bagging
+    "adaboost":      AdaBoostClassifier(n_estimators=200, random_state=0),       # boosting
+}
+
+# 5-fold cross-validation accuracy for a fair comparison
+for name, model in models.items():
+    acc = cross_val_score(model, X, y, cv=5).mean()
+    print(f"{name:<14} accuracy: {acc:.3f}")
+# Typical output:
+#   single tree    accuracy: 0.92
+#   random forest  accuracy: 0.96   <- ensembles beat the single tree
+#   adaboost       accuracy: 0.97</code></pre>
+
+      <p>Run it and the pattern is reliable: both ensembles comfortably beat the lone tree. The single tree is high-variance and brittle; pooling 200 of them — whether by bagging or boosting — produces a markedly stronger, steadier classifier.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Common Pitfall</div>
+        <p style="margin-bottom:0">Boosting <em>can</em> overfit if you add too many rounds or use a high learning rate, because it keeps chasing the remaining (sometimes noisy) errors. Random forests, by contrast, rarely overfit from adding more trees — extra trees just refine the average. Tune boosting's number of estimators and learning rate carefully.</p>
+      </div>
+
+      <h2>5. Where ensembles sit in the toolbox</h2>
+      <p>Random forests and gradient-boosted trees (XGBoost, LightGBM) are, for <strong>tabular data</strong>, often the single best thing you can reach for — frequently beating neural networks on spreadsheets and routinely topping Kaggle leaderboards. They need little tuning, ignore feature scale (they're trees underneath, Week 19), give feature importances, and handle mixed data gracefully. For most "rows and columns" problems, an ensemble of trees is the smart baseline — and often the final model.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Ensembles are built directly on the <strong>decision trees of Week 21</strong> — bagging cures their high variance, boosting cures their bias (the <strong>bias–variance</strong> idea from <strong>Week 14</strong>). These are among the strongest classical models and the natural <strong>baseline for Project 1</strong>'s tabular pipeline. <strong>Gradient boosting</strong>, boosting's modern heir, is the reigning champion of tabular data. Next week we leave supervised learning behind for <strong>clustering</strong> — finding structure with no labels at all.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=J4Wdy0Wc_xQ" target="_blank" rel="noopener">StatQuest: Random Forests Part 1 — Building, Using and Evaluating</a><span class="r-src">The clearest walk-through of bootstrap samples and the vote. Pair with section 3.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=LsK-xG1cLYA" target="_blank" rel="noopener">StatQuest: AdaBoost, Clearly Explained</a><span class="r-src">Stumps, sample reweighting, and weighted votes, step by step — exactly section 4.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://scikit-learn.org/stable/modules/ensemble.html" target="_blank" rel="noopener">scikit-learn: Ensemble methods</a><span class="r-src">Reference for <code>RandomForestClassifier</code>, <code>AdaBoostClassifier</code>, and gradient boosting — the next step beyond this lesson.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">What makes a random forest's trees diverse enough to be worth combining?</div>
+        <button class="opt">They are trained one after another to fix mistakes.</button>
+        <button class="opt">Each tree sees a bootstrap sample of rows and a random subset of features at each split.</button>
+        <button class="opt">They all use the same data but different colours.</button>
+        <button class="opt">Each tree is pruned to depth 1.</button>
+        <div class="explain">Random forests inject diversity two ways: bootstrap (random rows with replacement) and random feature subsets per split. Decorrelated trees make different mistakes, so averaging them cancels variance.</div>
+      </div>
+      <div class="quiz" data-answer="3">
+        <div class="q">How does AdaBoost differ fundamentally from bagging?</div>
+        <button class="opt">It uses neural networks instead of trees.</button>
+        <button class="opt">It trains all models in parallel and averages them.</button>
+        <button class="opt">It never reweights any data.</button>
+        <button class="opt">It trains learners sequentially, up-weighting the points the previous learner got wrong.</button>
+        <div class="explain">Boosting is sequential: after each weak learner, misclassified points get more weight so the next learner focuses on them. Bagging trains independent models in parallel and averages — a completely different strategy.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">Bagging primarily reduces ____ while boosting primarily reduces ____.</div>
+        <button class="opt">variance; bias</button>
+        <button class="opt">bias; variance</button>
+        <button class="opt">accuracy; speed</button>
+        <button class="opt">depth; width</button>
+        <div class="explain">Bagging averages many high-variance trees to cut variance. Boosting chains weak (high-bias) learners that each correct prior errors, cutting bias. Knowing which lever you need guides the choice.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

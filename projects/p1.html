@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 1 · The Tabular ML Pipeline — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-project="p1">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Project 1</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Capstone Projects › Project 1</div>
+        <span class="eyebrow">🏆 Capstone Project 1</span>
+        <h1>The Tabular ML Pipeline</h1>
+        <div class="lesson-meta"><span>🟢 Difficulty: Foundational</span><span>🎯 The full classical-ML workflow</span><span>🧰 EDA · Regression · Trees · Ensembles · PCA · k-Means</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>What you'll build</h4>
+        <ul>
+          <li>A complete, reproducible pipeline that goes from a raw table to <strong>insight + predictions</strong>.</li>
+          <li>An EDA pass that <em>listens</em> to the data: <code>describe()</code>, missing-value audit, correlation heatmap.</li>
+          <li>A preprocessing stage that scales numbers and encodes categories the right way (fit on train only).</li>
+          <li>A model bake-off: Logistic Regression vs Decision Tree vs Random Forest, judged with accuracy, precision, recall and a confusion matrix.</li>
+          <li>An unsupervised finale: <strong>PCA</strong> to compress and visualise, then <strong>k-Means</strong> to discover natural groups.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">Given nothing but a spreadsheet of rows and columns, how do professionals turn it into a trustworthy model — and how do they know which model to trust?</div>
+      </div>
+
+      <div class="prose">
+
+      <p>This is the project every working data scientist runs in their sleep. We'll use the classic <strong>Iris</strong> dataset (150 flowers, 4 measurements, 3 species) because it's small enough to see end-to-end yet rich enough to exercise every step you learned in Parts 1–4. The same skeleton scales unchanged to Titanic, California housing, or your company's churn table — only the columns change.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine a box of mixed flowers and a ruler. You measure each flower, write the numbers in a notebook, and notice "the ones with long skinny petals are always the same kind." A computer does exactly this, just faster: it reads the measurement notebook, finds the patterns, and then guesses the species of a brand-new flower it has never seen. This project is teaching the computer to be that flower-guesser — and then checking how often it's right.</p>
+      </div>
+
+      <h2>The pipeline at a glance</h2>
+      <p>Every tabular project flows through the same seven stations. Keep this map in your head; the code below is just each box made real.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 760 150" aria-label="The tabular ML pipeline flow">
+          <defs><marker id="ar1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#767c93"/></marker></defs>
+          <g font-family="sans-serif" font-size="11" text-anchor="middle">
+            <rect x="8"   y="50" width="86" height="48" rx="8" fill="#eef0fb" stroke="#4f46e5"/><text x="51"  y="71">Load</text><text x="51" y="86" fill="#767c93">CSV → DataFrame</text>
+            <rect x="118" y="50" width="86" height="48" rx="8" fill="#eef0fb" stroke="#4f46e5"/><text x="161" y="71">EDA</text><text x="161" y="86" fill="#767c93">describe · corr</text>
+            <rect x="228" y="50" width="96" height="48" rx="8" fill="#e7faf6" stroke="#14b8a6"/><text x="276" y="71">Preprocess</text><text x="276" y="86" fill="#767c93">scale · encode</text>
+            <rect x="348" y="50" width="86" height="48" rx="8" fill="#e7faf6" stroke="#14b8a6"/><text x="391" y="71">Split</text><text x="391" y="86" fill="#767c93">train / test</text>
+            <rect x="458" y="50" width="96" height="48" rx="8" fill="#fff4e0" stroke="#f59e0b"/><text x="506" y="71">Train</text><text x="506" y="86" fill="#767c93">3 models</text>
+            <rect x="578" y="50" width="86" height="48" rx="8" fill="#fff4e0" stroke="#f59e0b"/><text x="621" y="71">Evaluate</text><text x="621" y="86" fill="#767c93">acc · P/R · CM</text>
+            <rect x="668" y="50" width="86" height="48" rx="8" fill="#fde8ee" stroke="#f43f5e"/><text x="711" y="71">PCA +</text><text x="711" y="86">k-Means</text>
+          </g>
+          <g stroke="#767c93" stroke-width="1.5" marker-end="url(#ar1)">
+            <line x1="94" y1="74" x2="116" y2="74"/><line x1="204" y1="74" x2="226" y2="74"/><line x1="324" y1="74" x2="346" y2="74"/>
+            <line x1="434" y1="74" x2="456" y2="74"/><line x1="554" y1="74" x2="576" y2="74"/><line x1="664" y1="74" x2="666" y2="74"/>
+          </g>
+        </svg>
+        <figcaption>The seven stations of a tabular pipeline. Supervised path ends at "Evaluate"; the unsupervised epilogue (PCA + k-Means) explores structure with no labels at all.</figcaption>
+      </figure>
+
+      <h2>Step 1 — Load the data &amp; run EDA</h2>
+      <p>Exploratory Data Analysis (Week 8) is where you <em>listen</em> before you model. Three questions answer 90% of "is this data healthy?": what do the columns look like (<code>describe</code>), is anything missing, and which features move together (<code>corr</code>)?</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step1_eda.py</span></div>
+<pre><code class="language-python">import numpy as np
+import pandas as pd
+from sklearn.datasets import load_iris
+
+# Load the classic Iris dataset as a tidy DataFrame.
+iris = load_iris(as_frame=True)
+df = iris.frame                      # 4 feature columns + a 'target' column (0/1/2)
+df["species"] = df["target"].map(dict(enumerate(iris.target_names)))
+
+print(df.shape)                      # -> (150, 6)
+print(df["species"].value_counts()) # -> 50 of each class: perfectly balanced
+
+# --- EDA question 1: what do the numbers look like? ---
+print(df.describe())                 # count, mean, std, min, quartiles, max per column
+
+# --- EDA question 2: is anything missing? ---
+print(df.isna().sum())               # -> all zeros here; on real data, this is gold
+
+# --- EDA question 3: which features move together? ---
+corr = df[iris.feature_names].corr() # Pearson correlation matrix (-1..1)
+print(corr.round(2))
+# petal length &amp; petal width correlate ~0.96 -> they carry near-identical info.
+# That redundancy is exactly what PCA (Step 5) will exploit.
+</code></pre>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> Read the correlation matrix like a pro</div>
+        <p style="margin-bottom:0">Two features correlated near \(\pm 1\) are nearly redundant — they're almost the same column wearing different hats. High correlation hints that the data secretly lives in fewer dimensions than it has columns, which is the entire premise of PCA in Step 5. Correlation is just the dot product of two mean-centred, normalised columns — the linear algebra from Week 2 made practical.</p>
+      </div>
+
+      <h2>Step 2 — Preprocess: scale &amp; split</h2>
+      <p>Models that measure <em>distance</em> (k-NN, k-Means) or use gradient descent (logistic regression) are sensitive to scale. A feature measured in centimetres shouldn't dominate one measured in millimetres just because its numbers are bigger. We standardise to mean 0, variance 1 (Week 19):</p>
+      <p>\[ z = \frac{x - \mu}{\sigma} \]</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> The cardinal sin: data leakage</div>
+        <p style="margin-bottom:0">Always <code>fit</code> the scaler on the <strong>training set only</strong>, then <code>transform</code> both sets. If you fit on all the data, your test set has secretly peeked at the training statistics and your scores will be optimistically wrong. Split first, scale second.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step2_preprocess.py</span></div>
+<pre><code class="language-python">from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+X = df[iris.feature_names].values    # (150, 4) feature matrix
+y = df["target"].values              # (150,)   integer labels 0/1/2
+
+# Split FIRST so the test set stays a true unseen sample.
+# stratify=y keeps the 3 classes balanced in both halves.
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y)
+
+# Fit the scaler on TRAIN ONLY, then apply to both. No leakage.
+scaler = StandardScaler().fit(X_train)
+X_train_s = scaler.transform(X_train)
+X_test_s  = scaler.transform(X_test)
+
+print(X_train_s.mean(axis=0).round(2))  # ~[0 0 0 0]  (centred)
+print(X_train_s.std(axis=0).round(2))   # ~[1 1 1 1]  (unit variance)
+
+# NOTE on encoding: Iris is all-numeric. For a dataset with categorical
+# columns (e.g. Titanic's 'Sex', 'Embarked') you would one-hot encode them:
+#   from sklearn.preprocessing import OneHotEncoder
+#   OneHotEncoder(handle_unknown="ignore").fit_transform(cat_cols)
+</code></pre>
+
+      <h2>Step 3 — Train three models</h2>
+      <p>We pit three workhorses against each other. Each makes a different bet about the world, and seeing them side by side builds your instinct for <em>which</em> to reach for:</p>
+      <ul>
+        <li><strong>Logistic Regression</strong> (Week 13/25) — draws straight decision boundaries. Fast, interpretable, a great baseline.</li>
+        <li><strong>Decision Tree</strong> (Week 21) — asks a cascade of yes/no questions. Captures non-linear rules; prone to overfitting.</li>
+        <li><strong>Random Forest</strong> (Week 22) — a committee of many trees that vote. Usually the strongest off-the-shelf tabular model.</li>
+      </ul>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🌳</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">A single decision tree is one opinionated expert who can be confidently wrong. A random forest is a <em>room full</em> of experts, each shown a slightly different slice of the evidence, then taking a vote. The crowd's average cancels out individual quirks — that's why ensembles (Week 22) so reliably beat any one model.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step3_train.py</span></div>
+<pre><code class="language-python">from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+
+models = {
+    "Logistic Regression": LogisticRegression(max_iter=200),
+    "Decision Tree":       DecisionTreeClassifier(max_depth=3, random_state=42),
+    "Random Forest":       RandomForestClassifier(n_estimators=200, random_state=42),
+}
+
+# .fit() learns the parameters from the scaled training data.
+for name, model in models.items():
+    model.fit(X_train_s, y_train)
+    print(f"{name:22s} trained.")
+</code></pre>
+
+      <h2>Step 4 — Evaluate: accuracy, precision, recall, confusion matrix</h2>
+      <p>Accuracy alone lies on imbalanced data. The full picture (Week 15) needs <strong>precision</strong> ("when the model says class A, how often is it right?") and <strong>recall</strong> ("of all the true class-A items, how many did it catch?"):</p>
+      <p>\[ \text{precision}=\frac{TP}{TP+FP},\qquad \text{recall}=\frac{TP}{TP+FN} \]</p>
+      <p>The <strong>confusion matrix</strong> shows exactly <em>which</em> classes get mixed up — its diagonal is correct predictions, off-diagonal are the mistakes.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step4_evaluate.py</span></div>
+<pre><code class="language-python">from sklearn.metrics import (accuracy_score, classification_report,
+                             confusion_matrix)
+
+for name, model in models.items():
+    y_pred = model.predict(X_test_s)
+    acc = accuracy_score(y_test, y_pred)
+    print(f"\n=== {name} (accuracy={acc:.3f}) ===")
+
+    # Per-class precision / recall / F1 in one tidy table.
+    print(classification_report(y_test, y_pred,
+                                target_names=iris.target_names))
+
+    # Rows = true class, columns = predicted class. Diagonal = correct.
+    print("Confusion matrix:\n", confusion_matrix(y_test, y_pred))
+
+# On Iris you'll see all three models hit ~0.95-1.00 accuracy.
+# The only confusions are between versicolor &amp; virginica -- the two
+# species whose petals overlap. setosa is linearly separable and never missed.
+#
+# REGRESSION NOTE: on a numeric-target dataset (e.g. California housing)
+# you'd swap to LinearRegression / RandomForestRegressor and score with RMSE:
+#   from sklearn.metrics import mean_squared_error
+#   rmse = mean_squared_error(y_test, y_pred, squared=False)
+</code></pre>
+
+      <h2>Step 5 — PCA: compress 4D to 2D and look</h2>
+      <p>We have 4 features — impossible to plot directly. <strong>PCA</strong> (Week 20) finds the directions of greatest variance (the top eigenvectors of the covariance matrix — straight from Week 2) and projects onto the best two, so we can <em>see</em> the data with our own eyes while keeping most of the information.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step5_pca.py</span></div>
+<pre><code class="language-python">from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+
+# Reduce 4 features -> 2 principal components on the scaled data.
+pca = PCA(n_components=2).fit(X_train_s)
+X_train_2d = pca.transform(X_train_s)
+
+# How much information did we keep? (variance captured by each PC)
+print(pca.explained_variance_ratio_)        # ~[0.73, 0.23]
+print(pca.explained_variance_ratio_.sum())  # ~0.96 -> 2 dims hold 96% of the signal!
+
+plt.figure(figsize=(6, 5))
+for cls, name in enumerate(iris.target_names):
+    pts = X_train_2d[y_train == cls]
+    plt.scatter(pts[:, 0], pts[:, 1], label=name, alpha=0.8)
+plt.xlabel("PC 1"); plt.ylabel("PC 2"); plt.legend(); plt.title("Iris in 2D via PCA")
+plt.tight_layout(); plt.savefig("iris_pca.png", dpi=120)
+# The plot shows setosa floating off alone; versicolor &amp; virginica touching.
+# Exactly the structure the confusion matrix predicted -- now made visible.
+</code></pre>
+
+      <h2>Step 6 — k-Means: discover groups with no labels</h2>
+      <p>Final twist: <em>forget the labels</em>. Can the data find its own groups? <strong>k-Means</strong> (Week 23) places \(k\) centroids and iterates "assign each point to the nearest centroid, then move each centroid to the mean of its points" until things settle. We ask for \(k=3\) and check whether the clusters it invents match the real species.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step6_kmeans.py</span></div>
+<pre><code class="language-python">from sklearn.cluster import KMeans
+from sklearn.metrics import adjusted_rand_score
+
+# Cluster the FULL scaled dataset -- unsupervised, labels never touched.
+X_all = scaler.transform(X)                 # reuse the train-fitted scaler
+km = KMeans(n_clusters=3, n_init=10, random_state=42).fit(X_all)
+clusters = km.labels_
+
+# Adjusted Rand Index compares the discovered clusters to the true species.
+# 1.0 = perfect agreement, 0.0 = random. (Cluster *numbers* won't match
+# class numbers, but ARI is invariant to relabelling.)
+ari = adjusted_rand_score(y, clusters)
+print(f"Adjusted Rand Index: {ari:.3f}")    # ~0.62 -> structure recovered well
+# k-Means rediscovers setosa cleanly and roughly separates the other two,
+# all without ever seeing a single label. That is unsupervised learning.
+</code></pre>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This one project chained together <strong>Week 8 (EDA)</strong>, <strong>Weeks 13–14 (regression)</strong>, <strong>Week 15 (classifier evaluation)</strong>, <strong>Weeks 19–20 (scaling &amp; PCA)</strong>, <strong>Weeks 21–22 (trees &amp; ensembles)</strong>, and <strong>Week 23 (clustering)</strong> — and every distance, projection and correlation traced back to the vectors of <strong>Week 2</strong>. Next, Project 2 takes this exact load → vectorise → train → evaluate spine and points it at <em>text</em>, where the hard part becomes turning words into numbers.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🧰 Concepts you're reusing</h2>
+      <ul class="refs">
+        <li><span class="r-ic">📐</span><div><a href="../lessons/w02.html">Week 2 · Linear Algebra</a><span class="r-src">Vectors, dot products and eigenvectors — the foundation under correlation, distance and PCA.</span></div></li>
+        <li><span class="r-ic">📊</span><div><a href="../lessons/w08.html">Week 8 · Exploratory Data Analysis</a><span class="r-src"><code>describe</code>, missing-value audits and correlation — the listening step.</span></div></li>
+        <li><span class="r-ic">📈</span><div><a href="../lessons/w13.html">Weeks 13–14 · Regression</a><span class="r-src">Linear models, overfitting and the train/test discipline used throughout.</span></div></li>
+        <li><span class="r-ic">🎯</span><div><a href="../lessons/w15.html">Week 15 · Evaluating Classifiers</a><span class="r-src">Accuracy, precision, recall and the confusion matrix from Step 4.</span></div></li>
+        <li><span class="r-ic">🔻</span><div><a href="../lessons/w19.html">Weeks 19–20 · Normalisation &amp; PCA</a><span class="r-src">Standardisation and the eigen-based projection used in Steps 2 and 5.</span></div></li>
+        <li><span class="r-ic">🌳</span><div><a href="../lessons/w21.html">Weeks 21–23 · Trees, Ensembles &amp; Clustering</a><span class="r-src">Decision trees, random forests and k-Means — the models of Steps 3 and 6.</span></div></li>
+      </ul>
+
+      <h2>🚀 Make it your own</h2>
+      <ul>
+        <li><strong>Swap the dataset.</strong> Re-run the whole pipeline on Titanic (add one-hot encoding for <code>Sex</code>/<code>Embarked</code>) or California housing (switch to regressors + RMSE). The skeleton barely changes — that's the point.</li>
+        <li><strong>Tune hyperparameters.</strong> Wrap the models in <code>GridSearchCV</code> with 5-fold cross-validation and let the data pick <code>max_depth</code> and <code>n_estimators</code>.</li>
+        <li><strong>Add gradient boosting.</strong> Drop in <code>XGBoost</code> or <code>HistGradientBoostingClassifier</code> as a fourth contender and see if it dethrones the random forest.</li>
+        <li><strong>Find the best k.</strong> Run k-Means for \(k = 2 \dots 8\) and plot the elbow (inertia) or silhouette score to justify the cluster count instead of assuming 3.</li>
+        <li><strong>Explain it.</strong> Use <code>permutation_importance</code> or SHAP to rank which measurement matters most for the prediction.</li>
+      </ul>
+
+      <nav class="pager"><a class="prev" href="../index.html">← Home</a><a class="next" href="p2.html">Project 2: Text Classifier →</a></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 18 · SVM II: Margins, Kernels &amp; the Kernel Trick — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w18">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 18</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 4 · Classical Machine Learning › Lesson 18</div>
+        <span class="eyebrow">🧮 Part 4 · Classical Machine Learning</span>
+        <h1>SVM II: Margins, Kernels &amp; the Kernel Trick</h1>
+        <div class="lesson-meta"><span>⏱️ 60 min</span><span>🎯 The widest, safest boundary</span><span>📦 Week 18</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain the SVM idea: of all separating lines, pick the one with the <strong>widest margin</strong>.</li>
+          <li>Identify <strong>support vectors</strong> and why they alone define the boundary.</li>
+          <li>Use a <strong>soft margin</strong> (slack, the parameter <em>C</em>) when classes overlap.</li>
+          <li>Bend boundaries with <strong>feature maps</strong>, and apply the <strong>kernel trick</strong> (RBF, polynomial).</li>
+          <li>Handle more than two classes with one-vs-rest / one-vs-one.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">The perceptron stops at <em>any</em> line that separates the data — even one that skims dangerously close to the points. But infinitely many lines separate two clusters. Which one is <em>best</em>, and how could we ever draw a straight boundary through data that's clearly not straight-separable?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. The SVM idea: don't just separate — separate with room to spare</h2>
+      <p>A <strong>Support Vector Machine (SVM)</strong> is a discriminative classifier (like last week's perceptron) with one powerful upgrade: among all the lines that split the two classes, it chooses the one that sits as <em>far as possible</em> from the nearest points on both sides. That cushion of empty space is the <strong>margin</strong>, and maximising it is what makes SVMs so robust on new data.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Two crowds stand in a field and you must paint a line between them. You <em>could</em> paint it right next to one crowd — but then one wobble and someone's on the wrong side. The smart move is to paint it down the <strong>middle of the widest empty lane</strong>, as far from both crowds as possible. That widest lane is the SVM's margin.</p>
+      </div>
+
+      <h2>2. The maximum-margin hyperplane</h2>
+      <p>Picture the boundary as a street with two gutters touching the closest points of each class. The SVM finds the boundary that makes this street as <strong>wide</strong> as possible. With labels \(y_i\in\{-1,+1\}\), the width of the margin works out to \(2/\lVert\mathbf{w}\rVert\), so maximising the margin means <em>minimising</em> \(\lVert\mathbf{w}\rVert\) subject to every point sitting on the correct side of its gutter:</p>
+      <p>\[ \min_{\mathbf{w},b}\ \tfrac{1}{2}\lVert\mathbf{w}\rVert^2 \quad \text{subject to}\quad y_i(\mathbf{w}\cdot\mathbf{x}_i + b) \ge 1 \ \ \forall i \]</p>
+      <p>The handful of points that land exactly on the gutters are the <strong>support vectors</strong>. They are the <em>only</em> points that matter — delete every other point and the boundary doesn't move. That's why SVMs are memory-efficient and resistant to outliers far from the boundary.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 380 250" aria-label="Maximum-margin hyperplane with margins and circled support vectors">
+          <rect x="20" y="20" width="340" height="210" fill="none" stroke="#e3e6f0"/>
+          <!-- margin gutters -->
+          <line x1="55" y1="225" x2="300" y2="40" stroke="#767c93" stroke-dasharray="5 4"/>
+          <line x1="95" y1="240" x2="340" y2="55" stroke="#767c93" stroke-dasharray="5 4"/>
+          <!-- decision boundary -->
+          <line x1="75" y1="233" x2="320" y2="48" stroke="#4f46e5" stroke-width="2.5"/>
+          <text x="255" y="45" font-size="12" fill="#4f46e5">w·x + b = 0</text>
+          <!-- class +1 teal (upper-left) -->
+          <circle cx="80" cy="70" r="7" fill="#14b8a6"/>
+          <circle cx="120" cy="60" r="7" fill="#14b8a6"/>
+          <circle cx="110" cy="110" r="7" fill="#14b8a6" stroke="#111" stroke-width="2"/>
+          <!-- class -1 rose (lower-right) -->
+          <rect x="245" y="170" width="13" height="13" fill="#f43f5e"/>
+          <rect x="290" y="150" width="13" height="13" fill="#f43f5e"/>
+          <rect x="220" y="150" width="13" height="13" fill="#f43f5e" stroke="#111" stroke-width="2"/>
+          <text x="150" y="150" font-size="11" fill="#767c93">← margin →</text>
+          <text x="30" y="215" font-size="11" fill="#111">◯ circled = support vectors</text>
+        </svg>
+        <figcaption>The solid line is the boundary; the dashed gutters touch the closest points. SVM maximises the gap between gutters. The circled points are support vectors — they alone pin the boundary in place.</figcaption>
+      </figure>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">The SVM margin is the <strong>widest safety gap</strong> between the two classes. A wide gap means the boundary is confident and generalises well; only the borderline points (support vectors) get a vote in where it goes.</p>
+      </div>
+
+      <h2>3. Soft margins: when the classes overlap</h2>
+      <p>Real data is messy — a few points stray into enemy territory and <em>no</em> straight line can separate them perfectly. The <strong>soft-margin</strong> SVM allows controlled violations using <strong>slack variables</strong> \(\xi_i \ge 0\) that measure how far each offender intrudes, penalised by a knob \(C\):</p>
+      <p>\[ \min_{\mathbf{w},b,\xi}\ \tfrac{1}{2}\lVert\mathbf{w}\rVert^2 + C\sum_i \xi_i \quad \text{s.t.}\quad y_i(\mathbf{w}\cdot\mathbf{x}_i+b)\ge 1-\xi_i \]</p>
+      <ul>
+        <li><strong>Large C</strong> — punishes mistakes hard → a narrow margin that bends to fit every point (risk: overfitting).</li>
+        <li><strong>Small C</strong> — tolerates violations → a wider, smoother margin (risk: underfitting).</li>
+      </ul>
+      <p>\(C\) is the bias–variance dial from Week 14, wearing an SVM costume. We tune it by cross-validation.</p>
+
+      <h2>4. Nonlinear boundaries via feature maps</h2>
+      <p>What about data shaped like a bullseye — one class ringed by the other? No line can split that in its native 2D. The fix: apply a <strong>feature map</strong> \(\phi(\mathbf{x})\) that lifts each point into a higher-dimensional space where the classes <em>do</em> become linearly separable. For a ring, adding the feature \(x_1^2 + x_2^2\) (distance from centre) lifts the inner class down and the outer class up — and a flat plane now slices between them.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 460 220" aria-label="A feature map lifting 1D non-separable points into 2D where a line separates them">
+          <!-- left: 1D number line, interleaved-ish not separable -->
+          <line x1="20" y1="120" x2="180" y2="120" stroke="#767c93"/>
+          <circle cx="40" cy="120" r="6" fill="#f43f5e"/>
+          <circle cx="70" cy="120" r="6" fill="#14b8a6"/>
+          <circle cx="100" cy="120" r="6" fill="#14b8a6"/>
+          <circle cx="130" cy="120" r="6" fill="#f43f5e"/>
+          <circle cx="160" cy="120" r="6" fill="#f43f5e"/>
+          <text x="35" y="150" font-size="11" fill="#767c93">1D: inner teal can't be split by a point</text>
+          <text x="200" y="115" font-size="22" fill="#4f46e5">→ φ(x) →</text>
+          <!-- right: lift to 2D with y = x^2 -->
+          <line x1="300" y1="190" x2="450" y2="190" stroke="#767c93"/>
+          <line x1="300" y1="40" x2="300" y2="190" stroke="#767c93"/>
+          <text x="430" y="205" font-size="11" fill="#767c93">x</text>
+          <text x="285" y="50" font-size="11" fill="#767c93">x²</text>
+          <!-- parabola points -->
+          <circle cx="315" cy="70" r="6" fill="#f43f5e"/>
+          <circle cx="345" cy="130" r="6" fill="#14b8a6"/>
+          <circle cx="375" cy="160" r="6" fill="#14b8a6"/>
+          <circle cx="405" cy="120" r="6" fill="#f43f5e"/>
+          <circle cx="435" cy="70" r="6" fill="#f43f5e"/>
+          <line x1="305" y1="105" x2="450" y2="105" stroke="#4f46e5" stroke-width="2" stroke-dasharray="5 3"/>
+          <text x="330" y="100" font-size="10" fill="#4f46e5">a line now separates them</text>
+        </svg>
+        <figcaption>Points not separable on a 1D line become separable once lifted by φ(x) = (x, x²) into 2D — a straight line splits them. The kernel trick does this lift without ever building the new coordinates.</figcaption>
+      </figure>
+
+      <h2>5. The kernel trick: the lift without the climb</h2>
+      <p>Here is the magic. The SVM only ever touches the data through <strong>dot products</strong> \(\mathbf{x}_i\cdot\mathbf{x}_j\). So in the lifted space it only needs \(\phi(\mathbf{x}_i)\cdot\phi(\mathbf{x}_j)\). A <strong>kernel</strong> \(K\) is a function that computes that high-dimensional dot product <em>directly from the original points</em>, without ever constructing \(\phi(\mathbf{x})\):</p>
+      <p>\[ K(\mathbf{x}_i,\mathbf{x}_j) = \phi(\mathbf{x}_i)\cdot\phi(\mathbf{x}_j) \]</p>
+      <p>The two most-used kernels:</p>
+      <ul>
+        <li><strong>Polynomial:</strong> \(K(\mathbf{x},\mathbf{z}) = (\mathbf{x}\cdot\mathbf{z} + c)^{d}\) — curved boundaries up to degree \(d\).</li>
+        <li><strong>RBF / Gaussian:</strong> \(K(\mathbf{x},\mathbf{z}) = \exp(-\gamma\lVert\mathbf{x}-\mathbf{z}\rVert^2)\) — effectively an <em>infinite</em>-dimensional lift, the go-to default.</li>
+      </ul>
+      <p>This is the famous <strong>kernel trick</strong>: we reap the power of an enormous (even infinite) feature space while only ever doing cheap computations on the original points.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">📄</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Imagine red and blue dots tangled on a flat sheet of paper, impossible to separate with scissors in one straight cut. Now <em>crumple the paper into 3D</em> — suddenly the reds float above the blues, and a single flat slice separates them. The kernel trick is computing the result of that crumpling using only measurements you can take on the flat page — you never actually crumple anything.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">scikit-learn — linear vs RBF SVC</span></div>
+<pre><code class="language-python">import numpy as np
+from sklearn.datasets import make_circles
+from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
+
+# Bullseye data: inner ring vs outer ring — NOT linearly separable
+X, y = make_circles(n_samples=300, factor=0.4, noise=0.1, random_state=0)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.3, random_state=0)
+
+# A linear kernel cannot bend around the ring
+lin = SVC(kernel="linear", C=1.0).fit(X_tr, y_tr)
+print("linear  acc:", round(accuracy_score(y_te, lin.predict(X_te)), 2))  # ~0.5
+
+# The RBF kernel lifts to an infinite-dim space — a circle becomes "linear"
+rbf = SVC(kernel="rbf", C=1.0, gamma="scale").fit(X_tr, y_tr)
+print("rbf     acc:", round(accuracy_score(y_te, rbf.predict(X_te)), 2))  # ~1.0
+
+# Support vectors are the only points that define the boundary
+print("num support vectors:", rbf.n_support_)   # one count per class</code></pre>
+
+      <h2>6. More than two classes</h2>
+      <p>An SVM natively draws one boundary, so for \(C\) classes we combine several:</p>
+      <ul>
+        <li><strong>One-vs-Rest (OvR):</strong> train \(C\) classifiers, each "class \(k\) vs everything else"; pick the most confident.</li>
+        <li><strong>One-vs-One (OvO):</strong> train a classifier for every pair of classes and let them vote. scikit-learn's <code>SVC</code> uses OvO by default.</li>
+      </ul>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Kernels are nothing but <strong>dot products (Week 2)</strong> computed in a hidden high-dimensional space — the same similarity measure, supercharged. The SVM extends the <strong>discriminant boundary of Week 17</strong> by demanding the <em>widest</em> margin, and you'll grade it with the <strong>precision/recall kit from Week 15</strong>. The maximum-margin SVM is the crowning classical classifier — the state of the art that reigned right up until the deep-learning era you'll enter in <strong>Week 24</strong>.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=efR1C6CvhmE" target="_blank" rel="noopener">Support Vector Machines, clearly explained</a> <span class="r-src">StatQuest. Margins, support vectors and soft margins built up from scratch.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=Toet3EiSFcM" target="_blank" rel="noopener">SVM: Polynomial &amp; RBF kernels</a> <span class="r-src">StatQuest. The clearest explanation of how the kernel trick lifts data without leaving the cheap space.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://scikit-learn.org/stable/modules/svm.html" target="_blank" rel="noopener">scikit-learn: Support Vector Machines</a> <span class="r-src">Official docs for SVC, kernels, the C and gamma parameters, and multiclass strategies.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://web.mit.edu/6.034/wwwbob/svm-notes-long-08.pdf" target="_blank" rel="noopener">A gentle SVM &amp; kernel tutorial (notes)</a> <span class="r-src">For when you want the margin maths and the dual formulation laid out carefully.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">What makes the SVM's chosen boundary special compared to the perceptron's?</div>
+        <button class="opt">It is always curved, never straight.</button>
+        <button class="opt">It maximises the margin — the gap to the nearest points of both classes.</button>
+        <button class="opt">It uses every training point equally to define the line.</button>
+        <button class="opt">It requires the data to be perfectly separable.</button>
+        <div class="explain">A perceptron stops at any separating line; the SVM picks the one with the widest safety gap, which generalises best. Soft margins even allow some overlap.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">The kernel trick lets an SVM…</div>
+        <button class="opt">avoid using dot products entirely.</button>
+        <button class="opt">guarantee the data is linearly separable.</button>
+        <button class="opt">compute high-dimensional dot products directly, without building the high-dim features.</button>
+        <button class="opt">reduce the number of classes to two.</button>
+        <div class="explain">A kernel K(x, z) = φ(x)·φ(z) returns the dot product in the lifted space using only the original points — the power of a huge feature space at the cost of the small one.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">In a soft-margin SVM, a very large value of C tends to…</div>
+        <button class="opt">punish misclassifications hard, giving a narrow margin that may overfit.</button>
+        <button class="opt">ignore all the training data.</button>
+        <button class="opt">always underfit with a very wide margin.</button>
+        <button class="opt">turn the SVM into k-NN.</button>
+        <div class="explain">Large C weights the slack penalty heavily, so the model bends to classify every point → narrow margin, higher variance. Small C tolerates violations for a wider, smoother boundary.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

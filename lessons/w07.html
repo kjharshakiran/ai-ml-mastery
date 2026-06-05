@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 7 · Python II: NumPy, Generators &amp; Decorators — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w07">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 7</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 2 · Data &amp; Python › Lesson 7</div>
+        <span class="eyebrow">🐍 Part 2 · Data &amp; Python</span>
+        <h1>Python II: NumPy, Generators, Decorators &amp; Scaling</h1>
+        <div class="lesson-meta"><span>⏱️ 55 min</span><span>🎯 Fast, idiomatic Python for ML</span><span>📦 Week 7</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Name the four pillar libraries — NumPy, pandas, scikit-learn, Matplotlib — and what each is for.</li>
+          <li>Use NumPy arrays as the vectors and matrices from Week 2, and <strong>vectorise</strong> to replace slow loops.</li>
+          <li>Write generators and understand iterators — processing data without loading it all into memory.</li>
+          <li>Write a decorator to add behaviour (like timing) to any function.</li>
+          <li>Use context managers (<code>with</code>) and reason about performance and scaling.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A pure-Python loop over a million numbers is painfully slow, yet ML routinely crunches billions. What's the trick that makes Python fast enough to train neural networks — and how do we write code that doesn't choke on data bigger than memory?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>7.1 The four libraries that power ML in Python</h2>
+      <p>You rarely build from scratch. Four libraries do the heavy lifting, and each owns a clear job:</p>
+      <ul>
+        <li><strong>NumPy</strong> — fast numerical arrays. The vectors and matrices of Week 2, made real and fast. Everything else is built on it.</li>
+        <li><strong>pandas</strong> — labelled tables (DataFrames). Loading, cleaning, and slicing real-world data. Powers Week 8's EDA.</li>
+        <li><strong>scikit-learn</strong> — classical ML algorithms (regression, trees, clustering) behind one tidy <code>.fit()</code>/<code>.predict()</code> interface. Parts 4 onward.</li>
+        <li><strong>Matplotlib</strong> — plotting. Turning arrays into charts so you can <em>see</em> your data and results.</li>
+      </ul>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🔧</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Think of a workshop. NumPy is the <strong>raw steel</strong> — the material everything is forged from. pandas is the <strong>workbench</strong> where you lay out and organise your parts. scikit-learn is the <strong>power tools</strong> that shape them. Matplotlib is the <strong>magnifying lamp</strong> you switch on to inspect your work. You'll use all four together, every project.</p>
+      </div>
+
+      <h2>7.2 NumPy &amp; vectorisation: the speed secret</h2>
+      <p>A Python list is flexible but slow for math: each element is a separate boxed object, and a loop pays Python's interpreter overhead on every step. A <strong>NumPy array</strong> stores numbers in one tight block of memory and runs operations in compiled C — applying them to the whole array at once. That's <strong>vectorisation</strong>: replace the loop with a single array expression.</p>
+      <p>Recall the dot product from Week 2, \( \mathbf{a}\cdot\mathbf{b} = \sum_i a_i b_i \). Written as a loop it's slow; written as <code>a @ b</code> it's one fast C call.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 460 180" aria-label="Loop versus vectorised operation">
+          <text x="110" y="20" font-size="13" text-anchor="middle" fill="#f43f5e">slow: Python loop</text>
+          <g font-family="monospace" font-size="11" fill="#222">
+            <rect x="30" y="35" width="36" height="26" fill="#feeef1" stroke="#f43f5e"/><text x="40" y="52">a₀·b₀</text>
+            <rect x="30" y="70" width="36" height="26" fill="#feeef1" stroke="#f43f5e"/><text x="40" y="87">a₁·b₁</text>
+            <rect x="30" y="105" width="36" height="26" fill="#feeef1" stroke="#f43f5e"/><text x="40" y="122">a₂·b₂</text>
+          </g>
+          <text x="90" y="55" font-size="18" fill="#767c93">↓</text>
+          <text x="90" y="90" font-size="18" fill="#767c93">↓</text>
+          <text x="90" y="125" font-size="18" fill="#767c93">↓</text>
+          <text x="120" y="92" font-size="11" fill="#767c93">one at a time</text>
+
+          <line x1="220" y1="20" x2="220" y2="160" stroke="#e3e6f0"/>
+
+          <text x="350" y="20" font-size="13" text-anchor="middle" fill="#14b8a6">fast: vectorised  a @ b</text>
+          <rect x="260" y="60" width="180" height="40" fill="#e7faf7" stroke="#14b8a6" rx="4"/>
+          <text x="350" y="85" font-size="12" text-anchor="middle" font-family="monospace" fill="#222">whole array → one C call</text>
+          <text x="350" y="125" font-size="11" text-anchor="middle" fill="#767c93">no per-element Python overhead</text>
+        </svg>
+        <figcaption>A loop pays interpreter cost on every element; a vectorised call hands the whole array to compiled C and runs in one shot.</figcaption>
+      </figure>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — loop vs vectorised timing</span></div>
+<pre><code class="language-python">import numpy as np
+from time import perf_counter
+
+n = 1_000_000
+a = np.random.rand(n)
+b = np.random.rand(n)
+
+# --- Slow: a pure-Python loop ---
+t0 = perf_counter()
+total = 0.0
+for i in range(n):
+    total += a[i] * b[i]          # interpreter overhead every iteration
+loop_time = perf_counter() - t0
+
+# --- Fast: one vectorised expression (same math as Week 2's dot product) ---
+t0 = perf_counter()
+total_vec = a @ b                 # np.dot under the hood, in compiled C
+vec_time = perf_counter() - t0
+
+print(f"loop:       {loop_time:.4f}s")
+print(f"vectorised: {vec_time:.6f}s")
+print(f"speed-up:   {loop_time / vec_time:.0f}x faster")
+# Typical output -> vectorised is ~100-200x faster, and the answers match.</code></pre>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The rule that will save you years</div>
+        <p style="margin-bottom:0">In numerical Python, <strong>if you're writing a <code>for</code> loop over numbers, stop and ask "can NumPy do this on the whole array?"</strong> Vectorised code is shorter, clearer, and often 100× faster. This single habit is the difference between code that trains a model in minutes and code that runs overnight.</p>
+      </div>
+
+      <h2>7.3 &amp; 7.4 Generators &amp; iterators: data without the memory bill</h2>
+      <p>An <strong>iterator</strong> is anything you can step through one item at a time — that's what a <code>for</code> loop talks to under the hood. A <strong>generator</strong> is the easy way to build one: a function that uses <code>yield</code> instead of <code>return</code>, producing values lazily, one at a time, only when asked.</p>
+      <p>Why it matters: a list of a billion numbers needs a billion numbers' worth of RAM. A generator produces them on demand and forgets each one — constant memory, no matter how big the stream.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — a generator</span></div>
+<pre><code class="language-python">def read_in_batches(items, size):
+    """Yield successive chunks of `items` of length `size`.
+
+    Lazy: holds only one batch in memory at a time, so this works
+    even if `items` is a huge file you stream row by row.
+    """
+    batch = []
+    for item in items:
+        batch.append(item)
+        if len(batch) == size:
+            yield batch          # hand back this batch, then PAUSE here
+            batch = []           # ...resume here on the next request
+    if batch:                    # don't forget a final partial batch
+        yield batch
+
+# Consume it lazily — one batch exists at any moment
+for chunk in read_in_batches(range(7), size=3):
+    print(chunk)
+# -> [0, 1, 2]
+# -> [3, 4, 5]
+# -> [6]</code></pre>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">A list is like baking <em>all</em> the cookies before the party — you need a huge tray and a big oven. A generator is a cookie machine that bakes one cookie <em>each time someone asks</em>. You never need a giant tray, and you can keep going forever. <code>yield</code> is the machine handing you the next cookie and then waiting.</p>
+      </div>
+
+      <h2>7.4 Decorators: wrapping a function in extra behaviour</h2>
+      <p>A <strong>decorator</strong> is a function that takes another function and returns a souped-up version of it — adding behaviour <em>around</em> the original without touching its code. The classic use is timing or logging.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — a timing decorator</span></div>
+<pre><code class="language-python">import functools
+from time import perf_counter
+
+def timed(func):
+    """Decorator: print how long the wrapped function takes to run."""
+    @functools.wraps(func)               # keep func's name &amp; docstring
+    def wrapper(*args, **kwargs):
+        t0 = perf_counter()
+        result = func(*args, **kwargs)   # call the ORIGINAL function
+        print(f"{func.__name__} took {perf_counter() - t0:.4f}s")
+        return result                    # pass its result straight through
+    return wrapper
+
+@timed                                   # <- "wrap slow_sum in timed"
+def slow_sum(n):
+    return sum(i * i for i in range(n))
+
+slow_sum(1_000_000)
+# -> slow_sum took 0.0700s   (the decorator added the timing line for free)</code></pre>
+
+      <p>The <code>@timed</code> line is just sugar for <code>slow_sum = timed(slow_sum)</code>. You'll see this pattern everywhere in ML frameworks — <code>@property</code>, <code>@staticmethod</code>, and PyTorch's <code>@torch.no_grad()</code> are all decorators.</p>
+
+      <h2>7.5 Context managers: setup and cleanup, guaranteed</h2>
+      <p>A <strong>context manager</strong> — the <code>with</code> statement — guarantees that cleanup happens even if an error blows up midway. Opening a file is the everyday example: <code>with</code> makes sure it's closed no matter what.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — context manager</span></div>
+<pre><code class="language-python"># The file is automatically closed when the block ends — even on error.
+with open("orders.csv", "w") as f:
+    f.write("customer,total\n")
+    f.write("Asha,165\n")
+# &lt;- f.close() happens here, guaranteed. No leaked file handles.
+
+# You'll meet this again as `with torch.no_grad():` in Week 24+,
+# which temporarily turns off gradient tracking for fast inference.</code></pre>
+
+      <h2>7.6 &amp; 7.7 Performance &amp; scaling Python</h2>
+      <p>Putting it together, here's the hierarchy for making Python fast on data:</p>
+      <ol>
+        <li><strong>Vectorise</strong> with NumPy/pandas — replace numeric loops with array ops (7.2).</li>
+        <li><strong>Stream</strong> with generators — process data larger than memory in batches (7.3).</li>
+        <li><strong>Profile, then optimise</strong> — use timing (your <code>@timed</code> decorator) to find the real bottleneck before rewriting anything.</li>
+        <li><strong>Scale out</strong> — when one machine isn't enough, tools like Dask or PySpark split the work across cores or machines, echoing the sharding idea from Week 5.</li>
+      </ol>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Don't optimise blind</div>
+        <p style="margin-bottom:0">"Premature optimisation is the root of all evil." Measure first. Often 95% of the time is in one tiny spot; vectorising that one line beats rewriting the whole program. Reach for the timing decorator before you reach for clever tricks.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">A NumPy array <em>is</em> the vector and matrix from <strong>Week 2</strong> — <code>a @ b</code> is the dot product you already know, now running at C speed. pandas (built on NumPy) powers the EDA in <strong>Week 8</strong> coming next. And the whole vectorisation idea scales up to <strong>PyTorch in Week 24+</strong>, which is essentially "NumPy on a GPU, with automatic gradients" — the same arrays, the same operations, now able to train deep networks. Generators will feed those networks data in batches; <code>with torch.no_grad()</code> is the context manager you met above.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=GB9ByFAIAH4" target="_blank" rel="noopener">NumPy Tutorial — freeCodeCamp</a><span class="r-src">A practical hour on arrays, broadcasting, and vectorisation. Pairs directly with section 7.2.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=bD05uGo_sVI" target="_blank" rel="noopener">Iterators &amp; Generators — Corey Schafer</a><span class="r-src">The clearest explanation of <code>yield</code> and lazy evaluation. Watch before re-reading 7.3.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://numpy.org/doc/stable/user/basics.broadcasting.html" target="_blank" rel="noopener">NumPy Broadcasting (official docs)</a><span class="r-src">The rules that let arrays of different shapes combine without explicit loops — the deepest part of vectorisation.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://realpython.com/primer-on-python-decorators/" target="_blank" rel="noopener">Real Python — Primer on Decorators</a><span class="r-src">A step-by-step build-up to the <code>@timed</code> pattern in section 7.4, with many real examples.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">Why is <code>a @ b</code> on NumPy arrays so much faster than a Python <code>for</code> loop doing the same sum?</div>
+        <button class="opt">NumPy secretly uses fewer numbers.</button>
+        <button class="opt">The operation runs on the whole array in compiled C, avoiding per-element interpreter overhead.</button>
+        <button class="opt">Python loops are disabled when NumPy is imported.</button>
+        <button class="opt">It rounds the numbers to make them smaller.</button>
+        <div class="explain">Vectorisation hands the entire array to compiled C code, so Python's per-iteration interpreter cost is paid once, not a million times. Same math, ~100× faster.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">What is the key advantage of a generator (using <code>yield</code>) over building a full list?</div>
+        <button class="opt">It sorts the data automatically.</button>
+        <button class="opt">It can only produce numbers.</button>
+        <button class="opt">It produces values one at a time on demand, using constant memory even for huge or infinite streams.</button>
+        <button class="opt">It runs on the GPU.</button>
+        <div class="explain">A generator is lazy: it yields each value when asked and forgets it, so memory use stays flat regardless of how many items flow through — ideal for data bigger than RAM.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">The line <code>@timed</code> above a function definition is shorthand for what?</div>
+        <button class="opt"><code>slow_sum = timed(slow_sum)</code> — wrapping the function in the decorator.</button>
+        <button class="opt">A comment that Python ignores.</button>
+        <button class="opt">Importing the <code>timed</code> module.</button>
+        <button class="opt">Running the function 10 times.</button>
+        <div class="explain">A decorator replaces the function with <code>decorator(function)</code>. <code>@timed</code> is exactly <code>slow_sum = timed(slow_sum)</code>, so every call now runs through the timing wrapper.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

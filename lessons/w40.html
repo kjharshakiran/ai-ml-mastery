@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 40 · Reinforcement Learning — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w40">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 40</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 7 · Production &amp; Reinforcement Learning › Lesson 40</div>
+        <span class="eyebrow">⚙️ Part 7 · Production &amp; Reinforcement Learning</span>
+        <h1>Reinforcement Learning: MDPs &amp; Learning to Act</h1>
+        <div class="lesson-meta"><span>⏱️ 55 min</span><span>🎯 Learning by trial and reward</span><span>📦 Week 40</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain how reinforcement learning differs from the supervised and unsupervised learning of Weeks 11–12.</li>
+          <li>Name the five pieces of the RL framework — agent, environment, state, action, reward — and the interaction loop that connects them.</li>
+          <li>Define a <strong>Markov Decision Process</strong> and write down the return \(G_t\) and the Bellman equation.</li>
+          <li>Trace value iteration through a tiny grid world and read off the optimal policy.</li>
+          <li>See how Q-learning and RLHF (Week 34) sit on top of these foundations.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">Nobody ever showed you the "correct" move for every chess position — yet you can learn to play. How can a machine learn good behaviour from nothing but the occasional reward, with no labelled answer key at all?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>40.1 A third way to learn</h2>
+      <p>Back in <strong>Weeks 11–12</strong> we sorted machine learning into paradigms. <strong>Supervised learning</strong> needs a teacher: every input comes with the right answer (this email <em>is</em> spam). <strong>Unsupervised learning</strong> has no answers at all, just structure to find (group these customers). <strong>Reinforcement learning (RL)</strong> is a genuinely different third way: there's no answer key, only a stream of <strong>rewards</strong> — numbers that say "that was good" or "that was bad" — and the agent must learn, by <em>trial and error</em>, which actions earn the most reward over time.</p>
+      <p>The twist that makes RL hard and beautiful: rewards can be <strong>delayed</strong>. A chess move that loses the game might look fine for twenty moves. The agent must learn to credit (or blame) decisions made long before the payoff arrived. This is the <em>credit assignment problem</em>, and it's the heart of RL.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Think about learning to ride a bike. Nobody hands you a sheet saying "lean exactly 4 degrees left now." You just <em>try</em> — wobble, fall (bad reward), stay up for three seconds (good reward), try again. Slowly your body learns which little moves keep you upright. Reinforcement learning is teaching a computer to learn the bike-riding way: by trying, getting a thumbs-up or thumbs-down, and getting better.</p>
+      </div>
+
+      <h2>40.2 The RL framework: the interaction loop</h2>
+      <p>Every RL problem is built from the same five pieces, locked in a loop:</p>
+      <ul>
+        <li><strong>Agent</strong> — the learner and decision-maker (the chess player, the robot, the trading bot).</li>
+        <li><strong>Environment</strong> — everything outside the agent that it acts upon (the chessboard, the physical world).</li>
+        <li><strong>State \(s\)</strong> — a snapshot of the situation right now (the board position).</li>
+        <li><strong>Action \(a\)</strong> — a move the agent can make (move a pawn).</li>
+        <li><strong>Reward \(r\)</strong> — the scalar feedback the environment gives back (+1 for a win, 0 otherwise).</li>
+      </ul>
+      <p>At each time step \(t\): the agent observes state \(s_t\), chooses an action \(a_t\), and the environment responds with a reward \(r_{t+1}\) and a new state \(s_{t+1}\). Then it all repeats. The agent's goal is to learn a <strong>policy</strong> \(\pi(a \mid s)\) — a strategy mapping states to actions — that maximises the total reward it collects over time.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 460 230" aria-label="The agent-environment interaction loop">
+          <defs><marker id="lp" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4f46e5"/></marker></defs>
+
+          <rect x="60" y="40" width="140" height="60" rx="10" fill="#eef0fb" stroke="#4f46e5" stroke-width="2"/>
+          <text x="130" y="68" font-size="15" text-anchor="middle" fill="#4f46e5" font-weight="bold">Agent</text>
+          <text x="130" y="86" font-size="10" text-anchor="middle" fill="#767c93">policy π(a | s)</text>
+
+          <rect x="260" y="130" width="140" height="60" rx="10" fill="#e8f7f4" stroke="#14b8a6" stroke-width="2"/>
+          <text x="330" y="158" font-size="15" text-anchor="middle" fill="#0f9488" font-weight="bold">Environment</text>
+          <text x="330" y="176" font-size="10" text-anchor="middle" fill="#767c93">world dynamics</text>
+
+          <!-- action arrow (agent -> env) -->
+          <path d="M200,80 C260,80 250,128 264,128" fill="none" stroke="#4f46e5" stroke-width="2" marker-end="url(#lp)"/>
+          <text x="245" y="100" font-size="12" fill="#4f46e5" font-weight="bold">action a</text>
+
+          <!-- reward + state arrow (env -> agent) -->
+          <path d="M260,160 C150,160 196,104 196,102" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#lp)"/>
+          <text x="120" y="150" font-size="12" fill="#b9770a" font-weight="bold">reward r, state s'</text>
+        </svg>
+        <figcaption>The endless RL loop. The agent sends an <em>action</em> into the environment; the environment sends back a <em>reward</em> and the <em>next state</em>. Learning means improving the policy from this stream of experience.</figcaption>
+      </figure>
+
+      <h2>40.3 Markov Decision Processes</h2>
+      <p>To do mathematics on this loop we formalise it as a <strong>Markov Decision Process (MDP)</strong>, the bedrock of all RL. An MDP is five things:</p>
+      <ul>
+        <li>A set of <strong>states</strong> \(S\) and a set of <strong>actions</strong> \(A\).</li>
+        <li><strong>Transition probabilities</strong> \(P(s' \mid s, a)\) — the chance of landing in \(s'\) after taking action \(a\) in state \(s\). The world can be stochastic.</li>
+        <li>A <strong>reward function</strong> \(R(s, a)\) — the reward for that move.</li>
+        <li>A <strong>discount factor</strong> \(\gamma \in [0, 1)\) — how much we value future reward versus immediate reward.</li>
+      </ul>
+      <p>The defining assumption is the <strong>Markov property</strong>: the future depends only on the <em>current</em> state, not the entire history of how you got there. The current state captures everything relevant. (A chess position tells you all you need; you don't need the move list.)</p>
+
+      <p><strong>The return.</strong> The agent doesn't maximise the next reward — it maximises the <em>total discounted future reward</em>, called the <strong>return</strong> \(G_t\):</p>
+      <p>\[ G_t = r_{t+1} + \gamma\, r_{t+2} + \gamma^2 r_{t+3} + \cdots = \sum_{k=0}^{\infty} \gamma^{k}\, r_{t+k+1} \]</p>
+      <p>The discount \(\gamma\) (say 0.9) makes a reward 10 steps away worth \(0.9^{10}\approx 0.35\) of one right now — it values the present, and keeps the sum finite for endless tasks.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">💰</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">The discount factor is the <em>interest rate of patience</em>. A dollar today is worth more than a dollar next year, because the future is uncertain and money now can be used now. \(\gamma\) close to 1 is a patient, far-sighted agent that plans for the long game; \(\gamma\) close to 0 is an impulsive agent that grabs whatever reward is closest. Tuning \(\gamma\) literally tunes how much your agent "saves for the future."</p>
+      </div>
+
+      <p><strong>Value functions.</strong> How good is it to be in a state? The <strong>value function</strong> \(V^\pi(s)\) is the expected return you'll collect starting from state \(s\) and following policy \(\pi\) thereafter. The genius of RL is that values are <em>self-referential</em>: the value of a state equals the immediate reward plus the discounted value of wherever you land next. That recursion is the <strong>Bellman equation</strong>:</p>
+      <p>\[ V^\pi(s) = \sum_{a} \pi(a\mid s) \sum_{s'} P(s'\mid s,a)\Big[\, R(s,a) + \gamma\, V^\pi(s') \,\Big] \]</p>
+      <p>And the <strong>optimal</strong> value — the best any policy can do — replaces the policy average with a <em>max</em> over actions:</p>
+      <p>\[ V^*(s) = \max_{a} \sum_{s'} P(s'\mid s,a)\Big[\, R(s,a) + \gamma\, V^*(s') \,\Big] \]</p>
+      <p>This is the equation we'll iterate in code. Turn it into an <em>update rule</em> — repeatedly set each \(V(s)\) to the right-hand side using current estimates — and it provably converges to \(V^*\). That algorithm is <strong>value iteration</strong>.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one equation to remember</div>
+        <p style="margin-bottom:0">The Bellman equation says: <em>the value of now = the reward now + the discounted value of next.</em> Every RL algorithm — value iteration, Q-learning, the deep RL behind AlphaGo — is, at its core, a clever way to solve or approximate this single recursive relationship.</p>
+      </div>
+
+      <h2>40.4 A worked grid world</h2>
+      <p>Let's make it concrete with the simplest possible world: a 1×4 corridor. The agent starts at the far left (state 0) and wants to reach the <strong>goal</strong> at state 3. Two actions: move <em>left</em> or <em>right</em>. Every step costs a reward of \(-1\) — so the agent is pushed to reach the goal as quickly as possible. State 3 is <em>terminal</em> (the episode ends there).</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 460 130" aria-label="A 1 by 4 grid world corridor with a goal on the right">
+          <defs><marker id="gw" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4f46e5"/></marker></defs>
+
+          <rect x="30"  y="40" width="90" height="60" rx="6" fill="#eef0fb" stroke="#4f46e5" stroke-width="2"/>
+          <rect x="130" y="40" width="90" height="60" rx="6" fill="#f4f5fa" stroke="#767c93" stroke-width="2"/>
+          <rect x="230" y="40" width="90" height="60" rx="6" fill="#f4f5fa" stroke="#767c93" stroke-width="2"/>
+          <rect x="330" y="40" width="90" height="60" rx="6" fill="#e8f7f4" stroke="#14b8a6" stroke-width="2"/>
+
+          <text x="75"  y="66" font-size="14" text-anchor="middle" fill="#4f46e5" font-weight="bold">S0</text>
+          <text x="75"  y="84" font-size="9"  text-anchor="middle" fill="#767c93">start</text>
+          <text x="175" y="72" font-size="14" text-anchor="middle" fill="#767c93" font-weight="bold">S1</text>
+          <text x="275" y="72" font-size="14" text-anchor="middle" fill="#767c93" font-weight="bold">S2</text>
+          <text x="375" y="66" font-size="14" text-anchor="middle" fill="#0f9488" font-weight="bold">S3</text>
+          <text x="375" y="84" font-size="9"  text-anchor="middle" fill="#0f9488">GOAL</text>
+
+          <path d="M122,115 L218,115" fill="none" stroke="#4f46e5" stroke-width="2" marker-end="url(#gw)"/>
+          <path d="M222,115 L318,115" fill="none" stroke="#4f46e5" stroke-width="2" marker-end="url(#gw)"/>
+          <path d="M122,25 L318,25"  fill="none" stroke="#4f46e5" stroke-width="2" marker-end="url(#gw)"/>
+          <text x="220" y="20" font-size="10" text-anchor="middle" fill="#767c93" font-style="italic">each step: reward −1, so "go right, fast"</text>
+        </svg>
+        <figcaption>The 1×4 corridor MDP. Each rightward step costs −1, so the optimal policy is simply "always move right" toward the goal.</figcaption>
+      </figure>
+
+      <p>Now we solve it with value iteration — literally sweeping the Bellman optimality update until the values stop changing:</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — value iteration on a grid world</span></div>
+<pre><code class="language-python">import numpy as np
+
+# A 1x4 corridor of states 0,1,2,3. State 3 is the GOAL (terminal/absorbing).
+# Actions: 0 = move left, 1 = move right. Every step costs -1 until the goal.
+n_states, gamma, GOAL = 4, 0.9, 3
+
+def step(s, a):
+    """Environment dynamics: given state s and action a, return (next_state, reward)."""
+    if s == GOAL:
+        return s, 0.0                      # goal is absorbing: stay, no reward
+    s_next = max(0, s - 1) if a == 0 else min(GOAL, s + 1)
+    reward = 0.0 if s_next == GOAL else -1.0
+    return s_next, reward
+
+V = np.zeros(n_states)                      # value estimate of each state
+for _ in range(100):                        # sweep the Bellman update to convergence
+    V_new = V.copy()
+    for s in range(n_states):
+        if s == GOAL:
+            continue
+        # Bellman optimality: V(s) = max over actions of [ reward + gamma * V(next) ]
+        V_new[s] = max(r + gamma * V[s2] for s2, r in (step(s, a) for a in (0, 1)))
+    if np.max(np.abs(V_new - V)) &lt; 1e-6:    # converged?
+        break
+    V = V_new
+
+print("State values:", np.round(V, 2))      # -> [-1.9 -1.   0.   0.]
+
+# Read off the greedy policy: the action with the highest Bellman value
+arrows = []
+for s in range(n_states):
+    if s == GOAL:
+        arrows.append("G"); continue
+    q = [step(s, a)[1] + gamma * V[step(s, a)[0]] for a in (0, 1)]
+    arrows.append("->" if np.argmax(q) == 1 else "&lt;-")
+print("Best policy:", " ".join(arrows))      # -> -> -> -> G  (always head right)</code></pre>
+
+      <p>The values make sense: state 2 is one cheap step from the goal (\(-1\)), state 1 is two steps (\(-1.9\) after discounting), and the goal is \(0\). The derived policy is "always go right" — exactly what we'd expect. Scale this same loop up to a 2D maze, a robot, or a game, and you have the skeleton of real RL.</p>
+
+      <h2>40.5 Beyond value iteration: Q-learning &amp; RLHF</h2>
+      <p>Value iteration needs to <em>know</em> the environment's transition probabilities \(P(s'\mid s,a)\). Often we don't — so the agent must learn purely from experience. <strong>Q-learning</strong> does exactly that: instead of state values \(V(s)\), it learns <em>action</em>-values \(Q(s,a)\) (how good is taking action \(a\) in state \(s\)?) directly from sampled transitions, with no model of the world. Pair Q-learning with a neural network to approximate \(Q\) and you get <em>Deep Q-Networks</em> — the method that learned to play Atari from raw pixels.</p>
+      <p>And here the whole course comes full circle. Remember <strong>RLHF</strong> — Reinforcement Learning from Human Feedback — from <strong>Week 34</strong>? That's RL in this exact framework: the <em>agent</em> is the language model, an <em>action</em> is generating a response, and the <em>reward</em> comes from a model trained on human preferences. The same Bellman-flavoured optimisation that solves a toy corridor is what nudges a giant LLM toward helpful, honest answers.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This lesson delivers on the promise made way back in <strong>Week 12</strong>, where RL was previewed as the fourth paradigm. It rests on the <strong>probability</strong> of Week 4 (transition distributions, expectation) and the <strong>gradient descent</strong> of Week 26 (how deep RL trains its networks). And it loops back to <strong>Week 34</strong>: the RLHF that aligns modern LLMs is this very machinery. That closes our 40-week arc — from a single number in a vector to an agent that learns to act. Next, take it all into <strong>Project 1</strong> and build something real.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">📖</span><div><a href="http://incompleteideas.net/book/the-book.html" target="_blank" rel="noopener">Reinforcement Learning: An Introduction — Sutton &amp; Barto</a><span class="r-src">The definitive, free textbook. Chapters 3–4 cover MDPs, returns, the Bellman equation, and value iteration exactly as above.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://spinningup.openai.com/en/latest/spinningup/rl_intro.html" target="_blank" rel="noopener">OpenAI Spinning Up — Intro to RL</a><span class="r-src">A modern, code-first walkthrough of the agent–environment loop, policies, and value functions. Perfect after this lesson.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=2pWv7GOvuf0" target="_blank" rel="noopener">RL Course — Lecture 2: MDPs (David Silver)</a><span class="r-src">DeepMind's classic lecture series; this one builds the MDP and Bellman equation step by step.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">What most distinguishes reinforcement learning from supervised learning?</div>
+        <button class="opt">RL uses neural networks and supervised learning never does.</button>
+        <button class="opt">RL only works on images.</button>
+        <button class="opt">RL has no labelled answer key — it learns from a stream of rewards by trial and error, often with delayed feedback.</button>
+        <button class="opt">Supervised learning cannot use any data.</button>
+        <div class="explain">Supervised learning is handed the correct output for each input. RL gets only scalar rewards (good/bad), must discover good actions by trying them, and must handle rewards that arrive long after the actions that earned them — the credit-assignment problem.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">In the return \(G_t = \sum_k \gamma^k r_{t+k+1}\), what does the discount factor \(\gamma\) control?</div>
+        <button class="opt">The learning rate of the neural network.</button>
+        <button class="opt">How much the agent values future rewards versus immediate ones.</button>
+        <button class="opt">The number of states in the environment.</button>
+        <button class="opt">The probability that an action fails.</button>
+        <div class="explain">\(\gamma\) near 1 makes a far-sighted, patient agent that weighs distant rewards heavily; \(\gamma\) near 0 makes a short-sighted agent grabbing immediate reward. It also keeps the infinite sum finite for never-ending tasks.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">The Bellman equation expresses which core idea?</div>
+        <button class="opt">The value of a state = the immediate reward + the discounted value of the next state.</button>
+        <button class="opt">The model should have as many parameters as possible.</button>
+        <button class="opt">Every action always gives the same reward.</button>
+        <button class="opt">States never repeat.</button>
+        <div class="explain">Bellman's recursion ties each state's value to its successors: V(s) = reward now + γ·V(next). Iterating this update (value iteration) converges to the optimal values — and the same idea underpins Q-learning and deep RL.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

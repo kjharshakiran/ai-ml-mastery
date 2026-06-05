@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 21 · Decision Trees &amp; CART — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w21">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 21</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 4 · Classical Machine Learning › Lesson 21</div>
+        <span class="eyebrow">🧮 Part 4 · Classical Machine Learning</span>
+        <h1>Decision Trees &amp; CART</h1>
+        <div class="lesson-meta"><span>⏱️ 50 min</span><span>🎯 Learning a flowchart from data</span><span>📦 Week 21</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Read a decision tree as a flowchart of yes/no questions.</li>
+          <li>Describe the <strong>CART</strong> algorithm that grows one from data.</li>
+          <li>Measure node "messiness" with <strong>Gini impurity</strong> and <strong>entropy / information gain</strong>.</li>
+          <li>Understand greedy splitting, stopping criteria, and why pruning fights overfitting.</li>
+          <li>Train a <code>DecisionTreeClassifier</code> and read its feature importances.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">How can a model learn the same kind of common-sense rules a doctor uses — "if fever AND cough, then…" — directly from data, with no equations to tune?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. A decision tree is a learned flowchart</h2>
+      <p>Every model so far drew a boundary with geometry — lines, margins, distances. A <strong>decision tree</strong> does something refreshingly human instead: it asks a sequence of yes/no questions. "Is the petal longer than 2.5 cm? If yes, go left; if no, go right. Then ask the next question…" Each question splits the data; you follow the branches until you reach a <strong>leaf</strong>, which gives the prediction.</p>
+      <p>The whole model is just a tree of questions. No weights, no gradients — and best of all, you can <em>read</em> it. That interpretability is why trees are beloved in medicine, finance, and anywhere a human must trust (or audit) the decision.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">It's the game <strong>20 Questions</strong>. "Is it an animal? Does it have fur? Is it bigger than a cat?" Each yes/no answer narrows things down until you're sure. A decision tree plays 20 Questions with data — and it figures out, by itself, which questions to ask and in what order.</p>
+      </div>
+
+      <figure class="figure">
+        <svg viewBox="0 0 420 250" aria-label="A small decision tree">
+          <!-- root -->
+          <rect x="150" y="15" width="130" height="34" rx="6" fill="#eef0fb" stroke="#4f46e5"/>
+          <text x="215" y="36" font-size="12" fill="#4f46e5" text-anchor="middle">petal length &lt; 2.5?</text>
+          <!-- edges -->
+          <line x1="180" y1="49" x2="95" y2="95" stroke="#767c93"/><text x="120" y="78" font-size="11" fill="#14b8a6">yes</text>
+          <line x1="250" y1="49" x2="330" y2="95" stroke="#767c93"/><text x="300" y="78" font-size="11" fill="#f43f5e">no</text>
+          <!-- left leaf -->
+          <rect x="40" y="96" width="110" height="32" rx="6" fill="#d9f4ee" stroke="#14b8a6"/>
+          <text x="95" y="116" font-size="12" fill="#0f766e" text-anchor="middle">Setosa 🌸</text>
+          <!-- right internal -->
+          <rect x="270" y="96" width="130" height="34" rx="6" fill="#eef0fb" stroke="#4f46e5"/>
+          <text x="335" y="117" font-size="12" fill="#4f46e5" text-anchor="middle">petal width &lt; 1.8?</text>
+          <line x1="300" y1="130" x2="240" y2="180" stroke="#767c93"/><text x="258" y="160" font-size="11" fill="#14b8a6">yes</text>
+          <line x1="365" y1="130" x2="380" y2="180" stroke="#767c93"/><text x="378" y="160" font-size="11" fill="#f43f5e">no</text>
+          <rect x="185" y="182" width="110" height="32" rx="6" fill="#fdeecf" stroke="#f59e0b"/>
+          <text x="240" y="202" font-size="12" fill="#b45309" text-anchor="middle">Versicolor</text>
+          <rect x="330" y="182" width="100" height="32" rx="6" fill="#fcdfe5" stroke="#f43f5e"/>
+          <text x="380" y="202" font-size="12" fill="#be123c" text-anchor="middle">Virginica</text>
+        </svg>
+        <figcaption>A tiny tree for iris flowers. Internal nodes (indigo) ask questions; leaves (coloured) give the answer. Follow yes/no edges from the top to classify a new flower.</figcaption>
+      </figure>
+
+      <h2>2. CART: how the tree is grown</h2>
+      <p><strong>CART</strong> (Classification And Regression Trees) is the standard algorithm — it's what scikit-learn uses. It builds binary trees <strong>greedily, top-down</strong>:</p>
+      <ol>
+        <li>Start with all the data at the root.</li>
+        <li>Try every feature and every possible threshold; pick the split that makes the two resulting groups as <strong>pure</strong> as possible (one class dominates each side).</li>
+        <li>Recurse on each child node.</li>
+        <li>Stop when a node is pure, too small, or a depth limit is hit; that node becomes a leaf.</li>
+      </ol>
+      <p>"Greedy" means it grabs the best split <em>right now</em> without planning ahead — fast, and good enough in practice. The same machinery handles regression too (leaves predict an average instead of a class), but we'll focus on classification.</p>
+
+      <h2>3. Measuring impurity: Gini and entropy</h2>
+      <p>To "pick the best split" we need a number for how mixed-up a node is. A node with only one class is perfectly <em>pure</em> (impurity 0); a 50/50 mix is maximally <em>impure</em>. Two standard measures, where \(p_k\) is the fraction of class \(k\) in the node:</p>
+
+      <p><strong>Gini impurity</strong> — the chance you'd mislabel a random point if you guessed by the node's class proportions:</p>
+      <p>\[ \text{Gini} = 1 - \sum_{k} p_k^{2} \]</p>
+
+      <p><strong>Entropy</strong> — the "surprise" or disorder of the node, borrowed from information theory:</p>
+      <p>\[ H = -\sum_{k} p_k \log_2 p_k \]</p>
+
+      <p>Both are 0 for a pure node and peak for an even mix (for two classes, Gini peaks at 0.5, entropy at 1 bit). CART then scores a split by how much it <strong>reduces</strong> impurity. With entropy, that reduction has a famous name — <strong>information gain</strong>:</p>
+      <p>\[ \text{IG} = H_{\text{parent}} - \sum_{\text{child}} \frac{n_{\text{child}}}{n_{\text{parent}}}\,H_{\text{child}} \]</p>
+      <p>In words: parent's disorder minus the weighted average disorder of the children. The split with the highest information gain (or biggest Gini drop) wins.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🗂️</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Sorting a drawer of mixed socks. A good first split — "darks vs lights" — instantly makes each pile much more uniform. A useless split — "left sock vs right sock" — leaves both piles just as mixed. Information gain is the math for "how much tidier did this split make things?" The tree always picks the tidiest split available.</p>
+      </div>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">A decision tree is built by <strong>greedily choosing splits that most reduce impurity</strong>. Gini and entropy are two ways to measure that impurity; in practice they give very similar trees, and Gini is slightly faster (no logarithm).</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — impurity by hand</span></div>
+<pre><code class="language-python">import numpy as np
+
+def gini(p):
+    p = np.asarray(p)
+    return 1 - np.sum(p**2)          # 1 - sum of squared class proportions
+
+def entropy(p):
+    p = np.asarray(p)
+    p = p[p > 0]                     # avoid log(0)
+    return -np.sum(p * np.log2(p))   # information-theoretic disorder
+
+pure  = [1.0, 0.0]                   # all one class
+mixed = [0.5, 0.5]                   # perfectly split
+print("Gini pure / mixed:   ", gini(pure),    gini(mixed))     # 0.0  0.5
+print("Entropy pure / mixed:", entropy(pure), entropy(mixed))  # 0.0  1.0</code></pre>
+
+      <h2>4. Query selection, stopping &amp; the overfitting trap</h2>
+      <p>If you let CART keep splitting, it will eventually carve out a leaf for <em>every single training point</em> — 100% training accuracy, and a tree that has memorised noise. That's <strong>overfitting</strong>, the same villain from Week 14. A fully-grown tree is the poster child for high variance: change a few training points and the tree reshapes wildly.</p>
+      <p>Two defences:</p>
+      <ul>
+        <li><strong>Pre-pruning (early stopping)</strong> — cap the tree before it grows wild: limit <code>max_depth</code>, require a minimum number of samples to split (<code>min_samples_split</code>) or per leaf (<code>min_samples_leaf</code>).</li>
+        <li><strong>Post-pruning</strong> — grow a big tree, then snip back branches that don't improve performance on held-out data (e.g. cost-complexity pruning, <code>ccp_alpha</code>).</li>
+      </ul>
+      <p>A pruned tree is shallower, more general, and usually more accurate on new data — trading a little training accuracy for a lot of robustness.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Common Pitfall</div>
+        <p style="margin-bottom:0">A single deep tree that scores 100% on training data is almost always overfit, not brilliant. Always limit depth or prune, and judge the tree on a validation set — never on the data it was grown from.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">scikit-learn — train a tree &amp; read importances</span></div>
+<pre><code class="language-python">from sklearn.datasets import load_iris
+from sklearn.tree import DecisionTreeClassifier, export_text
+from sklearn.model_selection import train_test_split
+
+X, y = load_iris(return_X_y=True)
+names = load_iris().feature_names
+Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.3, random_state=0)
+
+# max_depth=3 pre-prunes the tree so it can't memorise the training set
+clf = DecisionTreeClassifier(criterion="gini", max_depth=3, random_state=0)
+clf.fit(Xtr, ytr)
+print("test accuracy:", round(clf.score(Xte, yte), 3))     # ~0.98
+
+# Feature importance = total impurity reduction each feature provided
+for name, imp in zip(names, clf.feature_importances_):
+    print(f"{name:<20} {imp:.3f}")          # petal features dominate
+
+print(export_text(clf, feature_names=names))   # the learned if/else rules</code></pre>
+
+      <p><strong>Feature importance</strong> falls out for free: a feature that produced big impurity reductions near the top of the tree is clearly important. It's one of the most useful by-products trees give you — a ranked list of which features actually drove the decisions.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Trees revive the <strong>overfitting/variance</strong> theme from <strong>Week 14</strong>, now solved by pruning instead of regularisation. They also don't care about feature scale, so unlike <strong>Week 19</strong>'s distance models, no normalisation is needed. Most importantly, a single tree is the <strong>building block of ensembles</strong>: next week (<strong>Week 22</strong>) we combine hundreds of trees into <strong>random forests</strong> and <strong>boosting</strong> — turning this week's high-variance learner into some of the strongest classical models there are.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=_L39rN6gz7Y" target="_blank" rel="noopener">StatQuest: Decision Trees, Clearly Explained</a><span class="r-src">Josh Starmer builds a classification tree from scratch, computing Gini at every split. The ideal pairing with sections 2–3.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=D0efHEJsfHo" target="_blank" rel="noopener">StatQuest: How to Prune Regression Trees (cost-complexity pruning)</a><span class="r-src">A clear treatment of why and how we prune — the antidote to the overfitting in section 4.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://scikit-learn.org/stable/modules/tree.html" target="_blank" rel="noopener">scikit-learn: Decision Trees</a><span class="r-src">The user guide for <code>DecisionTreeClassifier</code>, every hyper-parameter, and tips on avoiding overfitting.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">When CART chooses a split, what is it trying to maximise?</div>
+        <button class="opt">The depth of the tree.</button>
+        <button class="opt">The number of leaves.</button>
+        <button class="opt">The reduction in impurity (e.g. information gain or Gini drop).</button>
+        <button class="opt">The distance between data points.</button>
+        <div class="explain">CART greedily picks the feature/threshold whose split most reduces impurity — measured as information gain (entropy) or the drop in Gini. Purer children mean a more confident prediction.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">A node contains only points of a single class. What is its Gini impurity?</div>
+        <button class="opt">0 — it is perfectly pure.</button>
+        <button class="opt">0.5 — maximally impure.</button>
+        <button class="opt">1 — maximally impure.</button>
+        <button class="opt">Undefined.</button>
+        <div class="explain">Gini = 1 − Σpₖ². With one class, p = 1, so Gini = 1 − 1² = 0. A pure node has zero impurity and becomes a leaf.</div>
+      </div>
+      <div class="quiz" data-answer="3">
+        <div class="q">Your decision tree gets 100% accuracy on training data but only 70% on test data. The likely cause and fix?</div>
+        <button class="opt">Underfitting; grow the tree deeper.</button>
+        <button class="opt">The data is unscaled; normalise it.</button>
+        <button class="opt">Too few features; add more.</button>
+        <button class="opt">Overfitting; prune the tree or limit its depth.</button>
+        <div class="explain">A perfect training score with a big test drop is classic overfitting (high variance). Pre-pruning (max_depth, min_samples_leaf) or post-pruning shrinks the tree so it generalises — the Week 14 lesson, applied to trees.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

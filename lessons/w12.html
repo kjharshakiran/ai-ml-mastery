@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 12 · Paradigms of ML II — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w12">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 12</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 4 · Classical Machine Learning › Lesson 12</div>
+        <span class="eyebrow">🧮 Part 4 · Classical Machine Learning</span>
+        <h1>Paradigms of ML II: Self-supervised, Online, Meta &amp; RL</h1>
+        <div class="lesson-meta"><span>⏱️ 45 min</span><span>🎯 The paradigms that power modern AI</span><span>📦 Week 12</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Use a few labels well with <strong>semi-supervised</strong> and <strong>active learning</strong>.</li>
+          <li>Explain <strong>self-supervised learning</strong> — and why "predict the next word" is the engine behind every LLM.</li>
+          <li>Describe <strong>online learning</strong>: training on a stream, one example at a time.</li>
+          <li>Grasp <strong>meta-learning</strong> — "learning to learn" — and why it enables few-shot learning.</li>
+          <li>Preview <strong>reinforcement learning</strong>: learning to act from rewards.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">Labelling data is slow and expensive — yet ChatGPT learned from trillions of words that nobody hand-labelled. What's the trick that lets a model teach itself?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. Between the two worlds: semi-supervised &amp; active learning</h2>
+      <p>Last week's tree had two big branches — fully labelled (supervised) and fully unlabelled (unsupervised). Real life usually sits in the middle: a <em>few</em> labelled examples and a <em>mountain</em> of unlabelled ones, because labelling costs human time. Two paradigms exploit this.</p>
+      <p><strong>Semi-supervised learning</strong> uses the small labelled set to anchor the model, then leans on the huge unlabelled set to sharpen the decision boundary. The key assumption: points that are close together (or sit on the same dense "blob" of data) probably share a label. A handful of labels can propagate through the structure of the unlabelled cloud.</p>
+      <p><strong>Active learning</strong> is cleverer still: the model itself <em>chooses which examples to ask a human to label</em>. Rather than labelling 10,000 random images, it requests labels only for the examples it's most unsure about — the ones near its decision boundary — getting the most learning per expensive label.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🙋</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Active learning is the smart student who doesn't re-read the whole textbook — they ask the teacher only about the exact problems that confuse them. Each question is targeted at maximum confusion, so each answer teaches the most. That's how to spend a limited "labelling budget" wisely.</p>
+      </div>
+
+      <h2>2. Self-supervised learning: the data labels itself</h2>
+      <p>Here is the idea that changed AI. <strong>Self-supervised learning</strong> creates labels <em>out of the data itself</em> — no human annotators needed. You take unlabelled data, hide part of it, and train the model to predict the hidden part from the rest. The "label" is just the piece you covered up, so it's free and infinite.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The trick that built the LLM era</div>
+        <p style="margin-bottom:0">Give a model billions of sentences and one task: <strong>predict the next word</strong>. "The cat sat on the ___" → <em>mat</em>. The correct answer was already in the text — you just hid it. Nobody labelled anything, yet to predict the next word well the model must learn grammar, facts, reasoning, and style. This single self-supervised objective is how GPT-style models are pre-trained.</p>
+      </div>
+
+      <p>Formally it's still supervised <em>machinery</em> — there's an input, a target, and a loss — but the target is manufactured from the input. For next-word prediction we maximise the probability the model assigns to each true next token \(x_t\) given everything before it:</p>
+      <p>\[ \mathcal{L} = -\sum_{t} \log P_\theta\bigl(x_t \mid x_1, x_2, \dots, x_{t-1}\bigr) \]</p>
+      <p>Because the supervision comes for free, you can train on the entire internet. That's why self-supervision unlocked models of a scale that hand-labelling never could.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 600 180" aria-label="Self-supervised next-word prediction">
+          <text x="300" y="24" font-size="13" fill="#767c93" text-anchor="middle" font-family="sans-serif">Self-supervision: hide a word, predict it from the rest</text>
+          <!-- given words -->
+          <g font-family="monospace" font-size="15">
+            <rect x="40"  y="60" width="80" height="40" rx="6" fill="#e3e6f0"/><text x="80"  y="86" text-anchor="middle" fill="#333">The</text>
+            <rect x="130" y="60" width="80" height="40" rx="6" fill="#e3e6f0"/><text x="170" y="86" text-anchor="middle" fill="#333">cat</text>
+            <rect x="220" y="60" width="80" height="40" rx="6" fill="#e3e6f0"/><text x="260" y="86" text-anchor="middle" fill="#333">sat</text>
+            <rect x="310" y="60" width="80" height="40" rx="6" fill="#e3e6f0"/><text x="350" y="86" text-anchor="middle" fill="#333">on</text>
+            <rect x="400" y="60" width="80" height="40" rx="6" fill="#e3e6f0"/><text x="440" y="86" text-anchor="middle" fill="#333">the</text>
+            <!-- hidden target -->
+            <rect x="490" y="60" width="80" height="40" rx="6" fill="#f59e0b"/><text x="530" y="86" text-anchor="middle" fill="#fff">? ? ?</text>
+          </g>
+          <line x1="440" y1="105" x2="525" y2="120" stroke="#4f46e5" stroke-width="2" marker-end="url(#ah12)"/>
+          <defs><marker id="ah12" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4f46e5"/></marker></defs>
+          <text x="530" y="150" font-size="13" fill="#14b8a6" text-anchor="middle" font-family="monospace">predict: "mat"</text>
+        </svg>
+        <figcaption>The model is asked to fill the blank. The true word ("mat") was already in the text — a free label. Repeat across the whole internet and the model learns language itself.</figcaption>
+      </figure>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">It's like a fill-in-the-blank game you can play forever without a teacher. Cover the last word of any sentence and guess it. If you're wrong, peek and fix your guess. Play this billions of times with every book and website ever written, and you'd end up knowing an astonishing amount about the world — just from guessing missing words. That's how ChatGPT learned.</p>
+      </div>
+
+      <h2>3. Online learning: training on a moving river</h2>
+      <p>Everything so far assumed a fixed dataset sitting in memory ("batch" learning). But data often <em>arrives as a stream</em> — stock ticks, clicks, sensor readings, fraud attempts — and it never stops. <strong>Online learning</strong> updates the model one example (or one small mini-batch) at a time, then throws that example away.</p>
+      <p>This matters for two reasons: (1) datasets too big to fit in memory can still be learned from in a single pass, and (2) the world <em>drifts</em> — yesterday's spam looks nothing like today's — so a model that keeps updating stays fresh. The update rule is the same gradient step you'll meet in Week 26, just applied per-example instead of over the whole batch.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🌊</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Batch learning is studying from a finished textbook. Online learning is being a news editor: stories pour in all day and you update your understanding of "what's happening" continuously, never waiting for the year to end. You adapt as the river flows.</p>
+      </div>
+
+      <h2>4. Meta-learning: learning to learn</h2>
+      <p>Ordinary ML learns one task. <strong>Meta-learning</strong> learns <em>how to learn</em> across many tasks, so that facing a brand-new task it can master it from just a handful of examples. The model isn't memorising answers — it's acquiring a learning <em>strategy</em>: good starting weights, or a good way to adapt quickly.</p>
+      <p>This is the engine behind <strong>few-shot learning</strong>: show the system 3 examples of a category it's never seen and it generalises. It works because, having trained on thousands of <em>different</em> small tasks, it has learned the general shape of "how tasks like this tend to go," so a few examples are enough to pin down the specifics.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">A kid who has learned ten board games can pick up an eleventh almost instantly — not because they memorised the new rules in advance, but because they got good at <em>learning games in general</em>. Meta-learning is teaching a model to be that quick learner.</p>
+      </div>
+
+      <h2>5. Reinforcement learning: learning by trial, reward, and error</h2>
+      <p>The last great branch of the tree is utterly different. There's no fixed dataset and no answer key. Instead an <strong>agent</strong> acts in an <strong>environment</strong>, and the only feedback is a <strong>reward</strong> — a number saying how good the outcome was. The agent must figure out, through trial and error, which actions lead to the most reward <em>over time</em>.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 520 200" aria-label="The reinforcement learning loop">
+          <rect x="40" y="70" width="140" height="60" rx="10" fill="#4f46e5"/>
+          <text x="110" y="105" font-size="16" fill="#fff" text-anchor="middle" font-family="sans-serif">Agent</text>
+          <rect x="340" y="70" width="140" height="60" rx="10" fill="#14b8a6"/>
+          <text x="410" y="105" font-size="15" fill="#fff" text-anchor="middle" font-family="sans-serif">Environment</text>
+          <!-- action arrow -->
+          <path d="M180 88 H 340" stroke="#f59e0b" stroke-width="3" fill="none" marker-end="url(#ah12b)"/>
+          <text x="260" y="78" font-size="13" fill="#b45309" text-anchor="middle" font-family="sans-serif">action</text>
+          <!-- reward + state arrow back -->
+          <path d="M340 118 H 180" stroke="#f43f5e" stroke-width="3" fill="none" marker-end="url(#ah12c)"/>
+          <text x="260" y="142" font-size="13" fill="#be123c" text-anchor="middle" font-family="sans-serif">reward + new state</text>
+          <defs>
+            <marker id="ah12b" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#f59e0b"/></marker>
+            <marker id="ah12c" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#f43f5e"/></marker>
+          </defs>
+          <text x="260" y="180" font-size="12" fill="#767c93" text-anchor="middle" font-family="sans-serif">act → observe reward → adjust → repeat</text>
+        </svg>
+        <figcaption>The RL loop: the agent acts, the environment replies with a reward and a new state, and the agent learns a policy that maximises long-run reward. Full treatment in Week 40.</figcaption>
+      </figure>
+
+      <p>This is how AlphaGo learned to beat world champions and how robots learn to walk. It's also a final-stage ingredient in modern chatbots: after self-supervised pre-training, models are polished with <strong>RLHF</strong> (reinforcement learning from human feedback) so their answers are helpful and safe. We'll do MDPs, value functions, and policies properly in Week 40.</p>
+
+      <h2>6. Self-supervision in a few lines</h2>
+      <p>The whole magic of section 2 is that labels are <em>manufactured</em> from raw text. Here's the core idea in plain NumPy: slide a window over a sentence and turn it into <code>(context → next word)</code> training pairs — free labels, no human in sight.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — building self-supervised labels</span></div>
+<pre><code class="language-python">import numpy as np
+
+text = "the cat sat on the mat".split()      # raw, unlabelled data
+ctx = 2                                       # use 2 previous words as context
+
+# Manufacture (context, target) pairs by hiding the next word -- this is the "label"
+pairs = [(text[i-ctx:i], text[i]) for i in range(ctx, len(text))]
+for context, target in pairs:
+    print(context, "->", target)
+# ['the', 'cat'] -> sat   |   ['cat', 'sat'] -> on   |  ... etc.
+
+# Count how often each context predicts each next word: a tiny "language model"
+vocab = sorted(set(text))
+idx = {w: i for i, w in enumerate(vocab)}
+counts = np.zeros((len(vocab), len(vocab)))   # counts[prev, next]
+for i in range(1, len(text)):
+    counts[idx[text[i-1]], idx[text[i]]] += 1  # the target came free from the data
+print("after 'the', model predicts:", vocab[int(counts[idx['the']].argmax())])  # -> 'cat'</code></pre>
+      <p>No annotator labelled anything — every target was simply the word we hid. Scale this exact idea from one sentence to trillions of words and from counts to a transformer, and you have the pre-training recipe behind every modern LLM.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This lesson finishes the paradigm map from <strong>Week 11</strong>. The headline is <strong>self-supervised learning</strong>: it's the bridge from classical ML to modern AI. "Predict the next word" is exactly the pre-training objective you'll build up to in <strong>Week 33 (pre-training, BERT/GPT)</strong> and <strong>Week 34 (LLMs &amp; RAG)</strong> — and it rests on the attention mechanism of <strong>Week 32</strong>. Online learning uses the gradient steps of <strong>Week 26</strong>, and reinforcement learning gets its own deep dive in <strong>Week 40</strong>. Next, in <strong>Week 13</strong>, we descend from this bird's-eye map into the simplest concrete learning machine: linear regression.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=wjZofJX0v4M" target="_blank" rel="noopener">But what is a GPT? Transformers, visually explained</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">Shows next-word prediction (section 2) as the literal training objective of GPT. The clearest picture of self-supervision anywhere.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=Tau0qmccfH4" target="_blank" rel="noopener">Reinforcement Learning, Clearly Explained</a> <span class="badge-sq">StatQuest</span><span class="r-src">A friendly first pass at the agent–reward loop of section 5 before the full Week 40 treatment.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://ai.meta.com/blog/self-supervised-learning-the-dark-matter-of-intelligence/" target="_blank" rel="noopener">Self-supervised learning: the dark matter of intelligence (Meta AI)</a><span class="r-src">LeCun's essay arguing self-supervision is the core of how intelligent systems should learn. Perfect context for section 2.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">Why is "predict the next word" called <em>self</em>-supervised rather than supervised?</div>
+        <button class="opt">Because it uses no loss function.</button>
+        <button class="opt">Because humans label every sentence by hand.</button>
+        <button class="opt">Because the label (the next word) is taken from the data itself — no human annotation needed.</button>
+        <button class="opt">Because it only works on images.</button>
+        <div class="explain">The target is manufactured by hiding part of the input. The "answer" was already in the text, so supervision is free and effectively infinite — which is exactly why LLMs can train on the whole internet.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">A fraud-detection system must update continuously as new transactions stream in, never stopping to retrain from scratch. This is…</div>
+        <button class="opt">Online learning.</button>
+        <button class="opt">Meta-learning.</button>
+        <button class="opt">Semi-supervised learning.</button>
+        <button class="opt">Unsupervised clustering.</button>
+        <div class="explain">Learning one example at a time from a never-ending stream, adapting as the data drifts, is the definition of online learning.</div>
+      </div>
+      <div class="quiz" data-answer="3">
+        <div class="q">In reinforcement learning, what feedback does the agent learn from?</div>
+        <button class="opt">A labelled answer key for every state.</button>
+        <button class="opt">The correct next word.</button>
+        <button class="opt">Nothing — it's fully unsupervised.</button>
+        <button class="opt">A reward signal earned by acting in an environment.</button>
+        <div class="explain">RL has no answer key. The agent takes actions and receives rewards, then learns a policy that maximises long-run reward through trial and error.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 35 · GANs I — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w35">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 35</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 6 · Transformers &amp; Generative AI › Lesson 35</div>
+        <span class="eyebrow">✨ Part 6 · Transformers &amp; Generative AI</span>
+        <h1>GANs I: The Generator–Discriminator Game</h1>
+        <div class="lesson-meta"><span>⏱️ 55 min</span><span>🎯 Learning to imagine</span><span>📦 Week 35</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain what a <strong>Generative Adversarial Network (GAN)</strong> is and why it can invent realistic new data.</li>
+          <li>Describe the two players — a <strong>generator</strong> and a <strong>discriminator</strong> — and the <strong>minimax game</strong> they play.</li>
+          <li>Trace how the generator maps a random noise vector \(\mathbf{z}\) into an image.</li>
+          <li>Name the classic training pathologies: <strong>mode collapse</strong>, instability, and <strong>vanishing gradients</strong>.</li>
+          <li>Understand why evaluating a GAN is hard, and what FID and the Inception Score measure.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A classifier learns to <em>recognise</em> a cat. But how could a machine learn to <em>paint a brand-new cat that has never existed</em> — with no painting to copy?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>35.1 What a GAN is: a machine that imagines</h2>
+      <p>Everything you've built so far has been <strong>discriminative</strong>: feed in a picture, get out a label. Week 28's CNN says "cat" or "dog." That's perception. A <strong>generative</strong> model flips the arrow around — instead of <em>data → label</em>, it learns <em>noise → data</em>. Hand it some randomness and it hands you back a photorealistic face, a landscape, a sneaker design — none of which existed before.</p>
+      <p>A <strong>Generative Adversarial Network</strong>, introduced by Ian Goodfellow and colleagues in 2014, is the most famous early way to do this. The trick is delightfully sneaky: instead of writing a loss function that says "this looks like a real face" (nobody knows how to write that), we train <em>a second neural network to be the judge</em>, and let the two networks teach each other.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine a <strong>forger</strong> who paints fake money and a <strong>detective</strong> who decides if money is real or fake. At first the forger is terrible and the detective spots every fake instantly. But every time the detective catches a fake, the forger learns a little. And every time a fake slips through, the detective learns a little. After thousands of rounds, the forger paints money so good that even the detective can only guess. Now the forger can print money that looks totally real — that's the GAN.</p>
+      </div>
+
+      <h2>35.2 The structure: two networks, one game</h2>
+      <p>A GAN has exactly two neural networks, locked in competition:</p>
+      <ul>
+        <li>The <strong>Generator</strong> \(G\). It takes a random noise vector \(\mathbf{z}\) (drawn from, say, a Gaussian — remember Week 4) and outputs a fake sample \(G(\mathbf{z})\), e.g. a 64×64 image. It never sees the real data directly; its only feedback is whether it fooled the judge.</li>
+        <li>The <strong>Discriminator</strong> \(D\). It's an ordinary binary classifier (a CNN, Week 28). Given an image, it outputs \(D(\mathbf{x}) \in [0,1]\): the probability that the image is <em>real</em> rather than generated.</li>
+      </ul>
+      <p>They have opposite goals. \(D\) wants to correctly label real images as real and fakes as fake. \(G\) wants to make fakes that \(D\) labels as real. This tug-of-war is written as a single <strong>minimax</strong> objective — \(D\) tries to <em>maximise</em> it, \(G\) tries to <em>minimise</em> it:</p>
+      <p>\[ \min_{G}\;\max_{D}\;\; \mathbb{E}_{\mathbf{x}\sim p_{\text{data}}}\big[\log D(\mathbf{x})\big] \;+\; \mathbb{E}_{\mathbf{z}\sim p_{\mathbf{z}}}\big[\log\big(1 - D(G(\mathbf{z}))\big)\big] \]</p>
+      <p>Read it in plain English. The first term rewards \(D\) for confidently calling <em>real</em> images real (\(D(\mathbf{x})\to1\)). The second rewards \(D\) for calling <em>fakes</em> fake (\(D(G(\mathbf{z}))\to0\)). The generator \(G\) appears only in that second term and wants the opposite: to push \(D(G(\mathbf{z}))\) up toward 1. At the theoretical optimum, \(G\) reproduces the true data distribution exactly and \(D\) is reduced to flipping a coin: \(D(\mathbf{x})=\tfrac12\) everywhere.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 520 260" aria-label="The generator and discriminator training loop">
+          <!-- noise -->
+          <rect x="10" y="100" width="70" height="48" rx="8" fill="#e3e6f0"/>
+          <text x="45" y="122" font-size="12" fill="#767c93" text-anchor="middle">noise</text>
+          <text x="45" y="138" font-size="14" fill="#4f46e5" text-anchor="middle" font-family="monospace">z</text>
+          <!-- generator -->
+          <rect x="120" y="92" width="100" height="64" rx="10" fill="#4f46e5"/>
+          <text x="170" y="120" font-size="14" fill="#fff" text-anchor="middle">Generator</text>
+          <text x="170" y="138" font-size="12" fill="#cdd3ff" text-anchor="middle">G(z)</text>
+          <line x1="80" y1="124" x2="118" y2="124" stroke="#767c93" stroke-width="2" marker-end="url(#ah35)"/>
+          <!-- fake image -->
+          <rect x="250" y="100" width="60" height="48" rx="6" fill="#f59e0b"/>
+          <text x="280" y="128" font-size="11" fill="#fff" text-anchor="middle">fake</text>
+          <line x1="220" y1="124" x2="248" y2="124" stroke="#767c93" stroke-width="2" marker-end="url(#ah35)"/>
+          <!-- real image -->
+          <rect x="250" y="20" width="60" height="48" rx="6" fill="#14b8a6"/>
+          <text x="280" y="48" font-size="11" fill="#fff" text-anchor="middle">real</text>
+          <text x="200" y="40" font-size="11" fill="#767c93">training set</text>
+          <line x1="248" y1="44" x2="180" y2="44" stroke="#14b8a6" stroke-width="2"/>
+          <!-- discriminator -->
+          <rect x="350" y="60" width="100" height="64" rx="10" fill="#f43f5e"/>
+          <text x="400" y="88" font-size="14" fill="#fff" text-anchor="middle">Discriminator</text>
+          <text x="400" y="106" font-size="12" fill="#ffd4dc" text-anchor="middle">D(·)</text>
+          <line x1="310" y1="124" x2="348" y2="104" stroke="#767c93" stroke-width="2" marker-end="url(#ah35)"/>
+          <line x1="310" y1="44" x2="348" y2="80" stroke="#767c93" stroke-width="2" marker-end="url(#ah35)"/>
+          <!-- verdict -->
+          <text x="470" y="96" font-size="13" fill="#f43f5e">real?</text>
+          <text x="470" y="112" font-size="13" fill="#f43f5e">fake?</text>
+          <!-- feedback loop -->
+          <path d="M400,124 C400,210 170,210 170,158" fill="none" stroke="#4f46e5" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ah35b)"/>
+          <text x="240" y="205" font-size="11" fill="#4f46e5" text-anchor="middle">gradient: "fool D better"</text>
+          <defs>
+            <marker id="ah35" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#767c93"/></marker>
+            <marker id="ah35b" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4f46e5"/></marker>
+          </defs>
+        </svg>
+        <figcaption>The adversarial loop. The generator turns noise <code>z</code> into a fake; the discriminator judges fakes (amber) against real samples (teal). The discriminator's verdict flows back as a gradient that nudges the generator to fool it better next time.</figcaption>
+      </figure>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🎨</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Think of an art student and a sharp-eyed critic. The student copies the style of the masters but invents new paintings; the critic studies real masterpieces and tries to spot the student's forgeries in a line-up. Neither is told <em>how</em> to improve directly — the student just learns "that one got flagged, this one passed," and the critic learns "I was fooled there." Their rivalry is the entire curriculum. Remove the critic and the student has no teacher.</p>
+      </div>
+
+      <h2>35.3 The generator: from a noise vector to an image</h2>
+      <p>Zoom into \(G\). Its input is a small random vector, often \(\mathbf{z}\in\mathbb{R}^{100}\), sampled fresh each time from \(\mathcal{N}(0,I)\). You can picture this 100-number vector as a <strong>seed</strong> or a set of hidden dials: nudge one number and the output face might grow a smile; nudge another and the hair darkens. This is the model's <em>latent space</em>.</p>
+      <p>The generator's job is to <strong>up-sample</strong>: grow a tiny 100-dimensional seed into a full 64×64×3 = 12,288-pixel image. It does this with layers that are the mirror image of a CNN's down-sampling — <em>transposed convolutions</em> (sometimes called "deconvolutions") that progressively double the spatial size while a learned nonlinearity sculpts texture and shape, all trained by backprop (Week 25). Because \(\mathbf{z}\) is continuous, walking smoothly through the latent space morphs one output smoothly into another — that's why latent-space interpolation videos look so dreamlike.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">The generator is a learned function \(G:\mathbb{R}^{100}\!\to\!\text{images}\) that turns random noise into structured data. It never copies a training image — it learns the <em>recipe</em> for what real data looks like, so it can cook up endless new examples by feeding in fresh noise.</p>
+      </div>
+
+      <h2>35.4 Issues in training: why GANs are notoriously fiddly</h2>
+      <p>A GAN is not optimising one loss downhill; it's a <strong>two-player game searching for an equilibrium</strong>. That makes training unstable and gives rise to three famous failure modes:</p>
+      <ul>
+        <li><strong>Mode collapse.</strong> The generator discovers one or a few outputs that reliably fool the discriminator, and produces <em>only those</em>. Ask for 1000 faces and get the same face 1000 times. It found a cheap win and stopped exploring the full variety of the data.</li>
+        <li><strong>Instability / oscillation.</strong> Because the two losses move in opposite directions, the pair can endlessly chase each other without settling — \(G\) improves, \(D\) over-corrects, \(G\) lurches elsewhere. Loss curves jitter instead of converging, and a model that looked great can suddenly fall apart.</li>
+        <li><strong>Vanishing gradients.</strong> If \(D\) becomes <em>too</em> good too early, it labels every fake as fake with near-total confidence. Then \(\log(1-D(G(\mathbf{z})))\) saturates and its gradient flattens to nearly zero — the generator gets no useful signal to learn from. In practice we sidestep this with the <em>non-saturating</em> trick: instead of minimising \(\log(1-D(G(\mathbf{z})))\), the generator <em>maximises</em> \(\log D(G(\mathbf{z}))\), which gives strong gradients exactly when \(G\) is losing.</li>
+      </ul>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Watch out</div>
+        <p style="margin-bottom:0">You must keep the two players <strong>balanced</strong>. If the discriminator wins decisively, the generator's gradients vanish; if the generator wins, it has no teacher. Much of GAN engineering — learning-rate tuning, label smoothing, Wasserstein loss, gradient penalties — exists to keep this knife-edge balance from tipping over.</p>
+      </div>
+
+      <h2>35.5 The training loop in code</h2>
+      <p>Here is the heart of every GAN: in each step we update the discriminator on a batch of real <em>and</em> fake images, then update the generator to fool the freshly-updated discriminator. Read the comments — the two <code>.backward()</code> calls are the two players taking turns.</p>
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">pytorch — the adversarial loop</span></div>
+<pre><code class="language-python">import torch, torch.nn as nn
+
+bce = nn.BCELoss()                       # binary cross-entropy: "real (1) vs fake (0)"
+opt_D = torch.optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))
+opt_G = torch.optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
+
+for real in dataloader:                  # real: a batch of genuine images
+    b = real.size(0)
+    real_lbl = torch.ones(b, 1)          # target for "real"
+    fake_lbl = torch.zeros(b, 1)         # target for "fake"
+
+    # ---- 1) Train the DISCRIMINATOR: tell real from fake ----
+    z = torch.randn(b, 100)              # noise seeds ~ N(0, I)  (Week 4)
+    fake = G(z)                          # generator conjures fakes
+    loss_D = bce(D(real), real_lbl) + bce(D(fake.detach()), fake_lbl)
+    opt_D.zero_grad(); loss_D.backward(); opt_D.step()   # detach() => G not updated here
+
+    # ---- 2) Train the GENERATOR: make D call the fakes "real" ----
+    z = torch.randn(b, 100)
+    gen = G(z)
+    loss_G = bce(D(gen), real_lbl)       # non-saturating trick: push D(G(z)) -> 1
+    opt_G.zero_grad(); loss_G.backward(); opt_G.step()
+# After enough rounds, G's fakes are good enough that D is reduced to a coin-flip (~0.5).</code></pre>
+
+      <h2>35.6 Evaluating GANs: when there's no test-set accuracy</h2>
+      <p>For a classifier you just measure accuracy. But a GAN has no labels and no single "correct" output — a good fake is one that looks real <em>and</em> is varied. So evaluation must capture both <strong>quality</strong> (do samples look real?) and <strong>diversity</strong> (do they cover the whole data distribution, not just one mode?). Two standard metrics emerged, both built on a pre-trained Inception CNN (Week 29's transfer-learning idea reused as a feature extractor):</p>
+      <ul>
+        <li><strong>Inception Score (IS).</strong> Runs generated images through Inception and rewards images that are <em>confidently</em> classified (sharp, recognisable) <em>and</em> spread across many classes (diverse). Higher is better — but it ignores the real data entirely, so it can be gamed.</li>
+        <li><strong>Fréchet Inception Distance (FID).</strong> Today's default. It embeds both real and generated images into Inception's feature space, fits a Gaussian to each cloud, and measures the distance between those two Gaussians. <em>Lower FID is better</em> (0 = identical distributions). Because it compares against real data and is sensitive to mode collapse, FID is far more trusted than IS.</li>
+      </ul>
+      <p>Even so, both metrics are imperfect proxies — they can disagree with human judgement, depend on the (ImageNet-trained) Inception network, and miss failures a person would catch instantly. That's why GAN papers still show grids of samples: ultimately, the human eye remains part of the evaluation.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">A GAN is built entirely from tools you already own: both networks are <strong>neural nets (Weeks 24–27)</strong>, the discriminator (and often the generator) is a <strong>CNN (Week 28)</strong>, and the whole thing is trained by <strong>backpropagation (Week 25)</strong> using <strong>Gaussian noise (Week 4)</strong> as the seed. Notice the contrast with transformers: a transformer predicts the next token from <em>context</em>, while a GAN conjures data from pure <em>noise</em>. Next week (<strong>Week 36</strong>) we'll take control of the dice — feeding the generator a label or even a sentence so we can choose <em>what</em> it generates, leading to pix2pix, CycleGAN, and the first text-to-image systems.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">📄</span><div><a href="https://arxiv.org/abs/1406.2661" target="_blank" rel="noopener">Generative Adversarial Networks (Goodfellow et al., 2014)</a><span class="r-src">The original paper that started it all. Read the introduction and the minimax objective in section 3 — it maps directly onto section 35.2 above.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=8L11aMN5KY8" target="_blank" rel="noopener">A Friendly Introduction to GANs</a><span class="r-src">Luis Serrano's gentle, picture-first walkthrough of the forger-vs-detective game. Perfect for cementing the intuition before the math.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html" target="_blank" rel="noopener">DCGAN Tutorial (PyTorch official docs)</a><span class="r-src">A complete, runnable face-generating GAN. The generator/discriminator classes show exactly how transposed convolutions up-sample noise into an image.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">In a GAN, what is the discriminator's job?</div>
+        <button class="opt">To generate new images from noise.</button>
+        <button class="opt">To compress images into a latent vector.</button>
+        <button class="opt">To classify an image as real (from the data) or fake (from the generator).</button>
+        <button class="opt">To remove noise from a corrupted image.</button>
+        <div class="explain">The discriminator is just a binary classifier outputting D(x) ∈ [0,1], the probability the input is real. Its verdict is the only teaching signal the generator ever receives.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">A generator produces almost the same image no matter what noise vector you feed it. This is called…</div>
+        <button class="opt">Vanishing gradients.</button>
+        <button class="opt">Mode collapse.</button>
+        <button class="opt">Overfitting.</button>
+        <button class="opt">Batch normalisation.</button>
+        <div class="explain">Mode collapse: the generator found one output that reliably fools the discriminator and stopped covering the variety in the real data. Diversity, not just realism, is what we lose.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">For the Fréchet Inception Distance (FID), which is true?</div>
+        <button class="opt">Lower is better; it compares the feature distributions of real and generated images.</button>
+        <button class="opt">Higher is better; it only looks at generated images.</button>
+        <button class="opt">It measures pixel-by-pixel difference to the nearest training image.</button>
+        <button class="opt">It requires human labels for every generated sample.</button>
+        <div class="explain">FID embeds both real and fake images with a pre-trained Inception net, fits a Gaussian to each, and measures the distance between them. Lower means the generated distribution is closer to the real one — and unlike the Inception Score, it actually compares against real data.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

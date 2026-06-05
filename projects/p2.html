@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 2 · Sentiment &amp; Spam Text Classifier — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-project="p2">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Project 2</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Capstone Projects › Project 2</div>
+        <span class="eyebrow">🏆 Capstone Project 2</span>
+        <h1>Sentiment &amp; Spam — A Text Classifier</h1>
+        <div class="lesson-meta"><span>🟢 Difficulty: Foundational+</span><span>🎯 Turning language into numbers</span><span>🧰 NLP · TF-IDF · Naïve Bayes · MLP · Embeddings</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>What you'll build</h4>
+        <ul>
+          <li>A spam/ham (or positive/negative) classifier that reads raw text and makes a call.</li>
+          <li>A <strong>TF-IDF</strong> vectoriser that converts messages into numeric feature vectors.</li>
+          <li>A <strong>Multinomial Naïve Bayes</strong> baseline — the legendary fast text classifier.</li>
+          <li>A small <strong>PyTorch MLP</strong> trained on the same vectors, to compare classical vs neural.</li>
+          <li>An evaluation grounded in <strong>precision &amp; recall</strong> (because in spam, the costs of the two mistakes differ).</li>
+          <li>A clear-eyed view of why modern systems replace TF-IDF with <strong>embeddings</strong>.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A model can only do arithmetic. So how do you turn the messy, ambiguous, infinitely varied thing called <em>language</em> into numbers a machine can actually compute with — without throwing away the meaning?</div>
+      </div>
+
+      <div class="prose">
+
+      <p>Project 1 handed us tidy numeric columns. Text gives us none of that — just strings. The entire game in NLP (Week 9) is the <strong>vectorisation</strong> step: a principled recipe for turning a sentence into a fixed-length vector. Once we have vectors, every classifier from Part 4 works unchanged.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine you have to tell junk mail from real mail, but you can only count words. You notice junk mail says "FREE", "winner", and "click" a lot, while real mail from your friend says "homework" and "tomorrow". So you make a tally of which words appear. Words that show up in <em>every</em> message (like "the") aren't useful, so you ignore them. The computer does this tally for thousands of words at once — and that tally <em>is</em> the message, turned into numbers.</p>
+      </div>
+
+      <h2>The text-to-decision pipeline</h2>
+
+      <figure class="figure">
+        <svg viewBox="0 0 720 160" aria-label="Text to vector to classifier pipeline">
+          <defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#767c93"/></marker></defs>
+          <g font-family="sans-serif" font-size="11" text-anchor="middle">
+            <rect x="10" y="55" width="120" height="52" rx="8" fill="#eef0fb" stroke="#4f46e5"/><text x="70" y="78">Raw text</text><text x="70" y="94" fill="#767c93">"WIN a FREE prize"</text>
+            <rect x="180" y="55" width="120" height="52" rx="8" fill="#e7faf6" stroke="#14b8a6"/><text x="240" y="78">TF-IDF</text><text x="240" y="94" fill="#767c93">vectorise</text>
+            <rect x="350" y="40" width="120" height="38" rx="8" fill="#fff4e0" stroke="#f59e0b"/><text x="410" y="63">Naïve Bayes</text>
+            <rect x="350" y="92" width="120" height="38" rx="8" fill="#fff4e0" stroke="#f59e0b"/><text x="410" y="115">Torch MLP</text>
+            <rect x="520" y="55" width="120" height="52" rx="8" fill="#fde8ee" stroke="#f43f5e"/><text x="580" y="78">spam / ham</text><text x="580" y="94" fill="#767c93">+ P / R score</text>
+          </g>
+          <g stroke="#767c93" stroke-width="1.5" marker-end="url(#ar2)">
+            <line x1="130" y1="81" x2="178" y2="81"/>
+            <line x1="300" y1="75" x2="348" y2="60"/><line x1="300" y1="87" x2="348" y2="110"/>
+            <line x1="470" y1="60" x2="518" y2="75"/><line x1="470" y1="110" x2="518" y2="87"/>
+          </g>
+        </svg>
+        <figcaption>Both classifiers consume the very same TF-IDF vectors. The vectoriser is the bridge from language to arithmetic.</figcaption>
+      </figure>
+
+      <h2>Step 1 — Get the data</h2>
+      <p>We'll use a tiny in-script corpus so the project runs anywhere with no downloads. The structure is identical to the famous SMS Spam Collection — swap in that CSV (or IMDB reviews for sentiment) and nothing else changes.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step1_data.py</span></div>
+<pre><code class="language-python">import numpy as np
+
+# label 1 = spam, 0 = ham (legitimate). A real project loads a CSV;
+# this self-contained corpus keeps the project runnable offline.
+texts = [
+    "WIN a FREE prize now click this link",          # spam
+    "URGENT you have won a free cash claim today",    # spam
+    "cheap meds buy now limited offer click",         # spam
+    "congratulations free entry to win tickets",      # spam
+    "claim your free reward now act fast",            # spam
+    "hey are we still meeting for lunch tomorrow",     # ham
+    "can you send me the homework notes please",       # ham
+    "i'll call you after the meeting thanks",          # ham
+    "happy birthday hope you have a great day",        # ham
+    "the report is attached let me know your thoughts",# ham
+]
+labels = np.array([1,1,1,1,1, 0,0,0,0,0])
+
+print(f"{labels.sum()} spam, {(labels==0).sum()} ham")
+</code></pre>
+
+      <h2>Step 2 — Vectorise with TF-IDF</h2>
+      <p>A raw word count over-weights common words. <strong>TF-IDF</strong> fixes this by multiplying how often a word appears in <em>this</em> message (term frequency) by how <em>rare</em> it is across all messages (inverse document frequency):</p>
+      <p>\[ \text{tfidf}(t,d) = \underbrace{\text{tf}(t,d)}_{\text{frequent here}} \times \underbrace{\log\frac{N}{1+\text{df}(t)}}_{\text{rare overall}} \]</p>
+      <p>"the" appears everywhere so its IDF crushes it toward zero; "free" appearing only in spam keeps a high weight. The result is a vector per message in a vocabulary-sized space — each message is now a point, and similar messages sit near each other (cosine similarity, Week 2).</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step2_vectorise.py</span></div>
+<pre><code class="language-python">from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+
+# Split first (no leakage), then FIT the vectoriser on train text only.
+Xtr_txt, Xte_txt, ytr, yte = train_test_split(
+    texts, labels, test_size=0.3, random_state=0, stratify=labels)
+
+vec = TfidfVectorizer(stop_words="english", lowercase=True)
+Xtr = vec.fit_transform(Xtr_txt)   # sparse matrix: (n_train, vocab_size)
+Xte = vec.transform(Xte_txt)       # transform test with the SAME vocabulary
+
+print("vocabulary size:", len(vec.vocabulary_))
+print("train matrix shape:", Xtr.shape)
+# Each row is a message; each column is a word's TF-IDF weight.
+</code></pre>
+
+      <h2>Step 3 — Baseline: Multinomial Naïve Bayes</h2>
+      <p>Naïve Bayes (Week 16) applies Bayes' rule with a "naïve" independence assumption between words. Despite that simplification it's astonishingly good — and lightning fast — on text, which is why it ran the world's spam filters for years.</p>
+      <p>\[ P(\text{spam}\mid \text{words}) \propto P(\text{spam})\prod_i P(\text{word}_i\mid\text{spam}) \]</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🕵️</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Naïve Bayes is a detective who has memorised, for every word, how suspicious it is. Seeing a new message, the detective multiplies the suspicion of each word together and asks "does this smell more like spam or ham?" The "naïve" part is treating each word as an independent clue — pretending "free" and "prize" don't travel together. They obviously do, yet the detective still solves the case remarkably often.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step3_naive_bayes.py</span></div>
+<pre><code class="language-python">from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import classification_report, confusion_matrix
+
+nb = MultinomialNB().fit(Xtr, ytr)
+pred_nb = nb.predict(Xte)
+
+print(confusion_matrix(yte, pred_nb))
+# Precision &amp; recall matter here: a false positive (real mail -> spam folder)
+# is far more costly than a false negative, so watch HAM precision closely.
+print(classification_report(yte, pred_nb, target_names=["ham", "spam"]))
+
+# Score a brand-new message:
+msg = vec.transform(["free prize click now to claim"])
+print("spam?" , nb.predict(msg)[0], "  P(spam)=", nb.predict_proba(msg)[0,1].round(3))
+</code></pre>
+
+      <h2>Step 4 — A small neural classifier in PyTorch</h2>
+      <p>The same TF-IDF vectors can feed a neural net (Weeks 24–25). A two-layer MLP with a ReLU is the minimal "deep learning" version of this task. It rarely beats Naïve Bayes on tiny data, but it shows the bridge: <em>vectors in, logits out, cross-entropy loss, gradient descent</em>.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step4_torch_mlp.py</span></div>
+<pre><code class="language-python">import torch, torch.nn as nn
+
+# Convert sparse TF-IDF -> dense float tensors (vocab is small here).
+Xtr_t = torch.tensor(Xtr.toarray(), dtype=torch.float32)
+Xte_t = torch.tensor(Xte.toarray(), dtype=torch.float32)
+ytr_t = torch.tensor(ytr, dtype=torch.long)
+yte_t = torch.tensor(yte, dtype=torch.long)
+
+vocab = Xtr_t.shape[1]
+model = nn.Sequential(
+    nn.Linear(vocab, 16),   # hidden layer: mixes word weights
+    nn.ReLU(),              # non-linearity -> can learn word combinations
+    nn.Linear(16, 2),       # 2 output logits: [ham, spam]
+)
+
+opt = torch.optim.Adam(model.parameters(), lr=0.05)
+loss_fn = nn.CrossEntropyLoss()          # softmax + negative log-likelihood
+
+for epoch in range(120):                 # full-batch training (tiny data)
+    opt.zero_grad()
+    logits = model(Xtr_t)                # forward pass
+    loss = loss_fn(logits, ytr_t)
+    loss.backward()                      # backprop: gradients (Week 25)
+    opt.step()                           # Adam update (Week 26)
+    if epoch % 40 == 0:
+        print(f"epoch {epoch:3d}  loss {loss.item():.3f}")
+
+# Evaluate on the held-out test set.
+with torch.no_grad():
+    pred = model(Xte_t).argmax(dim=1)
+    acc = (pred == yte_t).float().mean().item()
+print(f"MLP test accuracy: {acc:.3f}")
+</code></pre>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> Precision vs recall in spam</div>
+        <p style="margin-bottom:0">These two errors are <em>not</em> symmetric. A <strong>false positive</strong> sends your boss's email to the spam folder — a disaster. A <strong>false negative</strong> lets one junk message through — mildly annoying. So spam filters tune for very high <strong>precision on the spam class</strong> (rarely flag good mail), even at the cost of missing some spam. Always pick the metric that matches the real-world cost.</p>
+      </div>
+
+      <h2>Step 5 — The modern upgrade: embeddings</h2>
+      <p>TF-IDF has a fatal blind spot: it treats "great" and "fantastic" as totally unrelated columns. It has no notion of <em>meaning</em>. <strong>Word embeddings</strong> (Week 31) fix this by learning a dense vector for each word such that similar meanings sit close together — so "great" and "fantastic" nearly overlap, and the famous <em>king − man + woman ≈ queen</em> falls out of the geometry.</p>
+      <p>Modern systems replace the TF-IDF box entirely with a pretrained <strong>sentence-transformer</strong> that maps a whole message to a single dense semantic vector. That vector then feeds the very same classifiers — and it's exactly the embedding step you'll build by hand in Project 4 and deploy in Project 5.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">You just stitched together <strong>Week 9 (NLP &amp; tokenisation)</strong>, <strong>Week 15 (precision/recall)</strong>, <strong>Week 16 (Naïve Bayes)</strong>, and <strong>Weeks 24–25 (neural nets &amp; backprop)</strong> — all bolted onto vectors from <strong>Week 2</strong>. The "embeddings" upgrade you glimpsed in Step 5 is the bridge to <strong>Week 31</strong> and the heart of <strong>Project 4's Mini-GPT</strong>, where words become learned vectors and attention decides which ones matter.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🧰 Concepts you're reusing</h2>
+      <ul class="refs">
+        <li><span class="r-ic">📐</span><div><a href="../lessons/w02.html">Week 2 · Linear Algebra</a><span class="r-src">Cosine similarity and the vector space messages live in after vectorisation.</span></div></li>
+        <li><span class="r-ic">💬</span><div><a href="../lessons/w09.html">Week 9 · NLP &amp; Text Processing</a><span class="r-src">Tokenisation, stop words and the TF-IDF idea behind Step 2.</span></div></li>
+        <li><span class="r-ic">🎯</span><div><a href="../lessons/w15.html">Week 15 · Evaluating Classifiers</a><span class="r-src">Precision, recall and the asymmetric-cost reasoning in Step 4.</span></div></li>
+        <li><span class="r-ic">🕵️</span><div><a href="../lessons/w16.html">Week 16 · Naïve Bayes</a><span class="r-src">The Bayesian baseline classifier of Step 3.</span></div></li>
+        <li><span class="r-ic">🧠</span><div><a href="../lessons/w24.html">Weeks 24–25 · Neural Nets &amp; Backprop</a><span class="r-src">The MLP, cross-entropy and gradient descent powering Step 4's torch model.</span></div></li>
+      </ul>
+
+      <h2>🚀 Make it your own</h2>
+      <ul>
+        <li><strong>Use a real dataset.</strong> Load the SMS Spam Collection or IMDB reviews and watch the same code scale to thousands of examples.</li>
+        <li><strong>Add n-grams.</strong> Set <code>ngram_range=(1,2)</code> in the vectoriser so "not good" survives as a unit — a huge win for sentiment.</li>
+        <li><strong>Swap in real embeddings.</strong> Replace TF-IDF with <code>sentence-transformers</code> (<code>all-MiniLM-L6-v2</code>) and feed the dense vectors to the same MLP.</li>
+        <li><strong>Compare honestly.</strong> Put Naïve Bayes, Logistic Regression and the MLP in one table with F1 and a precision-recall curve.</li>
+        <li><strong>Inspect mistakes.</strong> Print the misclassified messages — they teach you more about your features than any metric.</li>
+      </ul>
+
+      <nav class="pager"><a class="prev" href="../index.html">← Home</a><a class="next" href="p3.html">Project 3: Image Classifier →</a></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

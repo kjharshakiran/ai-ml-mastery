@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 34 · LLMs, Multimodal &amp; RAG — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w34">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 34</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 6 · Transformers &amp; Generative AI › Lesson 34</div>
+        <span class="eyebrow">✨ Part 6 · Transformers &amp; Generative AI</span>
+        <h1>Transformers III: LLMs, Multimodal &amp; RAG</h1>
+        <div class="lesson-meta"><span>⏱️ 60 min</span><span>🎯 How ChatGPT actually works — the whole course in one machine</span><span>📦 Week 34</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Apply transformers beyond text — to images and video — and explain captioning, VQA, and visual commonsense reasoning.</li>
+          <li>Explain a <strong>Large Language Model</strong> end-to-end: tokenise → embed → stacked attention → softmax over the vocabulary → sample.</li>
+          <li>Describe <strong>scaling laws</strong> and <strong>emergent abilities</strong> — why bigger models suddenly do new things.</li>
+          <li>Outline <strong>instruction tuning</strong> and <strong>RLHF</strong> — how a raw next-word predictor becomes a helpful assistant.</li>
+          <li>Build a <strong>RAG</strong> pipeline: retrieve relevant documents by embedding similarity, stuff them into the prompt, and generate a grounded answer.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A machine that does nothing but guess the next word, trained on a copy of the internet — how on earth does <em>that</em> turn into something that writes code, explains jokes, and answers your questions? And when it doesn't know a fact, how do we let it look one up? This is the payoff. Everything you've learned since Week 2 meets here.</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>34.1 Transformers for images and video</h2>
+      <p>We built attention for words, but nothing about it is text-specific. The Vision Transformer (ViT, 2020) made the leap with a beautifully simple trick: chop an image into a grid of small <strong>patches</strong> (say 16×16 pixels), flatten each patch into a vector, add a positional encoding (Week 33 — images have order too!), and feed the sequence of patches into a standard transformer encoder. To the transformer, a picture is just "a sentence whose words are patches." Each patch then attends to every other patch, so the model can relate a wheel in one corner to a car body in another. For <strong>video</strong>, we extend the same idea across time — patches now carry a position in space <em>and</em> in the sequence of frames — so attention links a moving object across frames.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Cut a photo into a grid of little square stickers, like a jigsaw. Lay the stickers out in a line and pretend each sticker is a "word." Now the same machine that reads sentences can "read" the picture — every sticker gets to look at every other sticker and say "hey, my piece of road connects to your piece of car!" That's a Vision Transformer.</p>
+      </div>
+
+      <h2>34.2–34.4 Seeing <em>and</em> reading: captioning, VQA, and commonsense</h2>
+      <p>Once images and text live in the same vector space, you can build <strong>multimodal</strong> models that join them. Three classic tasks form a ladder of difficulty:</p>
+      <ul>
+        <li><strong>Visual captioning (34.2)</strong> — given an image, generate a sentence describing it ("a dog catching a frisbee on a beach"). A vision encoder turns the image into vectors; a language decoder attends to those vectors (cross-attention, Week 32) and writes the caption word by word.</li>
+        <li><strong>Visual Question Answering (34.3)</strong> — given an image <em>and</em> a question ("What colour is the dog's collar?"), produce an answer. The model must align words in the question with regions in the image and reason about both together.</li>
+        <li><strong>Visual Commonsense Reasoning (34.4)</strong> — the hardest rung: not just <em>what</em> is in the scene, but <em>why</em>. "Why is the person running?" → "Because they're trying to catch the frisbee." This demands world knowledge that goes beyond the pixels — the same knowledge a big language model soaks up from text.</li>
+      </ul>
+      <p>The trend is unmistakable: a single transformer, fed tokens from any modality — words, image patches, audio frames — and trained to predict, can see, read, and reason in one architecture. Which brings us to the star of the show.</p>
+
+      <h2>34.5 Large Language Models — the whole course in one machine</h2>
+      <p>Strip away the mystique and an <strong>LLM is one thing</strong>: a giant <em>decoder-only</em> transformer (Lesson 32), trained by <em>next-token prediction</em> (Lesson 33) on a huge slice of the internet. That's the entire recipe. Everything impressive it does is an emergent consequence of doing that one job extremely well at enormous scale.</p>
+      <p>Let's trace a single forward pass, naming every piece you already know:</p>
+      <ol>
+        <li><strong>Tokenise.</strong> Split the input text into tokens (sub-word chunks, Week 9). "unbelievable" → <code>un</code>, <code>believ</code>, <code>able</code>. Each token has an integer id.</li>
+        <li><strong>Embed.</strong> Look up each token id in an embedding table (Week 31) to get a vector, and add its positional encoding (Week 33).</li>
+        <li><strong>Attend, repeated.</strong> Push the vectors through dozens of stacked masked-self-attention blocks (Lesson 32). Each token mixes in information from every earlier token; deep layers build ever more abstract meaning.</li>
+        <li><strong>Project to the vocabulary.</strong> The final vector for the last position is multiplied by an output matrix to produce one <strong>logit</strong> per word in the vocabulary — a raw score for "how likely is this the next word?"</li>
+        <li><strong>Softmax + sample.</strong> Softmax (Week 24) turns the logits into a probability distribution over the whole vocabulary; we <em>sample</em> a token from it. Append that token to the input and <strong>repeat from step 1.</strong></li>
+      </ol>
+      <p>That loop — predict, append, predict — is <em>all</em> there is to text generation. The "intelligence" is entirely in the weights of those attention blocks, learned from the next-token objective.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 560 260" aria-label="The next-token generation loop inside an LLM">
+          <rect x="20" y="30" width="100" height="34" rx="6" fill="#4f46e5" opacity="0.85"/><text x="34" y="52" font-size="12" fill="#fff">tokenise (W9)</text>
+          <line x1="120" y1="47" x2="150" y2="47" stroke="#767c93" stroke-width="1.5" marker-end="url(#a2)"/>
+          <defs><marker id="a2" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#767c93"/></marker></defs>
+          <rect x="150" y="30" width="120" height="34" rx="6" fill="#4f46e5" opacity="0.85"/><text x="160" y="52" font-size="12" fill="#fff">embed + pos (W31/33)</text>
+          <line x1="270" y1="47" x2="300" y2="47" stroke="#767c93" stroke-width="1.5" marker-end="url(#a2)"/>
+          <rect x="300" y="22" width="150" height="50" rx="6" fill="#14b8a6" opacity="0.85"/><text x="312" y="42" font-size="12" fill="#fff">× N masked-attention</text><text x="312" y="60" font-size="12" fill="#fff">blocks (W32)</text>
+          <line x1="375" y1="72" x2="375" y2="100" stroke="#767c93" stroke-width="1.5" marker-end="url(#a2)"/>
+          <rect x="300" y="100" width="150" height="34" rx="6" fill="#f59e0b" opacity="0.9"/><text x="312" y="122" font-size="12" fill="#fff">logits over vocab</text>
+          <line x1="375" y1="134" x2="375" y2="160" stroke="#767c93" stroke-width="1.5" marker-end="url(#a2)"/>
+          <rect x="300" y="160" width="150" height="34" rx="6" fill="#f43f5e" opacity="0.85"/><text x="312" y="182" font-size="12" fill="#fff">softmax + sample (W24)</text>
+          <!-- loop back -->
+          <path d="M300 177 C150 177 70 140 70 90 L70 70" fill="none" stroke="#f43f5e" stroke-width="2" stroke-dasharray="5" marker-end="url(#a3)"/>
+          <defs><marker id="a3" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#f43f5e"/></marker></defs>
+          <text x="90" y="135" font-size="12" fill="#f43f5e">append the new token,</text>
+          <text x="90" y="153" font-size="12" fill="#f43f5e">feed it back in →</text>
+          <text x="300" y="225" font-size="12" fill="#767c93">"predict next word → append → predict again" is the entire generation loop.</text>
+        </svg>
+        <figcaption>The LLM next-token loop. Tokenise (W9) → embed + positional encoding (W31/W33) → stacked masked attention (W32) → logits → softmax + sample (W24) → append and repeat. Generation is this loop running over and over.</figcaption>
+      </figure>
+
+      <h3>Scaling laws &amp; emergent abilities</h3>
+      <p>Why are recent models so much more capable? Because of <strong>scaling laws</strong>: empirically, a model's loss falls in a smooth, predictable way as you increase three things together — the number of <em>parameters</em>, the amount of <em>training data</em>, and the <em>compute</em> spent. More of all three reliably means lower loss. The astonishing part is that beyond certain scales, abilities <em>appear</em> that smaller models simply did not have — multi-step arithmetic, chain-of-thought reasoning, translating rare languages. These are called <strong>emergent abilities</strong>: capabilities that were essentially absent until the model crossed a size threshold, then switched on. You never explicitly taught the model to do arithmetic; it learned it because arithmetic helps predict the next token, and at scale it finally had the capacity.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🏙️</span> Real-World Analogy: emergence</div>
+        <p style="margin-bottom:0">One ant follows a few simple rules and does nothing clever. A million ants following the same rules build bridges, farm fungus, and wage wars — behaviour no single ant "knows." Nobody programmed the colony; complex ability <em>emerged</em> from scale. An LLM is similar: each next-word prediction is humble, but stack billions of parameters trained on trillions of words and reasoning emerges that no one wrote down.</p>
+      </div>
+
+      <h3>From predictor to assistant: instruction tuning &amp; RLHF</h3>
+      <p>A raw pre-trained LLM is a brilliant <em>auto-complete</em>, but it isn't naturally helpful — ask it a question and it might continue with <em>more questions</em>, because that's a plausible internet continuation. Two finishing steps turn it into an assistant:</p>
+      <ul>
+        <li><strong>Instruction tuning.</strong> Fine-tune (Week 33) on a curated set of (instruction → good response) pairs, teaching the model the <em>format</em> of being helpful: when asked something, answer it.</li>
+        <li><strong>RLHF</strong> (Reinforcement Learning from Human Feedback). Humans rank several model answers from best to worst; we train a <em>reward model</em> on those rankings, then use reinforcement learning to nudge the LLM toward answers humans prefer. This is the trial-and-error, reward-driven learning you'll study properly in <strong>Week 40</strong> — applied to make a model honest, harmless, and helpful.</li>
+      </ul>
+
+      <h2>34.6 Retrieval-Augmented Generation (RAG)</h2>
+      <p>An LLM only knows what was in its training data, frozen at training time. It can't cite your company's private documents and it will happily <em>hallucinate</em> facts it never learned. <strong>RAG</strong> fixes this by giving the model an open-book exam instead of a closed-book one. The idea reuses tools you've had since the very start of the course:</p>
+      <ol>
+        <li><strong>Index (offline).</strong> Split your documents into chunks and run each through an embedding model (Week 31) to get a vector. Store all these vectors in a database.</li>
+        <li><strong>Retrieve.</strong> When a question arrives, embed it too, then find the chunks whose vectors are most similar to the question's vector — using <strong>cosine similarity</strong> from <strong>Week 2</strong>. These are the passages most relevant to the question.</li>
+        <li><strong>Generate.</strong> Paste those retrieved chunks into the LLM's prompt as context ("Using the following passages, answer…") and let it generate a grounded answer that quotes real sources.</li>
+      </ol>
+      <p>RAG is how chatbots answer questions about documents written long after the model was trained, and it's the backbone of Project 5. Notice the gorgeous symmetry: the same dot-product similarity that powers <em>attention inside</em> the model (Week 32) also powers <em>retrieval outside</em> it (Week 2). It's dot products all the way down.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 560 240" aria-label="A retrieval-augmented generation pipeline">
+          <text x="15" y="22" font-size="13" fill="#767c93">user question</text>
+          <rect x="15" y="30" width="115" height="38" rx="6" fill="#4f46e5" opacity="0.85"/>
+          <text x="24" y="46" font-size="11" fill="#fff">"What is our</text>
+          <text x="24" y="62" font-size="11" fill="#fff">refund policy?"</text>
+          <line x1="125" y1="48" x2="155" y2="48" stroke="#767c93" stroke-width="1.5" marker-end="url(#a4)"/>
+          <defs><marker id="a4" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#767c93"/></marker></defs>
+          <rect x="155" y="32" width="90" height="32" rx="6" fill="#14b8a6" opacity="0.85"/><text x="164" y="53" font-size="11" fill="#fff">embed (W31)</text>
+          <!-- vector db -->
+          <rect x="155" y="100" width="120" height="70" rx="8" fill="#eef0fb" stroke="#4f46e5"/>
+          <text x="166" y="120" font-size="11" fill="#4f46e5">vector DB of</text>
+          <text x="166" y="135" font-size="11" fill="#4f46e5">doc chunks</text>
+          <text x="166" y="158" font-size="11" fill="#767c93">cosine sim (W2)</text>
+          <line x1="200" y1="64" x2="200" y2="100" stroke="#767c93" stroke-width="1.5" marker-end="url(#a4)"/>
+          <line x1="275" y1="135" x2="320" y2="135" stroke="#767c93" stroke-width="1.5" marker-end="url(#a4)"/>
+          <text x="285" y="128" font-size="10" fill="#767c93">top-k</text>
+          <rect x="320" y="100" width="110" height="70" rx="8" fill="#fef6e7" stroke="#f59e0b"/>
+          <text x="332" y="122" font-size="11" fill="#f59e0b">retrieved</text>
+          <text x="332" y="138" font-size="11" fill="#f59e0b">passages</text>
+          <text x="332" y="158" font-size="10" fill="#767c93">+ the question</text>
+          <line x1="430" y1="135" x2="460" y2="135" stroke="#767c93" stroke-width="1.5" marker-end="url(#a4)"/>
+          <rect x="460" y="100" width="85" height="70" rx="8" fill="#f43f5e" opacity="0.85"/><text x="472" y="130" font-size="12" fill="#fff">LLM</text><text x="472" y="148" font-size="11" fill="#fff">answers</text>
+          <text x="120" y="210" font-size="12" fill="#767c93">Retrieve relevant docs by embedding similarity → stuff into context → generate a grounded answer.</text>
+        </svg>
+        <figcaption>RAG pipeline: embed the question (W31), retrieve the most similar document chunks via cosine similarity (W2), then hand those passages to the LLM as context so it answers from real sources instead of guessing.</figcaption>
+      </figure>
+
+      <h2>34.7 Sampling the next token in NumPy</h2>
+      <p>Let's demystify step 5 of the loop. Given a vector of logits over the vocabulary, the code below applies a <strong>temperature</strong>, runs softmax, and samples a token. Temperature controls creativity: low temperature makes the model nearly always pick the top word (focused, repetitive); high temperature flattens the distribution (diverse, riskier).</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — sample the next token with temperature</span></div>
+<pre><code class="language-python">import numpy as np
+rng = np.random.default_rng(0)
+
+# A tiny vocabulary and the raw logits the transformer produced for the NEXT token.
+vocab  = ["cat", "dog", "mat", "ran", "the"]
+logits = np.array([2.5, 2.0, 1.0, 0.2, 0.5])   # higher = model thinks more likely
+
+def softmax(x):
+    x = x - x.max()                # numerical stability (Week 24)
+    e = np.exp(x)
+    return e / e.sum()
+
+def sample_next(logits, temperature=1.0):
+    # Temperature divides the logits BEFORE softmax:
+    #   T -> 0  makes the distribution peaky (always the top word, deterministic-ish)
+    #   T large makes it flat (more random / creative)
+    probs = softmax(logits / temperature)
+    idx   = rng.choice(len(logits), p=probs)   # sample one token id from the distribution
+    return idx, probs
+
+for T in (0.5, 1.0, 1.5):
+    idx, probs = sample_next(logits, temperature=T)
+    print(f"T={T}: probs={np.round(probs,2)}  ->  sampled '{vocab[idx]}'")
+
+# A mini generation loop: predict -> append -> repeat (the heart of an LLM).
+# Here we fake the model with a function that returns logits; a real LLM would
+# compute them by running the transformer on the tokens so far.
+def fake_model(tokens):
+    return logits + rng.normal(0, 0.3, size=len(vocab))   # pretend logits
+
+tokens = ["the"]
+for _ in range(4):
+    idx, _ = sample_next(fake_model(tokens), temperature=0.8)
+    tokens.append(vocab[idx])      # append the sampled word, then loop
+print("generated:", " ".join(tokens))</code></pre>
+      <p>Run it: at low temperature the probability mass piles onto "cat"; at high temperature it spreads out and you'll see more variety in what gets sampled. That single <code>rng.choice(..., p=probs)</code> — sampling from a softmax — is the spark of "creativity" in every LLM, and the generation loop at the bottom is a toy version of exactly what you'll build in Project 4.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">An LLM is a <strong>decoder-only transformer trained to predict the next token</strong>. To use it you loop: <em>tokenise → embed → attend → softmax over the vocabulary → sample → append → repeat.</em> RAG bolts on an open book by retrieving relevant text via embedding similarity before generating. No magic — just attention, softmax, and scale.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots — the whole course, in one picture</div>
+        <p style="margin-bottom:0">This is the payoff. Trace it: a word becomes a <strong>vector (Week 2)</strong>; a learned <strong>embedding (Week 31)</strong> places similar words nearby; <strong>attention (Week 32)</strong> lets every token weigh every other with a dot product, while <strong>positional encoding (Week 33)</strong> supplies order; trained by <strong>self-supervised next-token prediction (Week 12 / Week 33)</strong> at scale, this becomes an <strong>LLM</strong>, and a final <strong>softmax (Week 24)</strong> + sample generates text. <strong>RLHF</strong> aligns it using the reinforcement learning of <strong>Week 40</strong>. <strong>RAG</strong> reuses <strong>cosine similarity (Week 2)</strong> and <strong>embeddings (Week 31)</strong> to fetch facts. You now have everything to build <strong>Project 4 (Mini-GPT)</strong> and <strong>Project 5 (RAG chatbot)</strong>. Forty weeks of math, code, and intuition converge right here.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=wjZofJX0v4M" target="_blank" rel="noopener">But what is a GPT? Visual intro to transformers</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">The single best visual explanation of the tokenise → embed → attention → softmax-over-vocab → sample loop in section 34.5. Watch it twice.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://jalammar.github.io/illustrated-transformer/" target="_blank" rel="noopener">The Illustrated Transformer</a><span class="r-src">Jay Alammar's diagrams of the decoder stack that an LLM is built from — the architecture behind every step of the generation loop.</span></div></li>
+        <li><span class="r-ic">📄</span><div><a href="https://arxiv.org/abs/2005.11401" target="_blank" rel="noopener">Retrieval-Augmented Generation (Lewis et al., 2020)</a><span class="r-src">The paper that introduced RAG. Skim the intro to see the retrieve-then-generate pipeline of section 34.6 in its original form.</span></div></li>
+        <li><span class="r-ic">📄</span><div><a href="https://arxiv.org/abs/2206.07682" target="_blank" rel="noopener">Emergent Abilities of Large Language Models (Wei et al., 2022)</a><span class="r-src">The evidence behind "abilities switch on at scale." A great companion to the scaling-laws discussion.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">In one sentence, what is a Large Language Model?</div>
+        <button class="opt">A database that stores every sentence on the internet and looks up answers.</button>
+        <button class="opt">A decoder-only transformer trained by next-token prediction at massive scale.</button>
+        <button class="opt">A recurrent neural network with a very long memory.</button>
+        <button class="opt">A search engine wrapped in a chat interface.</button>
+        <div class="explain">An LLM is fundamentally a giant decoder-only transformer (Lesson 32) trained with the self-supervised next-token objective (Lesson 33). Its abilities are emergent consequences of doing that one job extremely well at scale — it is not a lookup table.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">In the generation loop, what happens right after softmax produces a probability distribution over the vocabulary?</div>
+        <button class="opt">We backpropagate the loss.</button>
+        <button class="opt">We discard the distribution and restart.</button>
+        <button class="opt">We sample a token from it, append it to the input, and run the model again.</button>
+        <button class="opt">We average all the word vectors together.</button>
+        <div class="explain">Softmax (Week 24) over the logits gives a distribution; we sample one token, append it to the sequence, and feed everything back in. Predict → append → repeat is the entire text-generation loop.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">Which earlier-week tools does RAG's retrieval step rely on?</div>
+        <button class="opt">Embeddings (Week 31) to vectorise text, and cosine similarity (Week 2) to find the most relevant chunks.</button>
+        <button class="opt">Decision trees (Week 21) and entropy.</button>
+        <button class="opt">Convolution and pooling (Week 28).</button>
+        <button class="opt">Backpropagation (Week 25) at query time.</button>
+        <div class="explain">RAG embeds both the documents and the question (Week 31), then ranks chunks by cosine similarity (Week 2) — the same dot-product idea that powers attention inside the model. The top chunks are stuffed into the prompt so the LLM answers from real sources.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

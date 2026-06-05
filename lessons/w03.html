@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 3 · Calculus &amp; Optimisation — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w03">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 3</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 1 · Foundations › Lesson 3</div>
+        <span class="eyebrow">📐 Mathematical Foundations</span>
+        <h1>Calculus: Derivatives &amp; Optimisation</h1>
+        <div class="lesson-meta"><span>⏱️ 55 min</span><span>🎯 The mathematics of improvement</span><span>📦 Week 3</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Read a derivative as a <strong>slope</strong> — the rate at which a function changes — and feel where it comes from (the limit).</li>
+          <li>Generalise the derivative of a multi-input function to the <strong>gradient</strong>: a vector that points uphill, steepest.</li>
+          <li>Recognise the <strong>Jacobian</strong> as the gradient's big sibling for vector-valued functions.</li>
+          <li>Find the minimum of a function by setting its gradient to zero (unconstrained optimisation) — and understand why this <em>is</em> how machines learn.</li>
+          <li>Get the intuition for constrained optimisation with <strong>Lagrange multipliers</strong>, and run one step of gradient descent in NumPy.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A model starts out terrible and full of random numbers. With no human nudging each knob, how does it figure out <em>which way</em> to turn every dial to get better?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. The derivative is just a slope</h2>
+      <p>Last week vectors gave us the language of <em>space</em>. Calculus gives us the language of <em>change</em>. And the whole of single-variable calculus boils down to one honest question: <strong>if I nudge the input a tiny bit, how much does the output move?</strong></p>
+      <p>Picture a function \(f(x)\) as a hilly road, with \(x\) the distance you've walked and \(f(x)\) your altitude. The <strong>derivative</strong> \(f'(x)\) is the <em>steepness</em> of the road right under your feet — positive when you're climbing, negative when you're descending, zero at the very top or bottom of a hill.</p>
+      <p>Formally, we take the slope between two points and slide them together until they almost touch — that "almost touching" is the <strong>limit</strong>:</p>
+      <p>\[ f'(x) = \lim_{h \to 0} \frac{f(x+h) - f(x)}{h} \]</p>
+      <p>The fraction is plain "rise over run." The limit just shrinks the run \(h\) to an infinitesimal sliver so the slope becomes exact at a single point instead of averaged over a stretch. For \(f(x)=x^2\), this machinery gives the famous \(f'(x)=2x\): at \(x=3\) the road climbs with steepness \(6\).</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine you're on a bike. The derivative is your <strong>speedometer for the hill</strong>: it tells you how steep the ground is right where your wheels are. A big number means a steep climb (hard pedalling). A negative number means you're rolling downhill. Zero means the ground is flat — you've reached the top of a bump or the bottom of a dip. That single number — "how steep, and which way" — is everything calculus is about.</p>
+      </div>
+
+      <figure class="figure">
+        <svg viewBox="0 0 380 240" aria-label="A curve with a tangent line showing the derivative as slope">
+          <g stroke="#e3e6f0"><line x1="40" y1="210" x2="360" y2="210"/><line x1="40" y1="20" x2="40" y2="210"/>
+            <line x1="120" y1="20" x2="120" y2="210"/><line x1="200" y1="20" x2="200" y2="210"/><line x1="280" y1="20" x2="280" y2="210"/>
+            <line x1="40" y1="150" x2="360" y2="150"/><line x1="40" y1="90" x2="360" y2="90"/></g>
+          <path d="M50,205 Q200,-40 350,205" fill="none" stroke="#4f46e5" stroke-width="3"/>
+          <line x1="150" y1="200" x2="290" y2="80" stroke="#f59e0b" stroke-width="2.5"/>
+          <circle cx="220" cy="120" r="4.5" fill="#f43f5e"/>
+          <text x="228" y="116" font-size="13" fill="#f43f5e" font-family="monospace">(x, f(x))</text>
+          <text x="295" y="80" font-size="12" fill="#f59e0b">tangent: slope = f'(x)</text>
+          <text x="300" y="200" font-size="13" fill="#4f46e5" font-family="monospace">f(x)</text>
+        </svg>
+        <figcaption>The derivative at a point is the slope of the line that just kisses the curve there (the tangent, amber).</figcaption>
+      </figure>
+
+      <h2>2. From one input to many: the gradient</h2>
+      <p>Real models don't depend on a single \(x\). A loss might depend on millions of parameters. So we ask the same nudge question <em>per input</em>: "if I wiggle only \(x_1\) (holding the rest fixed), how does the output move?" That's a <strong>partial derivative</strong>, written \(\frac{\partial f}{\partial x_1}\).</p>
+      <p>Collect all the partials into a single vector and you get the <strong>gradient</strong> — the most important object in this entire course:</p>
+      <p>\[ \nabla f(\mathbf{x}) = \begin{bmatrix} \dfrac{\partial f}{\partial x_1} \\[4pt] \dfrac{\partial f}{\partial x_2} \\[2pt] \vdots \\[2pt] \dfrac{\partial f}{\partial x_n} \end{bmatrix} \]</p>
+      <p>Notice the gradient <strong>is a vector</strong> — exactly the arrows we built in Week 2. And it has a gorgeous geometric meaning: at any point, \(\nabla f\) points in the direction of <strong>steepest ascent</strong>, and its length tells you how steep that climb is. Walk along it and the function rises fastest; walk against it (\(-\nabla f\)) and it <em>falls</em> fastest.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🏔️</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">You're standing on a foggy mountainside and want to reach the valley, but you can only see one metre around your boots. What do you do? Feel which way the ground slopes most steeply downward, take a step that way, then repeat. The "steepest downward" direction is exactly \(-\nabla f\). That blind, step-by-step descent <em>is</em> the algorithm that trains nearly every model you'll ever build. It's called <strong>gradient descent</strong>.</p>
+      </div>
+
+      <figure class="figure">
+        <svg viewBox="0 0 360 240" aria-label="Contour map of a bowl with gradient arrows pointing uphill">
+          <ellipse cx="180" cy="120" rx="150" ry="95" fill="none" stroke="#e3e6f0" stroke-width="2"/>
+          <ellipse cx="180" cy="120" rx="105" ry="66" fill="none" stroke="#e3e6f0" stroke-width="2"/>
+          <ellipse cx="180" cy="120" rx="60" ry="38" fill="none" stroke="#e3e6f0" stroke-width="2"/>
+          <circle cx="180" cy="120" r="5" fill="#14b8a6"/>
+          <text x="190" y="124" font-size="12" fill="#14b8a6">minimum</text>
+          <defs><marker id="gh" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#f43f5e"/></marker></defs>
+          <line x1="120" y1="86" x2="78" y2="60" stroke="#f43f5e" stroke-width="2.5" marker-end="url(#gh)"/>
+          <text x="40" y="52" font-size="12" fill="#f43f5e">∇f (uphill)</text>
+          <line x1="120" y1="86" x2="162" y2="112" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#gh)" stroke-dasharray="4 3"/>
+          <text x="150" y="135" font-size="12" fill="#4f46e5">−∇f (downhill)</text>
+        </svg>
+        <figcaption>A "bowl" loss seen from above as contour rings. The gradient (rose) points outward/uphill; we walk the opposite way (indigo) toward the minimum.</figcaption>
+      </figure>
+
+      <h2>3. Vector-in, vector-out: the Jacobian</h2>
+      <p>Sometimes a function takes a vector <em>and returns a vector</em> — say \(\mathbf{f}: \mathbb{R}^n \to \mathbb{R}^m\). One gradient isn't enough; we need the partial of every output with respect to every input. Stack them into a grid and you have the <strong>Jacobian</strong> matrix:</p>
+      <p>\[ J = \begin{bmatrix} \dfrac{\partial f_1}{\partial x_1} & \cdots & \dfrac{\partial f_1}{\partial x_n} \\ \vdots & \ddots & \vdots \\ \dfrac{\partial f_m}{\partial x_1} & \cdots & \dfrac{\partial f_m}{\partial x_n} \end{bmatrix} \]</p>
+      <p>If a function with one output has a gradient (a vector), then a function with many outputs has a Jacobian (a matrix — each row is the gradient of one output). You won't compute these by hand often, but the name matters: when we chain layers together in <strong>backpropagation</strong> (Week 25), the chain rule multiplies Jacobians, and that's the entire engine of deep learning.</p>
+
+      <h2>4. Unconstrained optimisation: chase the zero gradient</h2>
+      <p>Here's where it all pays off. To find the <strong>minimum</strong> of a smooth function, look for the spot where it's perfectly flat — where the slope vanishes:</p>
+      <p>\[ \nabla f(\mathbf{x}^\star) = \mathbf{0} \]</p>
+      <p>At a valley floor, you can't go any lower by a tiny step in any direction, so every partial derivative is zero. (A peak is also flat, so we check the curvature — the second derivative — to be sure it's a minimum, not a maximum.) This is <strong>unconstrained optimisation</strong>: no rules limit where \(\mathbf{x}\) can go.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> This is literally how ML trains</div>
+        <p style="margin-bottom:0">A model defines a <strong>loss function</strong> — a single number measuring how wrong it is. Training = finding the parameters that <em>minimise</em> that loss. We rarely solve \(\nabla f = 0\) by hand (the loss has millions of inputs). Instead we descend it step by step: <em>compute the gradient, step a little against it, repeat.</em> One update rule rules them all: \(\;\mathbf{x} \leftarrow \mathbf{x} - \eta\,\nabla f(\mathbf{x})\), where \(\eta\) (the <strong>learning rate</strong>) controls step size.</p>
+      </div>
+
+      <p>For our running example \(f(x)=x^2\), the gradient is \(2x\) and is zero only at \(x=0\) — the bottom of the parabola. Gradient descent should march any starting point toward \(0\). Let's watch it do exactly that in code.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — numerical derivative &amp; one gradient-descent step</span></div>
+<pre><code class="language-python">import numpy as np
+
+def f(x):
+    return x**2          # our loss surface: a simple parabola, minimum at x = 0
+
+# --- 1. Estimate the derivative numerically (the "nudge" definition) ---
+# We don't need calculus by hand: just wiggle x by a tiny h and measure rise/run.
+def numerical_derivative(f, x, h=1e-5):
+    return (f(x + h) - f(x - h)) / (2 * h)   # symmetric difference = more accurate
+
+x = 3.0
+grad = numerical_derivative(f, x)
+print(f"slope at x={x}: {grad:.4f}")   # -> 6.0000   (matches the exact answer 2x = 6)
+
+# --- 2. Take ONE step of gradient descent: walk AGAINST the gradient ---
+learning_rate = 0.1
+x_new = x - learning_rate * grad
+print(f"after one step: x = {x_new:.4f}")   # -> 2.4000  (moved closer to the min at 0)
+
+# --- 3. Repeat for a few steps and watch x slide toward 0 ---
+x = 3.0
+for step in range(5):
+    g = numerical_derivative(f, x)
+    x = x - learning_rate * g
+    print(f"step {step+1}: x = {x:.4f}, loss = {f(x):.4f}")
+# x marches 3.0 -> 2.4 -> 1.92 -> ... shrinking toward 0, the true minimum.</code></pre>
+
+      <p>That tiny loop — gradient, step, repeat — scaled up to millions of parameters, is how every neural network on Earth learns. Everything else is engineering around this idea.</p>
+
+      <h2>5. Constrained optimisation: minimising with rules</h2>
+      <p>Often you must minimise something <em>subject to a constraint</em> — "find the cheapest route, but you must pass through this checkpoint," or "minimise error, but keep the weights on the unit circle." Now you can't just chase \(\nabla f = 0\); the unconstrained minimum might be off-limits.</p>
+      <p>The trick — <strong>Lagrange multipliers</strong> — has a beautiful geometric heart. To minimise \(f(\mathbf{x})\) subject to \(g(\mathbf{x}) = 0\), notice that at the best allowed point, the contour line of \(f\) just <em>grazes</em> the constraint curve. Where they touch, their gradients point the same way (one is a scaled copy of the other):</p>
+      <p>\[ \nabla f(\mathbf{x}^\star) = \lambda\,\nabla g(\mathbf{x}^\star) \]</p>
+      <p>The scalar \(\lambda\) is the Lagrange multiplier. Intuitively, if the gradients <em>didn't</em> line up, you could still slide along the constraint to lower \(f\) — so you're not at the optimum yet. This idea reappears in support-vector machines (Week 18) and anywhere we balance a goal against a rule.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 360 230" aria-label="Constraint line tangent to a contour of f at the optimum">
+          <ellipse cx="150" cy="120" rx="120" ry="80" fill="none" stroke="#e3e6f0" stroke-width="2"/>
+          <ellipse cx="150" cy="120" rx="78" ry="52" fill="none" stroke="#e3e6f0" stroke-width="2"/>
+          <ellipse cx="150" cy="120" rx="40" ry="27" fill="none" stroke="#4f46e5" stroke-width="2.5"/>
+          <line x1="60" y1="210" x2="320" y2="40" stroke="#14b8a6" stroke-width="3"/>
+          <text x="270" y="55" font-size="12" fill="#14b8a6">constraint g(x)=0</text>
+          <circle cx="190" cy="148" r="5" fill="#f43f5e"/>
+          <text x="198" y="168" font-size="12" fill="#f43f5e">optimum (tangent point)</text>
+          <text x="150" y="120" font-size="11" fill="#4f46e5">contours of f</text>
+        </svg>
+        <figcaption>At the constrained optimum (rose), the constraint line (teal) is tangent to a contour of \(f\) (indigo) — that's when the gradients align.</figcaption>
+      </figure>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Watch out: local minima &amp; the learning rate</div>
+        <p style="margin-bottom:0">Gradient descent only knows about the slope right under its feet, so on a bumpy surface it can settle into a <strong>local</strong> minimum that isn't the global best. And the learning rate \(\eta\) is a Goldilocks dial: too small and training crawls; too large and you leap clean over the valley and diverge. Tuning \(\eta\) and escaping bad minima is what Week 26's adaptive optimisers (like Adam) are built to handle.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This lesson stands squarely on <strong>Week 2 (Linear Algebra)</strong> — the gradient <em>is</em> a vector, and the Jacobian <em>is</em> a matrix, the very objects we built last week. Looking forward, this is the workhorse of the whole course: <strong>Week 13 (Linear Regression)</strong> minimises squared error by finding where the gradient is zero; <strong>Week 25 (Backpropagation)</strong> uses the chain rule on Jacobians to get the gradient of a deep network; and <strong>Week 26 (Optimisers)</strong> supercharges the simple "step against the gradient" rule we just coded with momentum and adaptive learning rates. Master the gradient and you've understood the heartbeat of machine learning.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/playlist?list=PLZHQObOWTQDMsr9K-rj53DwVRMYO3t5Yr" target="_blank" rel="noopener">Essence of Calculus (full series)</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">The most intuitive calculus on the internet. Chapters 1–3 make the derivative-as-slope and the limit feel obvious before you re-read sections 1–2.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=IHZwWFHWa-w" target="_blank" rel="noopener">Gradient descent, how neural networks learn</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">Animates the "walk downhill on the loss surface" idea from sections 2 and 4 — the exact algorithm our Python loop runs.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://numpy.org/doc/stable/reference/routines.math.html" target="_blank" rel="noopener">NumPy math &amp; gradient reference</a><span class="r-src">Look up <code>np.gradient</code> and the numeric tools you'll lean on when computing derivatives in code.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">What does the derivative \(f'(x)\) of a single-variable function represent?</div>
+        <button class="opt">The area under the curve at \(x\).</button>
+        <button class="opt">The slope — how fast \(f\) changes as you nudge \(x\).</button>
+        <button class="opt">The value of \(f\) at \(x\).</button>
+        <button class="opt">The number of inputs to \(f\).</button>
+        <div class="explain">The derivative is "rise over run" in the limit — the instantaneous steepness of the function. Positive means climbing, negative means descending, zero means flat (a peak or valley).</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">The gradient \(\nabla f\) of a multi-input function points in the direction of…</div>
+        <button class="opt">the nearest constraint.</button>
+        <button class="opt">steepest <em>descent</em>, so we add it to go downhill.</button>
+        <button class="opt">steepest <em>ascent</em>; we step against it (\(-\nabla f\)) to minimise.</button>
+        <button class="opt">a random direction that changes each step.</button>
+        <div class="explain">The gradient points uphill, steepest. To minimise a loss we walk the opposite way: \(\mathbf{x} \leftarrow \mathbf{x} - \eta\,\nabla f\). That single rule is gradient descent.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">Why do we set the gradient to zero to find a minimum?</div>
+        <button class="opt">At a valley floor the surface is flat, so every partial derivative is 0 — no tiny step lowers \(f\).</button>
+        <button class="opt">Because zero is the smallest possible loss value.</button>
+        <button class="opt">Because the learning rate must equal zero there.</button>
+        <button class="opt">It's a convention with no real meaning.</button>
+        <div class="explain">A zero gradient means a flat (stationary) point. At a minimum you can't decrease \(f\) by stepping any direction, so all partials vanish. We then check curvature to confirm it's a minimum, not a maximum or saddle.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

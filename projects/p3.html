@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 3 · Image Classifier with CNNs &amp; Transfer Learning — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-project="p3">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Project 3</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Capstone Projects › Project 3</div>
+        <span class="eyebrow">🏆 Capstone Project 3</span>
+        <h1>Image Classifier with CNNs &amp; Transfer Learning</h1>
+        <div class="lesson-meta"><span>🟡 Difficulty: Intermediate</span><span>🎯 Teaching a machine to see</span><span>🧰 PyTorch · Conv/Pool · Training loops · ResNet</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>What you'll build</h4>
+        <ul>
+          <li>A <strong>convolutional neural network from scratch</strong> in PyTorch that classifies FashionMNIST images.</li>
+          <li>A clean, reusable <strong>training loop</strong>: dataloaders → forward → loss → backward → step.</li>
+          <li>An honest evaluation on a held-out test set (accuracy + per-batch loss curve).</li>
+          <li>A <strong>transfer-learning</strong> version: fine-tune a pretrained ResNet-18 and compare.</li>
+          <li>The intuition for <em>why</em> a model trained on millions of unrelated photos jump-starts your tiny task.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">An image is just a grid of pixel numbers. How does a network learn to ignore where an object sits, what lighting it's under, and which exact pixels fired — and still say "that's a sneaker"?</div>
+      </div>
+
+      <div class="prose">
+
+      <p>A 28×28 grayscale image is a vector of 784 numbers; a colour photo is far bigger. Feeding that to a plain MLP wastes everything we know about images: that a pattern (an edge, a corner) means the same thing wherever it appears. The <strong>convolution</strong> (Week 28) bakes that knowledge in — it slides a small learnable filter across the image, detecting a feature everywhere at once.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Picture a tiny stamp with a pattern on it — say, a short diagonal line. You press that stamp all over a picture and mark every spot where the picture matches the stamp. Now you have a map of "where are the diagonal lines?" A CNN has hundreds of these stamps, and it <em>learns</em> what each stamp should look like. Early stamps find edges; later ones combine edges into shapes; the last ones recognise whole objects like "shoe" or "shirt".</p>
+      </div>
+
+      <h2>The CNN architecture we'll build</h2>
+
+      <figure class="figure">
+        <svg viewBox="0 0 740 170" aria-label="CNN architecture from image to class scores">
+          <defs><marker id="ar3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#767c93"/></marker></defs>
+          <g font-family="sans-serif" font-size="10.5" text-anchor="middle">
+            <rect x="8"   y="58" width="78" height="60" rx="6" fill="#eef0fb" stroke="#4f46e5"/><text x="47" y="84">Image</text><text x="47" y="100" fill="#767c93">1×28×28</text>
+            <rect x="116" y="50" width="86" height="76" rx="6" fill="#e7faf6" stroke="#14b8a6"/><text x="159" y="80">Conv+ReLU</text><text x="159" y="96" fill="#767c93">→ 32 maps</text>
+            <rect x="232" y="58" width="78" height="60" rx="6" fill="#e7faf6" stroke="#14b8a6"/><text x="271" y="84">MaxPool</text><text x="271" y="100" fill="#767c93">↓ 2×</text>
+            <rect x="340" y="50" width="86" height="76" rx="6" fill="#e7faf6" stroke="#14b8a6"/><text x="383" y="80">Conv+ReLU</text><text x="383" y="96" fill="#767c93">→ 64 maps</text>
+            <rect x="456" y="58" width="78" height="60" rx="6" fill="#e7faf6" stroke="#14b8a6"/><text x="495" y="84">MaxPool</text><text x="495" y="100" fill="#767c93">↓ 2×</text>
+            <rect x="564" y="58" width="78" height="60" rx="6" fill="#fff4e0" stroke="#f59e0b"/><text x="603" y="80">Flatten</text><text x="603" y="96" fill="#767c93">+ Dense</text>
+            <rect x="664" y="58" width="68" height="60" rx="6" fill="#fde8ee" stroke="#f43f5e"/><text x="698" y="84">10</text><text x="698" y="100" fill="#767c93">classes</text>
+          </g>
+          <g stroke="#767c93" stroke-width="1.5" marker-end="url(#ar3)">
+            <line x1="86" y1="88" x2="114" y2="88"/><line x1="202" y1="88" x2="230" y2="88"/><line x1="310" y1="88" x2="338" y2="88"/>
+            <line x1="426" y1="88" x2="454" y2="88"/><line x1="534" y1="88" x2="562" y2="88"/><line x1="642" y1="88" x2="662" y2="88"/>
+          </g>
+        </svg>
+        <figcaption>Two conv→pool stages distil the 28×28 image into rich features, then a dense layer maps them to 10 class scores. Conv learns <em>what</em>; pool throws away <em>exactly where</em>, granting position-invariance.</figcaption>
+      </figure>
+
+      <h2>Step 1 — Dataloaders</h2>
+      <p>FashionMNIST ships with torchvision: 60k training + 10k test grayscale clothing images in 10 classes. A <code>DataLoader</code> batches and shuffles them so we never load all of memory at once.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step1_data.py</span></div>
+<pre><code class="language-python">import torch
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+# Normalise pixels to roughly mean 0, std 1 -> faster, stabler training.
+tfm = transforms.Compose([
+    transforms.ToTensor(),                  # [0,255] uint8 -> [0,1] float tensor
+    transforms.Normalize((0.286,), (0.353,)) # FashionMNIST channel stats
+])
+
+train_ds = datasets.FashionMNIST(".", train=True,  download=True, transform=tfm)
+test_ds  = datasets.FashionMNIST(".", train=False, download=True, transform=tfm)
+
+train_dl = DataLoader(train_ds, batch_size=128, shuffle=True)
+test_dl  = DataLoader(test_ds,  batch_size=256)
+
+images, labels = next(iter(train_dl))
+print(images.shape)   # -> torch.Size([128, 1, 28, 28])  (batch, channels, H, W)
+</code></pre>
+
+      <h2>Step 2 — Define the CNN</h2>
+      <p>Two convolution+pool stages, then a classifier head. Each <code>Conv2d</code> learns a stack of filters; <code>MaxPool2d</code> halves the spatial size, building the position-invariance the analogy promised.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step2_model.py</span></div>
+<pre><code class="language-python">import torch.nn as nn
+
+class SmallCNN(nn.Module):
+    def __init__(self, n_classes=10):
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=3, padding=1),  # 1->32 feature maps
+            nn.ReLU(),
+            nn.MaxPool2d(2),                             # 28x28 -> 14x14
+            nn.Conv2d(32, 64, kernel_size=3, padding=1), # 32->64 maps
+            nn.ReLU(),
+            nn.MaxPool2d(2),                             # 14x14 -> 7x7
+        )
+        self.classifier = nn.Sequential(
+            nn.Flatten(),               # 64 x 7 x 7 -> vector of 3136
+            nn.Linear(64 * 7 * 7, 128),
+            nn.ReLU(),
+            nn.Dropout(0.3),            # regularisation (Week 27)
+            nn.Linear(128, n_classes),  # 10 raw class scores (logits)
+        )
+
+    def forward(self, x):
+        return self.classifier(self.features(x))
+
+model = SmallCNN().to(device)
+print(sum(p.numel() for p in model.parameters()), "trainable parameters")
+</code></pre>
+
+      <h2>Step 3 — The training loop</h2>
+      <p>This loop is the beating heart of all deep learning (Weeks 25–26). Memorise its five lines: zero the gradients, forward pass, compute loss, backpropagate, step the optimiser.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step3_train.py</span></div>
+<pre><code class="language-python">loss_fn = nn.CrossEntropyLoss()                 # softmax + NLL for classification
+opt = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+def train_one_epoch(model, dl):
+    model.train()
+    running = 0.0
+    for images, labels in dl:
+        images, labels = images.to(device), labels.to(device)
+        opt.zero_grad()                 # 1. clear old gradients
+        logits = model(images)          # 2. forward pass
+        loss = loss_fn(logits, labels)  # 3. how wrong are we?
+        loss.backward()                 # 4. backprop -> gradients
+        opt.step()                      # 5. Adam updates the weights
+        running += loss.item() * images.size(0)
+    return running / len(dl.dataset)
+
+for epoch in range(1, 6):               # 5 epochs is plenty for FashionMNIST
+    avg_loss = train_one_epoch(model, train_dl)
+    print(f"epoch {epoch}  train loss {avg_loss:.4f}")
+</code></pre>
+
+      <h2>Step 4 — Evaluate</h2>
+      <p>Switch to eval mode (turns off dropout), disable gradient tracking for speed, and count correct predictions on the test set the model never trained on.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step4_evaluate.py</span></div>
+<pre><code class="language-python">@torch.no_grad()
+def accuracy(model, dl):
+    model.eval()
+    correct = total = 0
+    for images, labels in dl:
+        images, labels = images.to(device), labels.to(device)
+        preds = model(images).argmax(dim=1)   # pick highest-scoring class
+        correct += (preds == labels).sum().item()
+        total   += labels.size(0)
+    return correct / total
+
+print(f"Scratch CNN test accuracy: {accuracy(model, test_dl):.3f}")
+# A 5-epoch SmallCNN typically lands around 0.90 on FashionMNIST.
+</code></pre>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🎓</span> Real-World Analogy for transfer learning</div>
+        <p style="margin-bottom:0">Hiring a fresh graduate (random weights) means months of training. Hiring someone who already spent years recognising millions of images (a pretrained ResNet) means they <em>already</em> know edges, textures, fur, wheels — you just teach them your specific job. Transfer learning is reusing that hard-won general vision and only retraining the final "what is this for my task" layer.</p>
+      </div>
+
+      <h2>Step 5 — Transfer learning with ResNet-18</h2>
+      <p>Now the modern shortcut (Week 29). We load a ResNet-18 pretrained on ImageNet, <strong>freeze</strong> its convolutional backbone, and replace only its final layer with a fresh 10-class head. We adapt FashionMNIST (1 channel, 28px) to what ResNet expects (3 channels, 224px) in the transform.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step5_transfer.py</span></div>
+<pre><code class="language-python">from torchvision import models
+
+# ResNet expects 3x224x224 RGB; adapt grayscale FashionMNIST to match.
+tfm_rn = transforms.Compose([
+    transforms.Resize(224),
+    transforms.Grayscale(num_output_channels=3),   # 1 -> 3 channels
+    transforms.ToTensor(),
+    transforms.Normalize([0.485,0.456,0.406], [0.229,0.224,0.225]),  # ImageNet stats
+])
+rn_test = DataLoader(datasets.FashionMNIST(".", train=False, transform=tfm_rn),
+                     batch_size=128)
+
+resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+for p in resnet.parameters():
+    p.requires_grad = False                 # FREEZE the pretrained backbone
+
+# Swap the 1000-class ImageNet head for our 10-class head (these weights DO train).
+resnet.fc = nn.Linear(resnet.fc.in_features, 10)
+resnet = resnet.to(device)
+
+# Only the new head's parameters are optimised -> fast, data-efficient.
+opt_rn = torch.optim.Adam(resnet.fc.parameters(), lr=1e-3)
+# Train resnet with the SAME train_one_epoch loop (on a 224px train loader),
+# then call accuracy(resnet, rn_test).
+#
+# Even after just 1-2 epochs of training ONLY the head, the pretrained
+# features push accuracy to ~0.92+ -- matching or beating the scratch CNN
+# with a fraction of the trained parameters. That is the power of transfer.
+</code></pre>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> Why transfer learning wins</div>
+        <p style="margin-bottom:0">The early layers of any vision network learn nearly identical things — edges, blobs, textures — regardless of the final task. Those layers are expensive to learn but <em>universal</em>, so we reuse them for free. You only pay to train the last layer that's specific to <em>your</em> classes. This is how teams ship strong image models with hundreds of examples instead of millions.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This project realised <strong>Week 10 (image processing)</strong>, <strong>Week 28 (convolution &amp; pooling)</strong>, <strong>Week 29 (ResNets &amp; transfer learning)</strong>, with the training loop straight from <strong>Weeks 26–27 (optimisers, dropout)</strong>. The exact "freeze a pretrained model, retrain a small head" pattern returns in <strong>Project 5</strong>, where a pretrained sentence-transformer becomes the embedding engine of a RAG chatbot. Up next: Project 4 builds a transformer's attention from raw tensors.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🧰 Concepts you're reusing</h2>
+      <ul class="refs">
+        <li><span class="r-ic">🖼️</span><div><a href="../lessons/w10.html">Week 10 · Image &amp; Audio Processing</a><span class="r-src">Pixels as tensors and what "a channel" means — the input side of Step 1.</span></div></li>
+        <li><span class="r-ic">🧠</span><div><a href="../lessons/w25.html">Weeks 25–26 · Backprop &amp; Optimisers</a><span class="r-src">The gradient-descent training loop and Adam used in Step 3.</span></div></li>
+        <li><span class="r-ic">🎛️</span><div><a href="../lessons/w27.html">Week 27 · Dropout &amp; BatchNorm</a><span class="r-src">The regularisation that keeps the scratch CNN from overfitting.</span></div></li>
+        <li><span class="r-ic">🔲</span><div><a href="../lessons/w28.html">Week 28 · Convolution &amp; Pooling</a><span class="r-src">The conv and max-pool layers that are the heart of Step 2.</span></div></li>
+        <li><span class="r-ic">🎓</span><div><a href="../lessons/w29.html">Week 29 · ResNets &amp; Transfer Learning</a><span class="r-src">The pretrained-backbone fine-tuning of Step 5.</span></div></li>
+      </ul>
+
+      <h2>🚀 Make it your own</h2>
+      <ul>
+        <li><strong>Step up to CIFAR-10.</strong> Real colour photos (3 channels) make the task harder and transfer learning's advantage even clearer.</li>
+        <li><strong>Add augmentation.</strong> Random crops and horizontal flips in the train transform act as free extra data and curb overfitting.</li>
+        <li><strong>Unfreeze and fine-tune.</strong> After training the head, unfreeze the last ResNet block with a tiny learning rate for another accuracy bump.</li>
+        <li><strong>Visualise the filters.</strong> Plot the first conv layer's learned kernels — you'll literally see edge detectors emerge.</li>
+        <li><strong>Build a confusion matrix.</strong> Find which clothing classes the model confuses (shirt vs coat vs pullover are notoriously tricky).</li>
+      </ul>
+
+      <nav class="pager"><a class="prev" href="../index.html">← Home</a><a class="next" href="p4.html">Project 4: Mini-GPT →</a></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

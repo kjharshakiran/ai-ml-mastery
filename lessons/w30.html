@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 30 · RNNs I: Sequences, LSTM &amp; GRU — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w30">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 30</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 5 · Deep Learning › Lesson 30</div>
+        <span class="eyebrow">🧠 Part 5 · Deep Learning</span>
+        <h1>RNNs I: Sequences, LSTM &amp; GRU</h1>
+        <div class="lesson-meta"><span>⏱️ 60 min</span><span>🎯 Giving a network a memory</span><span>📦 Week 30</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Recognise <strong>sequential</strong> problems — text, speech, time series — and why order matters.</li>
+          <li>Write the <strong>recurrence</strong> \(h_t = f(W h_{t-1} + U x_t)\) and explain the hidden state as memory.</li>
+          <li>Name the RNN <strong>shapes</strong>: one-to-many, many-to-one, many-to-many.</li>
+          <li>Explain how <strong>LSTM</strong> and <strong>GRU</strong> gates solve vanishing/exploding gradients with a memory cell.</li>
+          <li>Describe <strong>backpropagation through time</strong> (BPTT) as backprop on the unrolled network.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A CNN sees a whole image at once. But the meaning of "<em>I love this — not!</em>" depends entirely on a word that arrives at the <em>end</em>. How do we build a network that reads things <strong>in order</strong>, remembers what it has seen, and lets earlier words change how it understands later ones?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>30.1 Sequential patterns: when order is the meaning</h2>
+      <p>So far every model treated each input independently and as a fixed-size block — a row of features, an image of set dimensions. But enormous swathes of the world are <strong>sequences</strong>, where order carries the meaning and the length varies: a sentence, a song, a stock price over time, a patient's vital signs, the frames of a video. "Dog bites man" and "man bites dog" use the same words; only the order separates a non-event from headline news. To handle these we need a model that processes inputs <strong>one step at a time</strong> and carries information forward.</p>
+
+      <h2>30.2 Machine learning for sequences</h2>
+      <p>You could try to bolt sequences onto the tools you know, but each cracks. A dense network (Week 24) needs a fixed-size input — but sentences vary in length. A CNN (Week 28) handles local windows nicely with its 1D convolution, but its receptive field is limited; capturing "not" at the end flipping "love" at the start requires reaching across the whole sequence. What we really want is a network with a <strong>memory</strong> that updates as it reads, so context from step 1 can still influence step 50. That is precisely the <strong>Recurrent Neural Network (RNN)</strong>.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">When you read a story, you don't forget the first sentence by the time you reach the last — you keep a little summary in your head and update it with each new word. An RNN does the same: it reads one word, jots a quick note to itself, reads the next word <em>plus its note</em>, updates the note, and on it goes. That running note is its memory.</p>
+      </div>
+
+      <h2>30.3 The recurrence: one cell, reused every step</h2>
+      <p>An RNN has a <strong>hidden state</strong> \(h_t\) — a vector that is its memory. At each time step it takes the current input \(x_t\) and the previous memory \(h_{t-1}\), mixes them, and produces a new memory \(h_t\):</p>
+      <p>\[ h_t \;=\; f\!\left(W\,h_{t-1} \;+\; U\,x_t \;+\; b\right) \]</p>
+      <p>Here \(U\) weights the new input, \(W\) weights the carried-over memory, \(b\) is a bias, and \(f\) is a nonlinearity (classically \(\tanh\)). The output at each step is read off the state, e.g. \(y_t = V h_t\). The crucial point — just like weight sharing in a CNN — is that the <em>same</em> weights \(W, U, V\) are reused at <strong>every</strong> time step. The network isn't 50 layers for a 50-word sentence; it's <em>one</em> cell applied 50 times, feeding its output back into itself. We picture this by <strong>unrolling</strong> the loop across time:</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 520 210" aria-label="An RNN unrolled across four time steps, passing a hidden state forward">
+          <defs>
+            <marker id="rh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4f46e5"/></marker>
+            <marker id="rh2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#767c93"/></marker>
+          </defs>
+          <!-- four cells -->
+          <g>
+            <!-- positions -->
+            <!-- cell template repeated -->
+            <!-- h0 -->
+            <text x="14" y="115" font-size="12" fill="#767c93">h₀</text>
+            <line x1="28" y1="110" x2="60" y2="110" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#rh)"/>
+          </g>
+          <!-- cells -->
+          <g font-size="13">
+            <rect x="60"  y="88" width="56" height="44" rx="8" fill="#14b8a6" fill-opacity="0.15" stroke="#14b8a6"/>
+            <text x="78"  y="115" fill="#14b8a6">h₁</text>
+            <rect x="180" y="88" width="56" height="44" rx="8" fill="#14b8a6" fill-opacity="0.15" stroke="#14b8a6"/>
+            <text x="198" y="115" fill="#14b8a6">h₂</text>
+            <rect x="300" y="88" width="56" height="44" rx="8" fill="#14b8a6" fill-opacity="0.15" stroke="#14b8a6"/>
+            <text x="318" y="115" fill="#14b8a6">h₃</text>
+            <rect x="420" y="88" width="56" height="44" rx="8" fill="#14b8a6" fill-opacity="0.15" stroke="#14b8a6"/>
+            <text x="438" y="115" fill="#14b8a6">h₄</text>
+          </g>
+          <!-- horizontal state arrows -->
+          <line x1="116" y1="110" x2="180" y2="110" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#rh)"/>
+          <line x1="236" y1="110" x2="300" y2="110" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#rh)"/>
+          <line x1="356" y1="110" x2="420" y2="110" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#rh)"/>
+          <text x="128" y="102" font-size="11" fill="#4f46e5">W</text>
+          <!-- inputs (bottom) -->
+          <g font-size="12" fill="#f59e0b">
+            <line x1="88"  y1="175" x2="88"  y2="132" stroke="#f59e0b" stroke-width="2" marker-end="url(#rh2)"/>
+            <line x1="208" y1="175" x2="208" y2="132" stroke="#f59e0b" stroke-width="2" marker-end="url(#rh2)"/>
+            <line x1="328" y1="175" x2="328" y2="132" stroke="#f59e0b" stroke-width="2" marker-end="url(#rh2)"/>
+            <line x1="448" y1="175" x2="448" y2="132" stroke="#f59e0b" stroke-width="2" marker-end="url(#rh2)"/>
+            <text x="78"  y="192">x₁="I"</text>
+            <text x="190" y="192">x₂="love"</text>
+            <text x="312" y="192">x₃="it"</text>
+            <text x="430" y="192">x₄="not"</text>
+          </g>
+          <!-- outputs (top) -->
+          <g font-size="12" fill="#f43f5e">
+            <line x1="448" y1="88" x2="448" y2="55" stroke="#f43f5e" stroke-width="2" marker-end="url(#rh2)"/>
+            <text x="408" y="48">y = sentiment</text>
+          </g>
+        </svg>
+        <figcaption>One RNN cell unrolled over four words. The blue arrows carry the hidden state (memory) forward with shared weight \(W\); each word \(x_t\) (amber) updates it. By \(h_4\) the state has seen the whole sentence — including the meaning-flipping "not".</figcaption>
+      </figure>
+
+      <p>This unrolled picture also gives us the <strong>RNN shapes</strong>, defined by how many inputs map to how many outputs:</p>
+      <ul>
+        <li><strong>Many-to-one</strong> — read a whole sequence, emit one answer. Sentiment classification (read a review → positive/negative), as drawn above.</li>
+        <li><strong>One-to-many</strong> — one input, generate a sequence. Image captioning (one image → a sentence describing it).</li>
+        <li><strong>Many-to-many</strong> — sequence in, sequence out. Same length: tag each word with its part of speech. Different length: translation, which we'll meet next week as seq2seq (Week 31).</li>
+      </ul>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">📓</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">An RNN is a <strong>conveyor belt with one worker</strong>. Items (words) glide past one at a time. The worker (the cell) has a single notebook (the hidden state). For each item they glance at their notebook, glance at the item, scribble an updated note, and pass it on. Same worker, same notebook, every step — that's weight sharing across time. The whole story lives in that one running note.</p>
+      </div>
+
+      <h2>30.4 LSTM &amp; GRU: gates and a memory cell</h2>
+      <p>Plain RNNs have a fatal flaw on long sequences — the same vanishing/exploding gradient problem from Week 25, now in time. Because the same \(W\) is applied at every step, the gradient flowing back through 100 steps is roughly \(W\) multiplied by itself 100 times. If its magnitude is below 1, the signal <strong>vanishes</strong> and the network forgets the distant past; above 1 and it <strong>explodes</strong> into instability. A plain RNN simply can't connect "not" at word 100 to "love" at word 1.</p>
+      <p>The <strong>LSTM</strong> (Long Short-Term Memory) fixes this with a dedicated <strong>memory cell</strong> \(c_t\) that flows along an almost-uninterrupted highway — like ResNet's skip connection, but through time. Small neural <strong>gates</strong> (each a sigmoid producing values in \([0,1]\), acting as soft on/off valves) decide what happens to that memory:</p>
+      <p>\[ f_t = \sigma(W_f[h_{t-1},x_t]+b_f), \quad i_t = \sigma(W_i[h_{t-1},x_t]+b_i), \quad o_t = \sigma(W_o[h_{t-1},x_t]+b_o) \]</p>
+      <p>\[ c_t = f_t \odot c_{t-1} \;+\; i_t \odot \tilde{c}_t, \qquad h_t = o_t \odot \tanh(c_t) \]</p>
+      <p>Read it in plain words: the <strong>forget gate</strong> \(f_t\) decides what fraction of the old memory \(c_{t-1}\) to keep; the <strong>input gate</strong> \(i_t\) decides how much of the new candidate \(\tilde{c}_t = \tanh(W_c[h_{t-1},x_t]+b_c)\) to write in; the <strong>output gate</strong> \(o_t\) decides how much of the memory to expose as this step's hidden state. The symbol \(\odot\) is element-wise multiplication. Because \(c_t\) is updated mostly by <em>addition</em> (keep some old + add some new), gradients flow through it without repeatedly multiplying by \(W\) — so the memory of word 1 can survive to word 100.</p>
+      <p>The <strong>GRU</strong> (Gated Recurrent Unit) is a streamlined cousin: it merges the cell and hidden state and uses just two gates (reset and update). Fewer parameters, often just as good, and faster to train. As a rule of thumb: reach for an LSTM or GRU rather than a vanilla RNN whenever sequences are long.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">A plain RNN keeps one note and rewrites it from scratch each step, so the distant past fades. An <strong>LSTM/GRU adds a protected memory cell with gates</strong> — learnable valves that choose what to keep, what to add, and what to reveal. That gated, additive memory is what lets the network remember across long sequences instead of forgetting.</p>
+      </div>
+
+      <h2>30.5 Backpropagation through time (BPTT)</h2>
+      <p>How does an RNN learn its weights? Exactly the way every network in this part does — gradient descent via backprop (Week 25) — applied to the <strong>unrolled</strong> network. Since the unrolled RNN is just a very deep feedforward network that happens to reuse the same weights at every layer, we run backprop through all the time steps. This is called <strong>Backpropagation Through Time</strong>. Each shared weight (\(W\), \(U\), \(V\)) receives a gradient contribution from <em>every</em> step it was used, and we sum them. For very long sequences we often <strong>truncate</strong> BPTT — only unroll back a fixed number of steps — to keep memory and compute manageable. (And exploding gradients are tamed in practice by <strong>gradient clipping</strong>: cap the gradient's size before each update.)</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — a tiny RNN forward pass over a 3-step sequence</span></div>
+<pre><code class="language-python">import numpy as np
+np.random.seed(0)
+
+# Dimensions: 2-dim inputs, a 3-dim hidden state (memory).
+n_in, n_hid = 2, 3
+
+# Shared weights, reused at EVERY time step (this is the key RNN idea).
+U = np.random.randn(n_hid, n_in)  * 0.5   # weights new input  x_t
+W = np.random.randn(n_hid, n_hid) * 0.5   # weights old memory h_{t-1}
+b = np.zeros(n_hid)
+
+# A short sequence: 3 time steps, each a 2-dim vector (e.g. 3 "words").
+xs = [np.array([1.0, 0.0]),
+      np.array([0.0, 1.0]),
+      np.array([1.0, 1.0])]
+
+h = np.zeros(n_hid)               # h_0: memory starts empty
+for t, x in enumerate(xs):
+    # The recurrence:  h_t = tanh(W h_{t-1} + U x_t + b)
+    h = np.tanh(W @ h + U @ x + b)
+    print(f"step {t+1}: h = {np.round(h, 3)}")
+
+# h now summarises the WHOLE sequence in one vector. For a many-to-one
+# task (e.g. sentiment), read the answer off this final state:
+V = np.random.randn(1, n_hid)             # output weights
+y = V @ h
+print("final summary -> output:", np.round(y, 3))
+# Note: only ONE set of {U, W} produced all 3 steps -> weight sharing in time.
+</code></pre>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">RNNs are trained by <strong>backprop (Week 25)</strong> run across time, and their vanishing-gradient cure echoes the skip connection from <strong>Week 29's</strong> ResNet. They finally let us model the <strong>sequences</strong> that <strong>NLP (Week 9)</strong> is all about. Next lesson, <strong>Week 31 (Seq2Seq &amp; Word Embeddings)</strong>, feeds these cells real word vectors and chains two RNNs for translation. And the long-range memory problem RNNs only partly solve is exactly what <strong>attention &amp; transformers (Week 32)</strong> will solve outright — replacing recurrence with a mechanism that looks at every step at once.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">📖</span><div><a href="https://colah.github.io/posts/2015-08-Understanding-LSTMs/" target="_blank" rel="noopener">Understanding LSTM Networks (Christopher Olah)</a><span class="r-src">The single best visual explanation of the cell state and the forget/input/output gates from §30.4. Read it slowly with the diagrams.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://karpathy.github.io/2015/05/21/rnn-effectiveness/" target="_blank" rel="noopener">The Unreasonable Effectiveness of RNNs (Andrej Karpathy)</a><span class="r-src">Shows the one-to-many / many-to-many shapes generating text character by character — vivid motivation for why recurrence is powerful.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://pytorch.org/docs/stable/generated/torch.nn.LSTM.html" target="_blank" rel="noopener">PyTorch nn.LSTM docs</a><span class="r-src">The production cell you'll actually call, with the exact gate equations matching this lesson.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">In \(h_t = f(W h_{t-1} + U x_t + b)\), what is \(h_{t-1}\)?</div>
+        <button class="opt">The final output label of the whole sequence.</button>
+        <button class="opt">The hidden state from the previous step — the network's running memory carried forward.</button>
+        <button class="opt">A fresh random vector at every step.</button>
+        <button class="opt">The learning rate.</button>
+        <div class="explain">\(h_{t-1}\) is the previous memory. Feeding it back in (with shared weight \(W\)) is exactly what makes the network "recurrent" — earlier inputs influence later steps.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">Why do LSTMs handle long sequences far better than a vanilla RNN?</div>
+        <button class="opt">They use larger images.</button>
+        <button class="opt">They remove the hidden state entirely.</button>
+        <button class="opt">A gated memory cell updated mostly by addition lets gradients flow across many steps without vanishing.</button>
+        <button class="opt">They train without any gradients.</button>
+        <div class="explain">The cell state \(c_t = f_t\odot c_{t-1} + i_t\odot\tilde{c}_t\) carries information along an additive highway, and the gates learn what to keep, add and expose — so distant context survives.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">"Backpropagation through time" means:</div>
+        <button class="opt">Running ordinary backprop on the RNN unrolled across its time steps, summing each shared weight's gradients.</button>
+        <button class="opt">Training the network backwards in real clock time.</button>
+        <button class="opt">A way to avoid computing any gradients.</button>
+        <button class="opt">Only used for CNNs.</button>
+        <div class="explain">Unrolling the RNN turns it into a deep net with shared weights; backprop then flows through every step and the contributions to each shared weight are added up.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# editor/OS cruft
+*.swp
+*~
+.idea/
+.vscode/
+
+# Python (in case you run the lesson/project code here)
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/

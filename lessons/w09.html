@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 9 · NLP &amp; Text Processing — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w09">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 9</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 3 · The Worlds of AI › Lesson 9</div>
+        <span class="eyebrow">🌐 Part 3 · The Worlds of AI</span>
+        <h1>NLP &amp; Text Processing: Turning Words into Numbers</h1>
+        <div class="lesson-meta"><span>⏱️ 45 min</span><span>🎯 The input pipeline for language</span><span>📦 Week 9</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain why human language is genuinely hard for computers — ambiguity, context, and the long tail of words.</li>
+          <li>Run the classic text-cleaning pipeline: tokenisation, stop-word removal, stemming and lemmatisation.</li>
+          <li>Understand n-grams and how they smuggle a little word-order back into a model.</li>
+          <li>Turn a pile of documents into a matrix of numbers with bag-of-words and TF-IDF.</li>
+          <li>Build it for real with scikit-learn's <code>CountVectorizer</code> and <code>TfidfVectorizer</code>.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A model only understands numbers, but a sentence is a string of letters. How do we turn "this movie was a delight" into a vector — without throwing away what makes it mean something?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>9.1 Why human language is hard for computers</h2>
+      <p>Back in Lesson 1 we adopted the course's golden rule: <strong>everything becomes a vector</strong>. Pixels, customers, houses — all just lists of numbers. Text is the trickiest member of that family, and it's worth understanding <em>why</em> before we start crunching it.</p>
+      <p>A computer sees the sentence "I never said she stole my money" as a sequence of bytes. But humans hear at least seven different meanings depending on which word you stress. That's <strong>ambiguity</strong>, and natural language is soaked in it:</p>
+      <ul>
+        <li><strong>Word-sense ambiguity:</strong> "bank" is a riverside <em>and</em> a place for money. Only the surrounding words tell you which.</li>
+        <li><strong>Syntactic ambiguity:</strong> "I saw the man with the telescope" — who has the telescope?</li>
+        <li><strong>Context &amp; reference:</strong> "It was great!" — what is <em>it</em>? You need the previous sentence.</li>
+        <li><strong>The long tail:</strong> sarcasm, idioms ("break a leg"), typos, slang, and brand-new words appear constantly. There is no finite rulebook.</li>
+      </ul>
+      <p>The deep difficulty is that <strong>meaning lives in context</strong>, not in isolated words. A dictionary look-up isn't enough. This single fact is the reason the field marched from the simple counting methods in this lesson all the way to the giant context-aware transformers behind ChatGPT.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine a friend who only understands numbers — not a single word. You want to tell them about your favourite book. You can't hand them the sentences, so instead you make a tally chart: "the word <em>dragon</em> appears 12 times, <em>boring</em> zero times, <em>amazing</em> 5 times." Now your friend can guess it's an exciting fantasy book, just from the counts. That tally chart is exactly what we're going to teach the computer to build.</p>
+      </div>
+
+      <h2>9.2 Step 1 — Tokenisation: chopping text into pieces</h2>
+      <p>Before any counting, we split raw text into units called <strong>tokens</strong>. The obvious unit is the word, so "this movie was a delight" becomes <code>["this", "movie", "was", "a", "delight"]</code>. Sounds trivial — but punctuation, contractions ("don't" → "do" + "n't"?), and languages with no spaces (Chinese) make it a real engineering task. Tokenisation is the doorway: every later step operates on tokens, never on the raw string.</p>
+
+      <h2>9.3 Step 2 — Cleaning: stop-words, stemming &amp; lemmatisation</h2>
+      <p><strong>Stop-words</strong> are ultra-common words — <em>the, is, a, of</em> — that appear in almost every document and so carry little distinguishing signal. We often drop them to shrink the vocabulary and focus on content words.</p>
+      <p><strong>Stemming</strong> and <strong>lemmatisation</strong> both collapse different forms of a word to one canonical form, so "study," "studies," and "studying" count as the same thing:</p>
+      <ul>
+        <li><strong>Stemming</strong> is a crude chop of suffixes by rule. Fast, but sloppy — "studies" → "studi". Good enough for many tasks.</li>
+        <li><strong>Lemmatisation</strong> uses a dictionary and grammar to find the real base word (the <em>lemma</em>): "studies" → "study", "better" → "good". Slower, but correct.</li>
+      </ul>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🧺</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Cleaning text is like doing laundry before folding. <strong>Tokenising</strong> is emptying the basket and separating each garment. <strong>Removing stop-words</strong> is throwing out the lint and stray socks that tell you nothing. <strong>Stemming/lemmatising</strong> is treating a shirt, a SHIRT, and "shirts" as the same item so they go in the same drawer. You end up with neat, comparable piles — ready to be counted.</p>
+      </div>
+
+      <h2>9.4 Step 3 — n-grams: a pinch of word order</h2>
+      <p>So far we treat words individually. But "not good" and "good" are opposites, and a single-word view loses that. An <strong>n-gram</strong> is a contiguous run of <em>n</em> tokens. With <strong>bigrams</strong> (n = 2), "the movie was not good" yields <code>["the movie", "movie was", "was not", "not good"]</code>. Now "not good" is its own feature, and the model can learn it's negative. n-grams are a cheap trick to claw back a little of the word-order that the bag-of-words below throws away.</p>
+
+      <h2>9.5 Step 4 — Bag-of-Words: the first way to vectorise text</h2>
+      <p>Here is the leap from words to numbers. <strong>Bag-of-words (BoW)</strong> builds a fixed vocabulary of every token across all documents, then represents each document as a vector of <em>counts</em>: how many times each vocabulary word appears. We discard grammar and order entirely — hence "bag" — and keep only the tally.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 480 230" aria-label="Bag-of-words turns a sentence into a count vector">
+          <text x="10" y="28" font-size="14" fill="#767c93" font-family="monospace">"the cat sat on the mat"</text>
+          <text x="300" y="28" font-size="22" fill="#4f46e5">→</text>
+          <!-- vocab grid -->
+          <g font-size="13" font-family="monospace">
+            <text x="20" y="70" fill="#4f46e5">cat</text><rect x="70" y="58" width="34" height="20" fill="#e3e6f0"/><text x="82" y="73" fill="#111">1</text>
+            <text x="20" y="98" fill="#4f46e5">mat</text><rect x="70" y="86" width="34" height="20" fill="#e3e6f0"/><text x="82" y="101" fill="#111">1</text>
+            <text x="20" y="126" fill="#4f46e5">on</text><rect x="70" y="114" width="34" height="20" fill="#e3e6f0"/><text x="82" y="129" fill="#111">1</text>
+            <text x="20" y="154" fill="#4f46e5">sat</text><rect x="70" y="142" width="34" height="20" fill="#e3e6f0"/><text x="82" y="157" fill="#111">1</text>
+            <text x="20" y="182" fill="#4f46e5">the</text><rect x="70" y="170" width="34" height="20" fill="#f59e0b"/><text x="82" y="185" fill="#111">2</text>
+          </g>
+          <text x="150" y="120" font-size="13" fill="#14b8a6" font-family="monospace">vector =</text>
+          <text x="150" y="142" font-size="15" fill="#111" font-family="monospace">[1, 1, 1, 1, 2]</text>
+          <text x="150" y="170" font-size="11" fill="#767c93">one number per</text>
+          <text x="150" y="185" font-size="11" fill="#767c93">vocabulary word</text>
+        </svg>
+        <figcaption>Bag-of-words: build a vocabulary (left), then count each word's occurrences to get a fixed-length count vector. "the" appears twice (amber).</figcaption>
+      </figure>
+
+      <p>Two documents are now comparable: a sci-fi review and a fantasy review will share counts for common words but differ on "spaceship" vs "dragon". And since each document is a vector, every tool from Lesson 2 — dot products, cosine similarity, distances — instantly applies. <strong>This is the bridge from text to all of machine learning.</strong></p>
+
+      <h2>9.6 TF-IDF: counts, but smarter</h2>
+      <p>Raw counts have a flaw: frequent-but-boring words dominate. The word "movie" appears in every movie review, so its count is high but tells you nothing about <em>which</em> review. <strong>TF-IDF</strong> fixes this by weighting each word by how rare it is across the whole collection. It multiplies two terms:</p>
+      <p>\[ \text{tf-idf}(t, d) = \underbrace{\text{tf}(t, d)}_{\text{count in this doc}} \times \underbrace{\log\frac{N}{\text{df}(t)}}_{\text{rarity across all docs}} \]</p>
+      <p>where \(N\) is the number of documents and \(\text{df}(t)\) is how many documents contain term \(t\). A word in <em>every</em> document gets \(\log(N/N)=\log 1 = 0\) — crushed to zero. A rare, distinctive word like "masterpiece" gets a high weight. TF-IDF is "count vectors that pay attention to what's distinctive," and for decades it was the workhorse of search engines and text classifiers.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">Every NLP method — from a 1990s spam filter to GPT-4 — does the same first move: <strong>turn text into vectors of numbers</strong>. Bag-of-words and TF-IDF are the simplest possible way to do it: count words, weight by rarity. They throw away word order and treat "happy" and "joyful" as unrelated. Fixing those two weaknesses is the entire story of modern NLP.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — tokenise by hand</span></div>
+<pre><code class="language-python"># A tiny, dependency-free tokeniser to demystify "tokenisation".
+import re
+
+text = "The movie was NOT good... but the acting? Amazing!"
+
+# 1) lowercase so "The" and "the" are the same token
+# 2) keep only word characters, split on everything else
+tokens = re.findall(r"[a-z]+", text.lower())
+print(tokens)
+# -> ['the', 'movie', 'was', 'not', 'good', 'but', 'the', 'acting', 'amazing']
+
+# 3) drop a few stop-words to keep only content words
+stop = {"the", "was", "but", "a", "an", "of", "to"}
+content = [t for t in tokens if t not in stop]
+print(content)
+# -> ['movie', 'not', 'good', 'acting', 'amazing']</code></pre>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">scikit-learn — bag-of-words &amp; TF-IDF</span></div>
+<pre><code class="language-python">from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+
+corpus = [
+    "the movie was a delight",
+    "the movie was boring and slow",
+    "a delightful, delightful film",
+]
+
+# --- Bag-of-words: raw counts ---
+bow = CountVectorizer()              # tokenises + lowercases + builds vocab
+X = bow.fit_transform(corpus)       # sparse matrix: rows=docs, cols=words
+print(bow.get_feature_names_out())  # the learned vocabulary
+print(X.toarray())                  # each row is one document's count vector
+# Row 0 (delight movie...) has a 1 in the "delight" and "movie" columns, etc.
+
+# --- TF-IDF: counts re-weighted by rarity ---
+tfidf = TfidfVectorizer()
+T = tfidf.fit_transform(corpus)
+print(T.toarray().round(2))
+# "the"/"was" appear everywhere -> tiny weights.
+# "delightful" is rare + repeated in doc 3 -> a big weight there.
+
+# Because docs are now vectors, Lesson 2's cosine similarity just works:
+from sklearn.metrics.pairwise import cosine_similarity
+print(cosine_similarity(T[0], T[2]).round(2))  # doc 1 vs doc 3 -> share "delight" theme</code></pre>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> The catch</div>
+        <p style="margin-bottom:0">Bag-of-words and TF-IDF have two fatal blind spots. First, <strong>no word order</strong>: "dog bites man" and "man bites dog" get identical vectors. Second, <strong>no meaning</strong>: "happy" and "joyful" are as unrelated as "happy" and "tax". The vector is also huge and mostly zeros (one dimension per vocabulary word). Solving these is exactly what word embeddings and transformers were invented for.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This lesson cashes in Lesson 1's promise that "everything is a vector" — text included — and uses <strong>Week 2's</strong> dot product and cosine similarity to compare documents. These count vectors are the literal input pipeline for <strong>Project 2 (Sentiment &amp; Spam: a Text Classifier)</strong>, where you'll feed them to Naïve Bayes (Week 16) and a neural net. And they set up the field's two great leaps: <strong>Week 31 word embeddings</strong>, which give "happy" and "joyful" nearby vectors so meaning is captured, and <strong>Week 32 transformers / self-attention</strong>, which finally let a model read words <em>in context</em> — the answer to every ambiguity problem we opened with.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=vZ5oFhpQslI" target="_blank" rel="noopener">Vectorizing text — TF-IDF, clearly explained</a> <span class="r-src">StatQuest-style walkthrough of why we weight rare words higher. Watch after section 9.6.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://scikit-learn.org/stable/modules/feature_extraction.html#text-feature-extraction" target="_blank" rel="noopener">scikit-learn: Text feature extraction</a><span class="r-src">The official guide to CountVectorizer and TfidfVectorizer, with the exact TF-IDF formula scikit-learn uses (it adds smoothing).</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://web.stanford.edu/~jurafsky/slp3/" target="_blank" rel="noopener">Speech and Language Processing (Jurafsky &amp; Martin)</a><span class="r-src">The standard NLP textbook, free online. Chapters 2 (text normalisation) and 6 (vector semantics) cover everything above and what comes next.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">What does the "bag" in bag-of-words mean?</div>
+        <button class="opt">Words are stored in a special compressed file format.</button>
+        <button class="opt">We keep only word counts and throw away word order and grammar.</button>
+        <button class="opt">Each document is limited to a fixed bag of 100 words.</button>
+        <button class="opt">Stop-words are bagged up and deleted.</button>
+        <div class="explain">A "bag" has no order — shake it and the items are the same. Bag-of-words records how many times each vocabulary word appears but forgets the sequence, which is why "dog bites man" and "man bites dog" get identical vectors.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">In TF-IDF, a word that appears in <em>every</em> document in the collection gets…</div>
+        <button class="opt">The highest possible weight, because it's clearly important.</button>
+        <button class="opt">A weight equal to its raw count.</button>
+        <button class="opt">A weight of (near) zero, because it can't distinguish documents.</button>
+        <button class="opt">Removed from the vocabulary automatically.</button>
+        <div class="explain">The IDF term is \(\log(N/\text{df})\). If a word is in all N documents, df = N, so \(\log(N/N)=\log 1 = 0\). Words common to everything carry no distinguishing signal, so TF-IDF crushes them toward zero.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">Why are bag-of-words / TF-IDF vectors said to "miss meaning"?</div>
+        <button class="opt">"happy" and "joyful" get completely unrelated dimensions — the vector has no idea they're similar.</button>
+        <button class="opt">They use too few decimal places.</button>
+        <button class="opt">They can only represent English.</button>
+        <button class="opt">They are always exactly zero.</button>
+        <div class="explain">Each word is its own independent dimension, so synonyms are as "far apart" as antonyms. Capturing that "happy" ≈ "joyful" is precisely what Week 31's word embeddings deliver by placing similar words near each other in space.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

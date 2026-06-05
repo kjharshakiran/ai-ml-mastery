@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 26 · Gradient Descent &amp; Adaptive Optimisers — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w26">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 26</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 5 · Deep Learning › Lesson 26</div>
+        <span class="eyebrow">🧠 Part 5 · Deep Learning</span>
+        <h1>Deep FFN I: Gradient Descent &amp; Adaptive Optimisers</h1>
+        <div class="lesson-meta"><span>⏱️ 55 min</span><span>🎯 Making the downhill walk fast and stable</span><span>📦 Week 26</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain why an image classifier needs a fast, reliable way to descend a high-dimensional loss surface.</li>
+          <li>Reason about the learning rate, loss surfaces, local minima, and batch vs. stochastic gradient descent.</li>
+          <li>Derive and contrast the adaptive optimisers: <strong>Momentum, RMSProp, and Adam</strong>.</li>
+          <li>Apply regularisation for deep nets — L2 / weight decay and early stopping.</li>
+          <li>Code SGD vs. momentum on a quadratic in NumPy and watch momentum converge faster.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">Backprop (Week 25) hands us the gradient — the downhill direction. But the loss surface of a real network is a wild, million-dimensional landscape of valleys and ravines. How do we walk down it <em>quickly</em> without overshooting, stalling, or getting stuck?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>26.1 Why this matters: training an image classifier</h2>
+      <p>Picture training a network to tell cats from dogs. It has millions of weights, and the loss — averaged over thousands of images — is a single number sitting somewhere on a vast, bumpy surface above those millions of weight-dimensions. Backpropagation (Week 25) tells us the slope at our current spot. But knowing the slope is not enough: take steps that are too big and you ricochet across the valley; too small and training takes weeks. The art of the <em>optimiser</em> — how exactly we turn gradients into weight updates — is what makes deep learning practical rather than merely possible.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">You're blindfolded on a hill and want to reach the bottom. You can feel which way is downhill with your feet (that's the gradient). If you take giant leaps you might fly past the bottom and back up the other side. If you shuffle tiny steps you'll be there next year. The clever trick: build up <strong>momentum</strong> like a rolling ball, so you speed through the long gentle slopes and don't get jiggled to a stop by every little bump. That rolling ball is what modern optimisers add.</p>
+      </div>
+
+      <h2>26.2 Gradient descent, in depth</h2>
+      <p>The core update hasn't changed since Week 3. With loss \(L\), weights \(\theta\), gradient \(\nabla L(\theta)\) (delivered by backprop), and learning rate \(\eta\):</p>
+      <p>\[ \theta_{t+1} = \theta_t - \eta\,\nabla L(\theta_t) \]</p>
+      <p>Step <em>against</em> the gradient (downhill) by an amount controlled by \(\eta\). Three things make this subtle in practice:</p>
+      <p><strong>The learning rate \(\eta\).</strong> This is the single most important hyperparameter. Too large and the loss oscillates or explodes — you leap over the valley. Too small and you crawl, wasting compute and risking getting stuck. The sweet spot is often found by trying a few values on a log scale (0.1, 0.01, 0.001).</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 480 230" aria-label="Gradient descent steps down a loss valley versus overshooting">
+          <!-- valley curve -->
+          <path d="M30,30 Q170,250 250,200 Q330,160 450,30" fill="none" stroke="#767c93" stroke-width="2"/>
+          <text x="200" y="222" font-size="12" fill="#767c93">weight θ</text>
+          <text x="14" y="120" font-size="12" fill="#767c93" transform="rotate(-90 14,120)">loss L</text>
+          <!-- good steps (teal) descending -->
+          <circle cx="70"  cy="78"  r="5" fill="#14b8a6"/>
+          <circle cx="120" cy="135" r="5" fill="#14b8a6"/>
+          <circle cx="170" cy="178" r="5" fill="#14b8a6"/>
+          <circle cx="225" cy="198" r="5" fill="#14b8a6"/>
+          <g stroke="#14b8a6" stroke-width="1.4" marker-end="url(#gh)">
+            <line x1="76" y1="82" x2="114" y2="128"/><line x1="126" y1="139" x2="164" y2="172"/><line x1="176" y1="181" x2="219" y2="194"/>
+          </g>
+          <text x="60" y="68" font-size="11" fill="#14b8a6">good η: smooth descent</text>
+          <!-- overshoot (rose) -->
+          <circle cx="400" cy="78"  r="5" fill="#f43f5e"/>
+          <circle cx="150" cy="160" r="5" fill="#f43f5e"/>
+          <g stroke="#f43f5e" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#gh2)">
+            <line x1="394" y1="84" x2="160" y2="155"/>
+          </g>
+          <text x="300" y="68" font-size="11" fill="#f43f5e">η too big: overshoots ✗</text>
+          <defs>
+            <marker id="gh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#14b8a6"/></marker>
+            <marker id="gh2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#f43f5e"/></marker>
+          </defs>
+        </svg>
+        <figcaption>Descending a loss valley. With a good learning rate (teal) steps shrink as the slope flattens and settle at the minimum. Too large a rate (rose) leaps across the valley and climbs the far wall.</figcaption>
+      </figure>
+
+      <p><strong>The loss surface &amp; local minima.</strong> For a simple model the surface is a clean bowl with one bottom (convex). Deep networks are non-convex: the surface has many dips, saddle points (flat in some directions, sloped in others), and long narrow ravines. Happily, in very high dimensions most "bad" stuck points turn out to be saddles, not true traps, and good optimisers slide off them. Different starting weights can lead to different — but usually similarly good — solutions, which is why we rarely worry about finding <em>the</em> global minimum; any of the many good valleys will do. The real enemies in practice are not local minima but ravines (where plain gradient descent zig-zags, as below) and plateaus (where the gradient is nearly flat and progress stalls). The optimisers in §26.3 are designed precisely to power through both.</p>
+      <p><strong>Batch vs. stochastic (recap, Week 25).</strong> Full-batch gradient descent gives the exact slope but is slow per step. Stochastic gradient descent (SGD) estimates the slope from one example (or a mini-batch) — noisier, but far more steps per second, and the noise itself helps jiggle the optimiser out of shallow dips. Mini-batch SGD is the workhorse.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">⛷️</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">A skier in a long, narrow gully wants to reach the bottom. Plain gradient descent points straight at the steepest wall, so the skier zig-zags wall-to-wall and barely moves forward down the gully. Add <strong>momentum</strong> and the skier builds speed <em>along</em> the gully, while the side-to-side wobbles cancel out — they shoot down the centre line. That's exactly the geometry where momentum shines.</p>
+      </div>
+
+      <h2>26.3 Adaptive learning-rate methods</h2>
+      <p>Plain SGD uses one fixed \(\eta\) for every weight and every step. The three classic upgrades fix that.</p>
+
+      <p><strong>Momentum.</strong> Keep a running "velocity" \(\mathbf{v}\) that accumulates past gradients, and step with the velocity instead of the raw gradient. A friction term \(\beta\) (≈ 0.9) decays old gradients:</p>
+      <p>\[ \mathbf{v}_{t+1} = \beta\,\mathbf{v}_t + \nabla L(\theta_t), \qquad \theta_{t+1} = \theta_t - \eta\,\mathbf{v}_{t+1} \]</p>
+      <p>Consistent gradient directions add up (acceleration); oscillating directions cancel (damping). Momentum is the ball rolling downhill.</p>
+
+      <p><strong>RMSProp.</strong> Scale each weight's step by the recent <em>size</em> of its gradients, so steep directions take small steps and flat directions take big ones. Keep a running average of squared gradients \(\mathbf{s}\):</p>
+      <p>\[ \mathbf{s}_{t+1} = \rho\,\mathbf{s}_t + (1-\rho)\,\nabla L(\theta_t)^2, \qquad \theta_{t+1} = \theta_t - \frac{\eta}{\sqrt{\mathbf{s}_{t+1}}+\epsilon}\,\nabla L(\theta_t) \]</p>
+      <p>The \(\epsilon\) (≈ \(10^{-8}\)) just avoids division by zero. RMSProp gives every parameter its own adaptive learning rate.</p>
+
+      <p><strong>Adam</strong> (Adaptive Moment estimation) — the default optimiser for nearly all of modern deep learning — simply <em>combines</em> momentum and RMSProp. It tracks a running mean of gradients \(\mathbf{m}\) (the momentum idea) <em>and</em> a running mean of squared gradients \(\mathbf{v}\) (the RMSProp idea):</p>
+      <p>\[ \mathbf{m}_t = \beta_1\mathbf{m}_{t-1} + (1-\beta_1)\nabla L, \qquad \mathbf{v}_t = \beta_2\mathbf{v}_{t-1} + (1-\beta_2)\nabla L^2 \]</p>
+      <p>After a bias correction (\(\hat{\mathbf{m}}_t = \mathbf{m}_t/(1-\beta_1^t)\) and likewise for \(\hat{\mathbf{v}}_t\), which fixes the cold-start when the averages are near zero), the update is:</p>
+      <p>\[ \theta_{t+1} = \theta_t - \frac{\eta}{\sqrt{\hat{\mathbf{v}}_t}+\epsilon}\,\hat{\mathbf{m}}_t \]</p>
+      <p>Typical defaults — \(\beta_1=0.9\), \(\beta_2=0.999\), \(\eta=0.001\) — work astonishingly often, which is why Adam is the first optimiser most people reach for.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0"><strong>Momentum</strong> smooths the <em>direction</em> of travel (a rolling ball). <strong>RMSProp</strong> adapts the <em>step size</em> per weight (big steps in flat directions, small in steep). <strong>Adam = momentum + RMSProp</strong>, and it's the sensible default for almost everything, including transformers in Week 32.</p>
+      </div>
+
+      <h2>26.4 Regularisation for deep nets</h2>
+      <p>A network with millions of weights can memorise its training data instead of learning the pattern — the overfitting we met in Week 14. Two simple, universal defences:</p>
+      <p><strong>L2 regularisation (weight decay).</strong> Add a penalty on the size of the weights to the loss, discouraging any single weight from growing large:</p>
+      <p>\[ L_{\text{reg}} = L + \frac{\lambda}{2}\sum_i \theta_i^2 \]</p>
+      <p>Its gradient adds \(\lambda\theta\) to each weight's gradient, so every update also shrinks the weights a little toward zero — hence the name "weight decay." Smaller weights mean a smoother, simpler function that generalises better. The strength \(\lambda\) is a hyperparameter; it's the same ridge idea from Week 14, now applied to deep nets.</p>
+      <p><strong>Early stopping.</strong> Train while watching the validation loss; the moment it stops falling and begins to rise, stop — that's the point where the network shifts from learning the pattern to memorising the noise. It's free, effective, and the most common regulariser in practice (we previewed it in Week 25).</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 460 220" aria-label="Training and validation loss curves with the early-stopping point">
+          <g stroke="#e3e6f0"><line x1="40" y1="180" x2="440" y2="180"/><line x1="40" y1="20" x2="40" y2="180"/></g>
+          <text x="380" y="198" font-size="11" fill="#767c93">epochs</text>
+          <text x="14" y="110" font-size="11" fill="#767c93" transform="rotate(-90 14,110)">loss</text>
+          <!-- training loss: keeps falling -->
+          <path d="M45,40 C120,120 220,150 430,168" fill="none" stroke="#14b8a6" stroke-width="2"/>
+          <text x="330" y="160" font-size="11" fill="#14b8a6">training loss</text>
+          <!-- validation loss: U-shaped -->
+          <path d="M45,55 C150,135 230,140 300,135 C360,131 400,150 430,170" fill="none" stroke="#f43f5e" stroke-width="2"/>
+          <text x="60" y="48" font-size="11" fill="#f43f5e">validation loss</text>
+          <!-- stopping point (minimum of validation) -->
+          <line x1="300" y1="30" x2="300" y2="180" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5 4"/>
+          <circle cx="300" cy="135" r="4" fill="#f59e0b"/>
+          <text x="244" y="28" font-size="11" fill="#f59e0b">stop here ✓</text>
+        </svg>
+        <figcaption>Early stopping: training loss (teal) keeps falling, but validation loss (rose) bottoms out then climbs as overfitting sets in. The amber line marks the best moment to stop.</figcaption>
+      </figure>
+
+      <h2>26.5 SGD vs. momentum, in NumPy</h2>
+      <p>Let's prove momentum helps. We'll minimise a simple stretched quadratic \(L(x,y)=x^2 + 10y^2\) — a narrow valley, steep in \(y\), gentle in \(x\), the exact "ravine" geometry where plain SGD zig-zags. We start from the same point and run both optimisers; momentum reaches the bottom in far fewer steps.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — SGD vs. momentum on a quadratic valley</span></div>
+<pre><code class="language-python">import numpy as np
+
+# Loss L(x,y) = x^2 + 10 y^2  (a narrow valley: gentle in x, steep in y)
+def grad(p):
+    x, y = p
+    return np.array([2*x, 20*y])     # gradient = [dL/dx, dL/dy]
+
+def loss(p):
+    x, y = p
+    return x**2 + 10*y**2
+
+start = np.array([9.0, 1.0])   # same starting point for both
+eta   = 0.02                   # same learning rate for both
+
+# ---- plain SGD (gradient descent) ----
+p = start.copy()
+for step in range(60):
+    p = p - eta * grad(p)
+print("plain SGD  after 60 steps: loss = %.5f" % loss(p))
+
+# ---- SGD with momentum ----
+p = start.copy()
+v = np.zeros(2)                # velocity, starts at rest
+beta = 0.9                     # momentum / friction coefficient
+for step in range(60):
+    v = beta * v + grad(p)     # accumulate gradient into velocity
+    p = p - eta * v            # step with velocity, not raw gradient
+print("momentum   after 60 steps: loss = %.5f" % loss(p))
+
+# Momentum's loss is far smaller: it accelerates along x and damps the
+# y-axis zig-zag, so it reaches the valley floor in many fewer steps.</code></pre>
+      <p>Run it and momentum's final loss is dramatically lower than plain SGD's for the same number of steps and the same learning rate — concrete evidence that smoothing the update direction pays off in ravine-shaped landscapes, which is exactly what deep-network loss surfaces look like.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Watch out</div>
+        <p style="margin-bottom:0">There is no universal "best" learning rate — it depends on the model, the data, and the optimiser. With plain SGD a rate that works in a gentle direction can diverge in a steep one (that's why our valley is tricky). Adaptive methods like Adam ease this by giving each weight its own effective rate, but you still tune the base \(\eta\). When training won't converge, the learning rate is the first knob to check.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This lesson takes the gradients that <strong>backpropagation (Week 25)</strong> produces and turns them into smart weight updates, building directly on the gradient-descent step from <strong>Week 3</strong>. The L2 / weight-decay and early-stopping ideas are the deep-learning version of the overfitting fight from <strong>Week 14</strong>. And <strong>Adam</strong> isn't just for feedforward nets — it's the default optimiser that trains the CNNs of <strong>Week 28</strong> and the transformers of <strong>Week 32</strong>. Next week (<strong>Week 27</strong>) we add two more tools — dropout and batch normalisation — that make very deep nets trainable at all.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=IHZwWFHWa-w" target="_blank" rel="noopener">Gradient descent, how neural networks learn</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">Chapter 2 of the neural-network series. The clearest picture of "walking downhill on the cost surface." Watch before re-reading §26.2.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://www.ruder.io/optimizing-gradient-descent/" target="_blank" rel="noopener">An overview of gradient descent optimisation algorithms (Sebastian Ruder)</a><span class="r-src">The definitive readable survey of Momentum, RMSProp, Adam and friends — with the exact update equations used above.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://cs231n.github.io/neural-networks-3/" target="_blank" rel="noopener">Stanford CS231n — Training Neural Networks Part 3</a><span class="r-src">Practical guidance on learning rates, momentum, Adam, and regularisation, with helpful loss-curve diagnostics.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://pytorch.org/docs/stable/optim.html" target="_blank" rel="noopener">PyTorch optimisers reference</a><span class="r-src">The library implementations of SGD, SGD+momentum, RMSprop and Adam — with their weight-decay arguments.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">What does the momentum term add to plain gradient descent?</div>
+        <button class="opt">It guarantees the global minimum is found.</button>
+        <button class="opt">It removes the need for a learning rate.</button>
+        <button class="opt">A running velocity that accelerates consistent directions and damps oscillations.</button>
+        <button class="opt">It computes the gradient more accurately.</button>
+        <div class="explain">Momentum accumulates past gradients into a velocity. Consistent directions add up (faster progress) while back-and-forth wobbles cancel — ideal for narrow-valley loss surfaces.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">Adam is best described as:</div>
+        <button class="opt">A combination of momentum (mean of gradients) and RMSProp (mean of squared gradients).</button>
+        <button class="opt">A way to compute gradients without backpropagation.</button>
+        <button class="opt">A regularisation technique like dropout.</button>
+        <button class="opt">A fixed learning rate shared by all weights.</button>
+        <div class="explain">Adam tracks a running mean of gradients (the momentum idea) and a running mean of squared gradients (the RMSProp idea), giving each weight an adaptive, smoothed update. It's the default optimiser for most deep models.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">In early stopping, you halt training when…</div>
+        <button class="opt">The training loss reaches zero.</button>
+        <button class="opt">The validation loss stops improving and begins to rise.</button>
+        <button class="opt">The learning rate becomes negative.</button>
+        <button class="opt">You have used exactly one epoch.</button>
+        <div class="explain">Rising validation loss while training loss keeps falling is the signature of overfitting. Stopping at the validation minimum keeps the model that generalises best.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

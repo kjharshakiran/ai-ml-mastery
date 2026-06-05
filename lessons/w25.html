@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 25 · Backpropagation — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w25">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 25</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 5 · Deep Learning › Lesson 25</div>
+        <span class="eyebrow">🧠 Part 5 · Deep Learning</span>
+        <h1>Neural Networks II: Backpropagation</h1>
+        <div class="lesson-meta"><span>⏱️ 60 min</span><span>🎯 How a network actually learns</span><span>📦 Week 25</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Describe a multilayer feedforward neural network (MLFFNN) as a stack of layers, each a matrix multiply plus a non-linearity.</li>
+          <li>Tell apart the three modes of learning — full-batch, stochastic, and mini-batch — and say when to use each.</li>
+          <li>Explain <strong>backpropagation</strong> as the Week 3 chain rule run layer-by-layer: forward pass → loss → backward pass → update.</li>
+          <li>Pick sensible stopping criteria and basic training configuration.</li>
+          <li>See logistic regression as a single-neuron classifier (sigmoid + cross-entropy) and implement a working 2-layer net that solves XOR in NumPy.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A network has thousands — soon millions — of weights, and we can't tune them by hand. When the output is wrong, how does the network figure out <em>which</em> weight, deep inside, to nudge, and in which direction?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>25.1 The multilayer feedforward network (MLFFNN)</h2>
+      <p>Last week we built a single neuron — a weighted sum (a Week 2 dot product) followed by an activation — and stacked a few into a multilayer perceptron. Let's write that stack precisely, because the notation <em>is</em> the algorithm. A <strong>multilayer feedforward neural network</strong> is a chain of layers. Each layer takes the previous layer's output vector, multiplies it by a weight matrix, adds a bias vector, and squashes the result with an activation. "Feedforward" just means information flows one way: input → hidden → output, no loops.</p>
+      <p>For layer \(\ell\), with the previous layer's activation \(\mathbf{a}^{(\ell-1)}\):</p>
+      <p>\[ \mathbf{z}^{(\ell)} = W^{(\ell)}\mathbf{a}^{(\ell-1)} + \mathbf{b}^{(\ell)}, \qquad \mathbf{a}^{(\ell)} = \sigma\!\left(\mathbf{z}^{(\ell)}\right) \]</p>
+      <p>The input is \(\mathbf{a}^{(0)}=\mathbf{x}\); the final activation \(\mathbf{a}^{(L)}=\hat{\mathbf{y}}\) is the prediction. The whole network is just this one pair of equations applied again and again. Training means finding the weights \(W^{(\ell)}\) and biases \(\mathbf{b}^{(\ell)}\) that make \(\hat{\mathbf{y}}\) match the truth.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine a long line of friends passing a secret down the line, each one tweaking it a little before whispering it on. At the end, the last friend shouts a guess. If the guess is wrong, you walk <em>back</em> up the line asking each friend, "how much did your tweak mess things up?" The friends who caused the most trouble change their habits the most. Do this thousands of times and the whole line learns to pass the secret perfectly. That walk back up the line is <strong>backpropagation</strong>.</p>
+      </div>
+
+      <h2>25.2 Three modes of learning</h2>
+      <p>To improve the weights we need a <strong>loss</strong> — a single number measuring how wrong the prediction is — and then we slide the weights downhill on that loss (gradient descent, Week 3, in depth next week). The question is: how many training examples do we look at before each downhill step?</p>
+      <ul>
+        <li><strong>Batch (full-batch) learning.</strong> Compute the loss over the <em>entire</em> training set, average the gradients, then take one step. Smooth and accurate, but each step is expensive and slow — and impossible if the data won't fit in memory.</li>
+        <li><strong>Stochastic (online) learning.</strong> Take a step after <em>every single</em> example. Steps are noisy and zig-zaggy, but cheap and frequent; the noise can even help escape bad spots.</li>
+        <li><strong>Mini-batch learning.</strong> The practical middle ground used by virtually every real network: average the gradient over a small batch (commonly 32–256 examples), then step. You get most of batch's stability with most of stochastic's speed, and it maps beautifully onto GPU hardware.</li>
+      </ul>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🥾</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">You're hiking down a foggy mountain to the lowest valley. <strong>Full-batch</strong> is surveying the whole slope around you with a laser before each careful step — accurate but exhausting. <strong>Stochastic</strong> is taking a step the instant you feel the ground tilt under one foot — fast but wobbly. <strong>Mini-batch</strong> is glancing at the ground a few paces around you, then stepping — quick, steady, and what real hikers (and real networks) actually do.</p>
+      </div>
+
+      <h2>25.3 Backpropagation — the chain rule, layer by layer</h2>
+      <p>This is the heart of deep learning, so we'll go slowly. Training has four beats that repeat: <strong>forward pass → loss → backward pass → update</strong>.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 520 240" aria-label="Forward and backward flow through a small two-layer network">
+          <!-- forward arrow band -->
+          <text x="20" y="30" font-size="12" fill="#14b8a6">forward pass →  compute prediction</text>
+          <!-- nodes -->
+          <circle cx="70" cy="120" r="18" fill="#e3e6f0"/><text x="62" y="125" font-size="12" fill="#767c93">x</text>
+          <circle cx="230" cy="80" r="18" fill="#fff" stroke="#4f46e5" stroke-width="2"/><text x="218" y="85" font-size="11" fill="#4f46e5">a₁⁽¹⁾</text>
+          <circle cx="230" cy="160" r="18" fill="#fff" stroke="#4f46e5" stroke-width="2"/><text x="218" y="165" font-size="11" fill="#4f46e5">a₂⁽¹⁾</text>
+          <circle cx="400" cy="120" r="18" fill="#fff" stroke="#14b8a6" stroke-width="2"/><text x="392" y="125" font-size="12" fill="#14b8a6">ŷ</text>
+          <circle cx="490" cy="120" r="16" fill="#fff" stroke="#f43f5e" stroke-width="2"/><text x="481" y="125" font-size="12" fill="#f43f5e">L</text>
+          <!-- forward edges -->
+          <g stroke="#9fe7dd" stroke-width="2" marker-end="url(#fh)">
+            <line x1="88" y1="115" x2="212" y2="84"/><line x1="88" y1="125" x2="212" y2="156"/>
+            <line x1="248" y1="84" x2="382" y2="115"/><line x1="248" y1="156" x2="382" y2="125"/>
+            <line x1="418" y1="120" x2="474" y2="120"/>
+          </g>
+          <!-- backward edges -->
+          <g stroke="#f43f5e" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#bh)">
+            <line x1="474" y1="135" x2="418" y2="135"/>
+            <line x1="382" y1="140" x2="248" y2="172"/><line x1="382" y1="130" x2="248" y2="100"/>
+            <line x1="212" y1="100" x2="88" y2="138"/>
+          </g>
+          <text x="270" y="225" font-size="12" fill="#f43f5e">← backward pass   send the error gradient back, layer by layer</text>
+          <defs>
+            <marker id="fh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#14b8a6"/></marker>
+            <marker id="bh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#f43f5e"/></marker>
+          </defs>
+        </svg>
+        <figcaption>Forward (teal): inputs flow right to produce the prediction ŷ and loss L. Backward (rose, dashed): the gradient of L flows left, telling each weight how much it contributed to the error.</figcaption>
+      </figure>
+
+      <p><strong>Forward pass.</strong> Run the equations of §25.1 left to right. Save every \(\mathbf{z}^{(\ell)}\) and \(\mathbf{a}^{(\ell)}\) — we'll need them on the way back.</p>
+      <p><strong>Loss.</strong> Compare the prediction to the target with a loss \(L\). For a regression-style output we might use squared error \(L=\tfrac12(\hat{y}-y)^2\); for classification we use cross-entropy (§25.6).</p>
+      <p><strong>Backward pass.</strong> We want \(\dfrac{\partial L}{\partial W^{(\ell)}}\) for every layer — how a tiny change in each weight changes the loss. Computing this directly for a deep net looks hopeless. The rescue is the <strong>chain rule from Week 3</strong>: the loss depends on \(W^{(\ell)}\) only <em>through</em> \(\mathbf{z}^{(\ell)}\), which feeds \(\mathbf{a}^{(\ell)}\), which feeds the next layer, and so on to \(L\). So we multiply the local derivatives along that path.</p>
+      <p>Define the <strong>error signal</strong> at layer \(\ell\) as \(\boldsymbol{\delta}^{(\ell)} = \dfrac{\partial L}{\partial \mathbf{z}^{(\ell)}}\). At the output layer it is simply how wrong we were, scaled by the output activation's slope:</p>
+      <p>\[ \boldsymbol{\delta}^{(L)} = \frac{\partial L}{\partial \mathbf{a}^{(L)}}\odot\sigma'\!\left(\mathbf{z}^{(L)}\right) \]</p>
+      <p>The magic is that the error at one layer is built from the error at the <em>next</em> layer — we just push it backwards through the same weights, then multiply by the local activation slope (\(\odot\) is element-wise multiply):</p>
+      <p>\[ \boldsymbol{\delta}^{(\ell)} = \left(W^{(\ell+1)\top}\boldsymbol{\delta}^{(\ell+1)}\right)\odot\sigma'\!\left(\mathbf{z}^{(\ell)}\right) \]</p>
+      <p>Once you have \(\boldsymbol{\delta}^{(\ell)}\), the gradients for that layer's weights and biases fall out instantly — the weight gradient is the error signal times the input that flowed into it:</p>
+      <p>\[ \frac{\partial L}{\partial W^{(\ell)}} = \boldsymbol{\delta}^{(\ell)}\,\mathbf{a}^{(\ell-1)\top}, \qquad \frac{\partial L}{\partial \mathbf{b}^{(\ell)}} = \boldsymbol{\delta}^{(\ell)} \]</p>
+      <p>That's the whole algorithm: compute \(\boldsymbol{\delta}^{(L)}\), then recurse the second equation back through the layers, reading off gradients as you go. It is the chain rule, organised so that no derivative is ever computed twice.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">Backprop is not a new kind of math — it is the <strong>chain rule from Week 3</strong>, applied with bookkeeping. The error at a layer = (the error from the layer ahead, pushed back through its weights) × (the local slope of this layer's activation). Run that recursion from output to input and you get the gradient of <em>every</em> weight in one backward sweep.</p>
+      </div>
+
+      <p><strong>Update.</strong> Now nudge every weight a small step <em>downhill</em> on the loss — gradient descent, with learning rate \(\eta\):</p>
+      <p>\[ W^{(\ell)} \leftarrow W^{(\ell)} - \eta\,\frac{\partial L}{\partial W^{(\ell)}}, \qquad \mathbf{b}^{(\ell)} \leftarrow \mathbf{b}^{(\ell)} - \eta\,\frac{\partial L}{\partial \mathbf{b}^{(\ell)}} \]</p>
+      <p>Repeat forward → loss → backward → update over many mini-batches and the loss falls, epoch by epoch.</p>
+
+      <h2>25.4 Stopping criteria &amp; configuration</h2>
+      <p>One full pass over the training data is an <strong>epoch</strong>. We don't train forever — too long and the network memorises the training set (overfitting, Week 14). Common stopping criteria:</p>
+      <ul>
+        <li><strong>Validation-based early stopping</strong> — watch the loss on a held-out validation set; stop when it stops improving (or starts rising). This is the most trusted signal and we'll formalise it next week.</li>
+        <li><strong>Small gradient / tiny loss change</strong> — when updates barely move anything, you're near a minimum.</li>
+        <li><strong>Max epochs</strong> — a simple compute budget cap.</li>
+      </ul>
+      <p>Key configuration knobs: the <strong>learning rate</strong> \(\eta\) (too big diverges, too small crawls — the single most important hyperparameter), the <strong>batch size</strong>, the choice of <strong>activation</strong> (ReLU in hidden layers), and how weights are <strong>initialised</strong> (small random values — never all zeros, or every neuron would learn the same thing).</p>
+
+      <h2>25.5 Operation of an MLFFNN classifier</h2>
+      <p>Putting it together, here is the life of a classifier. <strong>Training:</strong> repeatedly draw a mini-batch, forward-pass it to get class probabilities (softmax output, Week 24), measure cross-entropy loss against the true labels, backprop to get gradients, and update. <strong>Inference:</strong> once trained, you only ever run the forward pass — feed an input, read the highest-probability class. The backward pass exists purely for learning; at deployment the network is a fast, fixed function.</p>
+
+      <h2>25.6 Logistic regression as a one-neuron classifier</h2>
+      <p>Here's a lovely unification. Take the smallest possible network — a single neuron with a sigmoid activation — and you get <strong>logistic regression</strong>. The neuron outputs a probability:</p>
+      <p>\[ \hat{y} = \sigma(\mathbf{w}\cdot\mathbf{x}+b) = \frac{1}{1+e^{-(\mathbf{w}\cdot\mathbf{x}+b)}} \]</p>
+      <p>We train it with <strong>binary cross-entropy</strong> loss, which heavily punishes confident wrong answers:</p>
+      <p>\[ L = -\big[\,y\log\hat{y} + (1-y)\log(1-\hat{y})\,\big] \]</p>
+      <p>Run backprop on this one-neuron net and something beautiful happens: the gradient simplifies to</p>
+      <p>\[ \frac{\partial L}{\partial \mathbf{w}} = (\hat{y}-y)\,\mathbf{x} \]</p>
+      <p>The messy sigmoid derivative and the messy log derivative cancel exactly, leaving "prediction minus truth, times the input." This is why sigmoid pairs with cross-entropy and softmax pairs with cross-entropy — the pairing makes gradients clean and learning stable. Logistic regression, then, isn't a separate algorithm to memorise: it's a deep network with the depth dialled down to one. Stack many such neurons with non-linearities between them and you get the full MLFFNN.</p>
+
+      <h2>25.7 A working 2-layer net for XOR, in NumPy</h2>
+      <p>Time to make it real. We'll hand-write backprop for a tiny 2-layer network (one hidden layer of 4 sigmoid units, one sigmoid output) and train it on XOR — the problem from Week 24 that no single line can solve. Every line below maps directly to the equations above. Run it: the loss falls and the four XOR cases get classified correctly.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — a 2-layer net trained on XOR with hand-written backprop</span></div>
+<pre><code class="language-python">import numpy as np
+np.random.seed(0)
+
+# XOR data: output is 1 when exactly one input is 1
+X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=float)   # 4 examples x 2 features
+y = np.array([[0],    [1],    [1],    [0]],    dtype=float)   # 4 targets
+
+def sigmoid(z): return 1.0 / (1.0 + np.exp(-z))
+def dsigmoid(a): return a * (1.0 - a)        # derivative using the activation: a*(1-a)
+
+# ---- initialise weights (small random) and biases (zero) ----
+W1 = np.random.randn(2, 4) * 0.5   # input(2) -> hidden(4)
+b1 = np.zeros((1, 4))
+W2 = np.random.randn(4, 1) * 0.5   # hidden(4) -> output(1)
+b2 = np.zeros((1, 1))
+
+eta = 0.5                          # learning rate
+for epoch in range(10000):
+    # ----- FORWARD PASS -----
+    z1 = X @ W1 + b1;  a1 = sigmoid(z1)      # hidden layer
+    z2 = a1 @ W2 + b2; a2 = sigmoid(z2)      # output layer = prediction
+
+    # ----- LOSS (binary cross-entropy) -----
+    loss = -np.mean(y*np.log(a2 + 1e-9) + (1-y)*np.log(1-a2 + 1e-9))
+
+    # ----- BACKWARD PASS (chain rule, layer by layer) -----
+    d2 = (a2 - y)                            # output error: predicted - true  (sigmoid+BCE cancel!)
+    dW2 = a1.T @ d2                          # grad for W2 = input-to-layer^T x error
+    db2 = d2.sum(axis=0, keepdims=True)
+    d1 = (d2 @ W2.T) * dsigmoid(a1)          # push error back through W2, x local slope
+    dW1 = X.T @ d1                           # grad for W1
+    db1 = d1.sum(axis=0, keepdims=True)
+
+    # ----- UPDATE (gradient descent step) -----
+    W2 -= eta * dW2; b2 -= eta * db2
+    W1 -= eta * dW1; b1 -= eta * db1
+
+    if epoch % 2500 == 0:
+        print(f"epoch {epoch:5d}  loss {loss:.4f}")
+
+# ----- final predictions -----
+pred = sigmoid(sigmoid(X @ W1 + b1) @ W2 + b2)
+print("predictions:", np.round(pred.ravel(), 3))   # -> ~[0.001, 1.0, 1.0, 0.0]
+print("rounded    :", (pred.ravel() > 0.5).astype(int))  # -> [0 1 1 0]  XOR solved!</code></pre>
+      <p>The loss drops from around 0.7 toward near-zero, and the final rounded predictions are <code>[0 1 1 0]</code> — exactly XOR. The hidden layer bent the input space (Week 24) and backprop found the weights that do the bending, all from four lines of derivative bookkeeping.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Watch out</div>
+        <p style="margin-bottom:0">If you initialise all weights to the same value (e.g. zeros), every hidden neuron computes the identical thing and receives the identical gradient — they never differentiate and the net can't learn XOR. Always break symmetry with small <em>random</em> weights. And note the <code>+ 1e-9</code> inside the logs: it stops \(\log(0)\) from blowing up.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Backprop is the <strong>chain rule from Week 3</strong> wearing a workman's apron, and the update step is the <strong>gradient descent</strong> you met in Week 3 — which <strong>Week 26</strong> will supercharge with momentum and Adam. The neuron and activations come straight from <strong>Week 24</strong>. This single algorithm trains <em>every</em> deep model in the rest of the course: the CNNs of <strong>Week 28</strong>, the RNNs of <strong>Week 30</strong>, and the transformers of <strong>Week 32</strong> all learn by exactly this forward → loss → backward → update loop. Master it once, and you've understood how every neural network on Earth learns.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=Ilg3gGewQ5U" target="_blank" rel="noopener">What is backpropagation really doing?</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">Chapter 3 of the neural-network series. The clearest visual intuition anywhere for why the gradient points the way it does. Watch before re-reading §25.3.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=tIeHLnjs5U8" target="_blank" rel="noopener">Backpropagation calculus</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">Chapter 4. Derives the exact chain-rule formulas used in §25.3, layer by layer — the math made painless.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://cs231n.github.io/optimization-2/" target="_blank" rel="noopener">Stanford CS231n — Backpropagation</a><span class="r-src">A rigorous walkthrough of gradients flowing through a computational graph, with worked examples.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://pytorch.org/tutorials/beginner/blitz/autograd_tutorial.html" target="_blank" rel="noopener">PyTorch Autograd tutorial</a><span class="r-src">How real frameworks do the backward pass for you automatically — the same chain rule, just bookkept by the library.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">What mathematical tool is backpropagation fundamentally built on?</div>
+        <button class="opt">Matrix inversion.</button>
+        <button class="opt">The chain rule of calculus, applied layer by layer.</button>
+        <button class="opt">Eigen-decomposition.</button>
+        <button class="opt">The dot product alone.</button>
+        <div class="explain">Backprop computes \(\partial L/\partial W\) for every layer by multiplying local derivatives along the path from weight to loss — that's the chain rule from Week 3, organised so no derivative is recomputed.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">In mini-batch learning, how many examples are used to compute the gradient for one update step?</div>
+        <button class="opt">The entire training set every time.</button>
+        <button class="opt">Exactly one example.</button>
+        <button class="opt">A small subset (e.g. 32–256) of examples.</button>
+        <button class="opt">Zero — gradients come from the validation set.</button>
+        <div class="explain">Mini-batch averages the gradient over a small batch. It blends batch's stability with stochastic's speed and maps well onto GPUs, which is why nearly every real network uses it.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">For a sigmoid output trained with binary cross-entropy, the output-layer error simplifies to:</div>
+        <button class="opt">prediction − target, i.e. \((\hat{y}-y)\).</button>
+        <button class="opt">The full product of the sigmoid and log derivatives, which never simplifies.</button>
+        <button class="opt">The square of the prediction.</button>
+        <button class="opt">Always exactly 1.</button>
+        <div class="explain">The sigmoid derivative and the cross-entropy log derivative cancel, leaving the clean \((\hat{y}-y)\). That's why sigmoid+BCE (and softmax+cross-entropy) are the standard pairing — gradients stay simple and stable.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

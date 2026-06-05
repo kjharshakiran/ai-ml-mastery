@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 16 · Classification II: Bayes, Naïve Bayes &amp; GMM — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w16">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 16</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 4 · Classical Machine Learning › Lesson 16</div>
+        <span class="eyebrow">🧮 Part 4 · Classical Machine Learning</span>
+        <h1>Classification II: Bayes, Naïve Bayes &amp; GMM</h1>
+        <div class="lesson-meta"><span>⏱️ 60 min</span><span>🎯 Classifying with probability</span><span>📦 Week 16</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>State <strong>Bayes' theorem</strong> and read "posterior ∝ likelihood × prior."</li>
+          <li>Use <strong>maximum likelihood estimation (MLE)</strong> to fit a model to data.</li>
+          <li>Build a <strong>Bayes classifier</strong> with Gaussian likelihoods.</li>
+          <li>Explain why <strong>Naïve Bayes</strong> is "naïve," and why it crushes spam anyway.</li>
+          <li>Use a <strong>Gaussian Mixture Model</strong> to describe lumpy, multi-peaked data.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">k-NN had no model of the world — it just looked at neighbours. What if, instead, we reasoned like a detective: "given the evidence in this email, what's the <em>probability</em> it's spam?" How do we turn raw probability theory into a working classifier?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. Bayes' theorem: updating belief with evidence</h2>
+      <p>Week 4 gave us probability; now we put it to work. We want \(P(\text{class}\mid\text{data})\): given the features we observe, how likely is each class? Bayes' theorem flips a hard question into easy pieces:</p>
+      <p>\[ P(C \mid \mathbf{x}) = \frac{P(\mathbf{x}\mid C)\,P(C)}{P(\mathbf{x})} \]</p>
+      <ul>
+        <li>\(P(C\mid\mathbf{x})\) — the <strong>posterior</strong>: what we want, the belief after seeing the data.</li>
+        <li>\(P(\mathbf{x}\mid C)\) — the <strong>likelihood</strong>: how typical this data is <em>if</em> the class were \(C\).</li>
+        <li>\(P(C)\) — the <strong>prior</strong>: how common the class is before we look.</li>
+        <li>\(P(\mathbf{x})\) — the evidence, the same for every class, so we can ignore it when comparing.</li>
+      </ul>
+      <p>So the rule a Bayes classifier follows is: pick the class with the largest posterior, i.e. the largest likelihood × prior.</p>
+      <p>\[ \hat{C} = \arg\max_{C} \; P(\mathbf{x}\mid C)\,P(C) \qquad (\text{posterior} \propto \text{likelihood}\times\text{prior}) \]</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">You hear a bark outside. Is it a dog or a fox? Dogs bark <em>a lot</em> (high likelihood) and there are tons of dogs around (high prior), while foxes rarely bark and are rare anyway. So you bet "dog." Bayes' theorem is just doing this maths carefully: combine "how normal is this clue for each animal" with "how common is each animal."</p>
+      </div>
+
+      <h2>2. Maximum likelihood estimation: where the numbers come from</h2>
+      <p>To use the likelihood \(P(\mathbf{x}\mid C)\) we need its actual shape. <strong>Maximum likelihood estimation (MLE)</strong> answers: given the data we saw, which parameter values make that data <em>most probable</em>? For a Gaussian with mean \(\mu\) and variance \(\sigma^2\), MLE gives the comforting answer that the best \(\mu\) is just the sample mean and the best \(\sigma^2\) is the sample variance:</p>
+      <p>\[ \hat{\mu} = \frac{1}{n}\sum_{i=1}^{n} x_i, \qquad \hat{\sigma}^2 = \frac{1}{n}\sum_{i=1}^{n}(x_i-\hat{\mu})^2 \]</p>
+      <p>MLE is the quiet workhorse behind almost every fitted model in this course — including, secretly, the least-squares regression of Week 13.</p>
+
+      <h2>3. A Bayes classifier with a Gaussian (unimodal) likelihood</h2>
+      <p>The most common recipe assumes each class's features follow a bell curve. The one-dimensional Gaussian density is:</p>
+      <p>\[ P(x\mid C) = \frac{1}{\sqrt{2\pi\sigma_C^2}}\,\exp\!\left(-\frac{(x-\mu_C)^2}{2\sigma_C^2}\right) \]</p>
+      <p>So for each class we estimate its mean and variance with MLE, then for a new point evaluate every class's bell curve, multiply by the prior, and take the winner. With two well-separated bells the boundary lands neatly where the curves cross.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 380 220" aria-label="Two Gaussian class likelihoods crossing at the decision boundary">
+          <line x1="20" y1="180" x2="360" y2="180" stroke="#767c93"/>
+          <!-- class A bell (teal), mean ~120 -->
+          <path d="M30,180 C70,180 90,40 120,40 C150,40 170,180 210,180" fill="none" stroke="#14b8a6" stroke-width="2.5"/>
+          <!-- class B bell (rose), mean ~250 -->
+          <path d="M170,180 C210,180 230,55 260,55 C290,55 310,180 350,180" fill="none" stroke="#f43f5e" stroke-width="2.5"/>
+          <line x1="190" y1="40" x2="190" y2="180" stroke="#f59e0b" stroke-dasharray="4 3"/>
+          <text x="90" y="35" font-size="12" fill="#14b8a6">P(x | A)</text>
+          <text x="285" y="50" font-size="12" fill="#f43f5e">P(x | B)</text>
+          <text x="150" y="205" font-size="11" fill="#f59e0b">decision boundary (curves cross)</text>
+          <text x="320" y="195" font-size="11" fill="#767c93">x →</text>
+        </svg>
+        <figcaption>Each class is a Gaussian. A new point is assigned to whichever bell (× prior) is taller at that x. The boundary is where the posteriors are equal.</figcaption>
+      </figure>
+
+      <h2>4. Summary so far</h2>
+      <p>A <strong>Bayes classifier</strong> is generative: it learns what each class <em>looks like</em> (its probability distribution) and then asks Bayes' theorem which class most likely produced the new point. If our distribution assumptions are right, it is provably the best possible classifier. The catch arrives with many features.</p>
+
+      <h2>5. Naïve Bayes: a wild simplification that works</h2>
+      <p>With \(d\) features, the full likelihood \(P(x_1,\dots,x_d\mid C)\) is a monstrous joint distribution we can never estimate from finite data. <strong>Naïve Bayes</strong> makes one bold assumption — that the features are <strong>conditionally independent given the class</strong> — so the joint factorises into a simple product:</p>
+      <p>\[ P(x_1,\dots,x_d\mid C) \approx \prod_{i=1}^{d} P(x_i\mid C) \]</p>
+      <p>It's called "naïve" because that assumption is almost always <em>false</em> — in real emails the words "free" and "money" are obviously correlated. Yet it works astonishingly well, especially for <strong>text and spam</strong>, because even when the probabilities are off, the <em>ranking</em> of classes usually stays right, and the product is cheap to estimate from word counts.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🕵️</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Naïve Bayes is a detective who treats every clue as if it were unrelated to the others. "Muddy boots? Slightly points to the gardener. A grudge? Slightly points to the gardener. Was near the scene? Same." It pretends the clues don't overlap and just stacks up the votes. Sloppy logic — but pile up enough independent-ish clues and the verdict is usually right.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">scikit-learn — GaussianNB</span></div>
+<pre><code class="language-python">import numpy as np
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import classification_report
+
+# Toy 2-class data with 4 features
+X, y = make_classification(n_samples=300, n_features=4, n_informative=3,
+                           n_redundant=0, random_state=1)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.30, random_state=1)
+
+# Naive Bayes assumes each feature is an independent Gaussian per class.
+nb = GaussianNB()
+nb.fit(X_tr, y_tr)                      # MLE for each class's mean &amp; variance
+
+print("class priors  P(C):", np.round(nb.class_prior_, 3))
+print(classification_report(y_te, nb.predict(X_te), digits=2))
+# predict_proba gives the posterior P(C | x) — the Bayes belief, per class.
+print("posterior of first 3 test points:")
+print(np.round(nb.predict_proba(X_te[:3]), 3))</code></pre>
+
+      <h2>6. Gaussian Mixture Models: when one bell isn't enough</h2>
+      <p>A single Gaussian is <strong>unimodal</strong> — it has one peak. But real data is often <strong>multimodal</strong>: think "heights of all adults," which has two humps (one per typical sex). A <strong>Gaussian Mixture Model (GMM)</strong> describes such data as a weighted sum of \(K\) Gaussians:</p>
+      <p>\[ p(\mathbf{x}) = \sum_{k=1}^{K} \pi_k \,\mathcal{N}(\mathbf{x}\mid \mu_k, \Sigma_k), \qquad \sum_k \pi_k = 1 \]</p>
+      <p>Each \(\pi_k\) is the weight ("how much of the population belongs to bump \(k\)"). We fit GMMs with the <strong>Expectation–Maximisation (EM)</strong> algorithm, which alternates between guessing which bump each point came from and re-fitting the bumps — a soft, probabilistic cousin of clustering.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 380 200" aria-label="A bimodal density built from two Gaussian components summing to one curve">
+          <line x1="20" y1="160" x2="360" y2="160" stroke="#767c93"/>
+          <path d="M30,160 C70,160 90,70 120,70 C150,70 170,160 200,160" fill="none" stroke="#14b8a6" stroke-width="1.8" stroke-dasharray="4 3"/>
+          <path d="M180,160 C220,160 240,90 270,90 C300,90 320,160 350,160" fill="none" stroke="#f43f5e" stroke-width="1.8" stroke-dasharray="4 3"/>
+          <path d="M30,160 C70,160 90,70 120,70 C150,70 165,120 185,118 C205,116 235,90 270,90 C300,90 320,160 350,160" fill="none" stroke="#4f46e5" stroke-width="2.6"/>
+          <text x="70" y="60" font-size="11" fill="#14b8a6">component 1</text>
+          <text x="270" y="80" font-size="11" fill="#f43f5e">component 2</text>
+          <text x="150" y="185" font-size="12" fill="#4f46e5">mixture density (their weighted sum)</text>
+        </svg>
+        <figcaption>A bimodal distribution (indigo) decomposed into two Gaussian components (dashed). A GMM learns each component's mean, spread and weight.</figcaption>
+      </figure>
+
+      <h2>7. A Bayes classifier using GMMs</h2>
+      <p>Here's the payoff: replace each class's single Gaussian likelihood with a <em>GMM</em>. Now a class can have several clusters — "spam" might split into pharmacy-spam and lottery-spam — and the Bayes rule still applies: fit a GMM per class, then assign each new point to the class whose mixture (× prior) gives it the highest density. It is the flexible, multimodal upgrade of section 3.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">Bayes classifiers are <strong>generative</strong>: they model how each class produces data (its distribution), then invert with Bayes' theorem. Naïve Bayes makes them cheap by pretending features are independent; GMMs make them flexible by allowing many bumps per class.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Everything here stands on <strong>Week 4 (probability &amp; the Gaussian)</strong> — Bayes' theorem and the bell curve are exactly those tools turned into a classifier, graded with the <strong>Week 15</strong> precision/recall kit. <strong>Naïve Bayes is the engine of Project 2's spam classifier</strong>. And the GMM you met today is the same machinery we'll reuse for <strong>clustering in Week 23</strong> — a GMM is essentially a soft, probabilistic k-means.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=HZGCoVF3YvM" target="_blank" rel="noopener">Bayes' Theorem, the geometry of changing beliefs</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">The visual "areas" picture of priors and likelihoods that makes the formula intuitive.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=O2L2Uv9pdDA" target="_blank" rel="noopener">Naive Bayes, clearly explained</a> <span class="r-src">StatQuest. Builds a Multinomial/Gaussian Naïve Bayes spam-style example step by step.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=XepXtl9YKwc" target="_blank" rel="noopener">Maximum Likelihood, clearly explained</a> <span class="r-src">StatQuest. Shows why the sample mean and variance are the MLE for a Gaussian.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://scikit-learn.org/stable/modules/naive_bayes.html" target="_blank" rel="noopener">scikit-learn: Naïve Bayes &amp; Gaussian Mixtures</a> <span class="r-src">Official docs for GaussianNB and GaussianMixture, with the assumptions spelled out.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">"Posterior ∝ likelihood × prior" means a Bayes classifier picks the class that…</div>
+        <button class="opt">has the smallest number of training examples.</button>
+        <button class="opt">maximises P(x | C) × P(C) — the most likely class given the data.</button>
+        <button class="opt">is closest in Euclidean distance.</button>
+        <button class="opt">has the highest variance.</button>
+        <div class="explain">Since P(x) is the same for every class, comparing posteriors reduces to comparing likelihood × prior. The class that best explains the data and is common enough wins.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">Why is Naïve Bayes called "naïve"?</div>
+        <button class="opt">Because it ignores the prior probabilities.</button>
+        <button class="opt">Because it only works on tiny datasets.</button>
+        <button class="opt">Because it assumes all features are independent given the class — usually false, yet useful.</button>
+        <button class="opt">Because it cannot output probabilities.</button>
+        <div class="explain">The conditional-independence assumption lets the joint likelihood factor into a product of per-feature terms. It's wrong in reality (words correlate) but keeps estimation tractable and the class ranking accurate.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">You have data with two clear humps (bimodal). The right tool is…</div>
+        <button class="opt">a Gaussian Mixture Model — a weighted sum of several Gaussians.</button>
+        <button class="opt">a single Gaussian, since one bell fits everything.</button>
+        <button class="opt">k-NN with k = 1.</button>
+        <button class="opt">linear regression.</button>
+        <div class="explain">One Gaussian is unimodal and would smear across the gap. A GMM places one component on each hump and learns their weights via EM.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

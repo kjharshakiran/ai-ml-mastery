@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 28 · CNNs I: Convolution &amp; Pooling — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w28">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 28</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 5 · Deep Learning › Lesson 28</div>
+        <span class="eyebrow">🧠 Part 5 · Deep Learning</span>
+        <h1>CNNs I: Convolution &amp; Pooling</h1>
+        <div class="lesson-meta"><span>⏱️ 60 min</span><span>🎯 Teaching networks to <em>see</em></span><span>📦 Week 28</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain why a plain dense network is a terrible way to look at an image.</li>
+          <li>Describe the <strong>convolution</strong> operation: a small filter sliding over a grid, computing dot products into a feature map.</li>
+          <li>Explain <strong>pooling</strong> (max-pool) and why downsampling makes a network smaller and tougher.</li>
+          <li>Contrast an MLFFNN with a CNN — weight sharing, local connectivity, translation invariance.</li>
+          <li>Sketch a full conv→relu→pool stack feeding a dense head, and name LeNet / AlexNet / VGG.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A single 224×224 colour photo is ~150,000 numbers. If we shove that into a dense network, the first layer alone needs <em>billions</em> of weights — and it still wouldn't know that a cat shifted two pixels left is the same cat. How do we look at images <em>intelligently</em>?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>28.1 Why dense networks drown in images</h2>
+      <p>Back in Week 10 we learned the key fact: an image is just a <strong>tensor of pixel numbers</strong> — a grid of brightness values, with three channels (R, G, B) for colour. That framing is exactly what we build on now. The trouble is the sheer size. A modest \(224\times224\) RGB image is \(224\times224\times3 = 150{,}528\) numbers. If you flatten that into a vector and feed it to a fully-connected (dense) layer of just 1000 neurons — the kind of MLFFNN from Weeks 24–27 — that <em>one</em> layer needs \(150{,}528\times1000 \approx 150\) million weights.</p>
+      <p>Worse, flattening <strong>throws away spatial structure</strong>. Pixel (10,10) and pixel (10,11) are neighbours — they almost certainly belong to the same edge or texture — but to a dense layer they're just entries #1230 and #1231 in a long list, no more related than any other pair. The network has to <em>re-learn</em> "these pixels are near each other" from scratch, for every position, using a mountain of parameters. There is a smarter way, and it comes from one beautifully simple idea.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine looking for Waldo in a giant picture. You don't stare at all million dots at once — that's overwhelming. Instead you take a little cardboard window with a tiny picture of Waldo's hat, and slide it across the page, asking "does the bit under my window look like a stripey hat?" everywhere you go. A CNN does exactly that: it slides tiny pattern-detectors across the image. Same little detector, reused everywhere. That's the whole trick.</p>
+      </div>
+
+      <h2>28.2 Convolution: a tiny filter slides and listens</h2>
+      <p>A <strong>convolutional filter</strong> (or <strong>kernel</strong>) is a small grid of weights — often just \(3\times3\). We slide it across the image, and at each position we lay it over the patch of pixels beneath it and compute a single number: multiply matching cells, add them all up. That "multiply-and-sum" is <em>exactly the dot product</em> you met in Week 2 — the operation that measures "how much do these two things look alike?" The filter is asking, at every location, "how strongly does this patch resemble my pattern?"</p>
+      <p>Stack all those answers back into a grid and you get a <strong>feature map</strong>: a new image that lights up wherever the filter's pattern appears. Formally, for an input \(I\) and a \(K\times K\) kernel \(W\), the value of the feature map at position \((i,j)\) is:</p>
+      <p>\[ S(i,j) \;=\; \sum_{m=0}^{K-1}\sum_{n=0}^{K-1} I(i+m,\; j+n)\,\cdot\,W(m,n) \;+\; b \]</p>
+      <p>That double sum is one dot product between the kernel and the patch it covers, plus a bias \(b\). A filter whose weights look like \(\begin{smallmatrix}-1&0&1\\-1&0&1\\-1&0&1\end{smallmatrix}\) responds strongly to a vertical edge (bright on the right, dark on the left) and ignores flat regions. The magic of deep learning: <strong>we don't hand-design these filters — backprop (Week 25) learns them.</strong></p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 520 240" aria-label="A 3x3 filter sliding over an input grid to produce a feature map">
+          <!-- input grid -->
+          <text x="20" y="20" font-size="13" fill="#767c93">Input (5×5)</text>
+          <g stroke="#e3e6f0" fill="none">
+            <rect x="20" y="30" width="160" height="160"/>
+            <line x1="20" y1="62" x2="180" y2="62"/><line x1="20" y1="94" x2="180" y2="94"/>
+            <line x1="20" y1="126" x2="180" y2="126"/><line x1="20" y1="158" x2="180" y2="158"/>
+            <line x1="52" y1="30" x2="52" y2="190"/><line x1="84" y1="30" x2="84" y2="190"/>
+            <line x1="116" y1="30" x2="116" y2="190"/><line x1="148" y1="30" x2="148" y2="190"/>
+          </g>
+          <!-- 3x3 filter highlight (top-left) -->
+          <rect x="20" y="30" width="96" height="96" fill="#4f46e5" fill-opacity="0.16" stroke="#4f46e5" stroke-width="2.5"/>
+          <text x="34" y="216" font-size="12" fill="#4f46e5">3×3 filter slides →</text>
+          <!-- arrow -->
+          <text x="220" y="120" font-size="26" fill="#14b8a6">∗</text>
+          <text x="205" y="150" font-size="11" fill="#767c93">convolve</text>
+          <!-- kernel -->
+          <text x="250" y="20" font-size="13" fill="#767c93">Kernel</text>
+          <g stroke="#14b8a6" fill="none">
+            <rect x="250" y="30" width="72" height="72"/>
+            <line x1="250" y1="54" x2="322" y2="54"/><line x1="250" y1="78" x2="322" y2="78"/>
+            <line x1="274" y1="30" x2="274" y2="102"/><line x1="298" y1="30" x2="298" y2="102"/>
+          </g>
+          <!-- equals -->
+          <text x="345" y="120" font-size="26" fill="#f59e0b">→</text>
+          <!-- feature map -->
+          <text x="390" y="20" font-size="13" fill="#767c93">Feature map (3×3)</text>
+          <g stroke="#e3e6f0" fill="none">
+            <rect x="390" y="30" width="96" height="96"/>
+            <line x1="390" y1="62" x2="486" y2="62"/><line x1="390" y1="94" x2="486" y2="94"/>
+            <line x1="422" y1="30" x2="422" y2="126"/><line x1="454" y1="30" x2="454" y2="126"/>
+          </g>
+          <rect x="390" y="30" width="32" height="32" fill="#f59e0b" fill-opacity="0.35"/>
+          <text x="396" y="51" font-size="13" fill="#f59e0b">●</text>
+          <text x="360" y="150" font-size="11" fill="#767c93">each slide → one number</text>
+        </svg>
+        <figcaption>The kernel (teal) is laid over each patch of the input. One dot product per position fills one cell of the feature map (amber). Slide everywhere → the whole map.</figcaption>
+      </figure>
+
+      <p>Two knobs control the slide. <strong>Stride</strong> is how far the filter jumps each step (stride 1 = every pixel, stride 2 = every other → a smaller output). <strong>Padding</strong> adds a border of zeros so the output can keep the input's size and edge pixels aren't neglected. A \(K\times K\) filter on an \(N\times N\) input with no padding and stride 1 yields an \((N-K+1)\times(N-K+1)\) map — that's why our \(5\times5\) input above produced a \(3\times3\) map.</p>
+
+      <h2>28.3 Pooling: shrink, summarise, toughen up</h2>
+      <p>After convolution we usually <strong>pool</strong>: slide a small window (say \(2\times2\)) and replace each window with a single summary number. <strong>Max-pooling</strong> keeps the maximum — it asks "did this feature fire <em>anywhere</em> in this little neighbourhood?" Pooling does three good things: it shrinks the map (less computation downstream), it widens each later neuron's view of the image, and it grants a dose of <strong>translation tolerance</strong> — nudge the input a pixel and the max often doesn't change.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🔎</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Convolution is a swarm of identical rubber stamps, each printing "I found my pattern here!" wherever its shape appears. Max-pooling is a manager who walks by each \(2\times2\) block and only reports the loudest stamp: "Yes, something fired in this corner." The manager doesn't care about the exact pixel — just <em>roughly where</em> — which is precisely why a cat shifted two pixels still reads as a cat.</p>
+      </div>
+
+      <h2>28.4 MLFFNN vs CNN: three superpowers</h2>
+      <p>Why does this beat a dense network so badly? Three reasons, each a direct fix for a dense net's weakness:</p>
+      <ul>
+        <li><strong>Local connectivity.</strong> A neuron looks only at a tiny patch (its <em>receptive field</em>), not the whole image. Nearby pixels are wired together; distant ones aren't — matching how images actually work.</li>
+        <li><strong>Weight sharing.</strong> The <em>same</em> \(3\times3\) filter is reused at every position. A \(3\times3\) filter on a colour image is just \(3\times3\times3+1 = 28\) parameters — versus 150 million for one dense layer. An edge is an edge whether it's top-left or bottom-right, so why learn it 50,000 times?</li>
+        <li><strong>Translation invariance.</strong> Because the filter slides everywhere and pooling blurs exact position, a pattern is detected no matter <em>where</em> it sits. A dense net would have to learn "cat at top-left," "cat at centre," etc., separately.</li>
+      </ul>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">A CNN is an MLFFNN with two constraints baked in: <strong>each neuron sees only a local patch</strong>, and <strong>neurons across the image share one set of weights</strong>. Those two constraints slash the parameter count by orders of magnitude <em>and</em> bake in the prior that "vision is local and position-tolerant." It learns faster, generalises better, and needs far less data.</p>
+      </div>
+
+      <h2>28.5 Stacking it up: from edges to objects</h2>
+      <p>One conv layer with many filters produces many feature maps (one per filter — edges, blobs, colour gradients). We pass each through a <strong>ReLU</strong> nonlinearity (from Week 24) to keep only positive activations, then pool. Then we do it <em>again</em> on those feature maps, and again. A repeating <strong>conv → ReLU → pool</strong> block is the heartbeat of a CNN.</p>
+      <p>The beautiful part is the <strong>hierarchy</strong>. Early layers, looking at raw pixels, learn simple edges and colours. Middle layers, looking at combinations of edges, learn corners, curves and textures. Deep layers learn parts — an eye, a wheel, a doorknob — and finally whole objects. After several blocks we <strong>flatten</strong> the small feature maps into a vector and feed it to an ordinary dense "head" (Weeks 24–27) with a softmax that outputs class probabilities: cat, dog, car.</p>
+      <p>This recipe defines the classic image classifiers. <strong>LeNet-5</strong> (1998) used it to read handwritten digits. <strong>AlexNet</strong> (2012) scaled it up with ReLU, dropout and GPUs and shattered the ImageNet benchmark, igniting the deep-learning boom. <strong>VGG</strong> (2014) showed that simply stacking many small \(3\times3\) convolutions deep makes networks even stronger — a design idea we still use today.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — a tiny 2D convolution + max-pool</span></div>
+<pre><code class="language-python">import numpy as np
+
+# A 6x6 grayscale "image" with a bright vertical stripe down the middle.
+img = np.array([
+    [0, 0, 9, 9, 0, 0],
+    [0, 0, 9, 9, 0, 0],
+    [0, 0, 9, 9, 0, 0],
+    [0, 0, 9, 9, 0, 0],
+    [0, 0, 9, 9, 0, 0],
+    [0, 0, 9, 9, 0, 0],
+], dtype=float)
+
+# A 3x3 vertical-edge detector: positive on the right, negative on the left.
+kernel = np.array([
+    [-1, 0, 1],
+    [-1, 0, 1],
+    [-1, 0, 1],
+], dtype=float)
+
+def conv2d(x, w):
+    """Valid 2D convolution (stride 1, no padding). Each output cell is one
+    dot product between the kernel and the patch it covers."""
+    kh, kw = w.shape
+    out_h, out_w = x.shape[0] - kh + 1, x.shape[1] - kw + 1
+    out = np.zeros((out_h, out_w))
+    for i in range(out_h):
+        for j in range(out_w):
+            patch = x[i:i+kh, j:j+kw]   # the window under the filter
+            out[i, j] = np.sum(patch * w)  # multiply-and-sum == dot product
+    return out
+
+def maxpool2d(x, size=2):
+    """Non-overlapping max-pooling: keep the loudest value per size x size block."""
+    out_h, out_w = x.shape[0] // size, x.shape[1] // size
+    out = np.zeros((out_h, out_w))
+    for i in range(out_h):
+        for j in range(out_w):
+            block = x[i*size:(i+1)*size, j*size:(j+1)*size]
+            out[i, j] = block.max()
+    return out
+
+feat = conv2d(img, kernel)
+print("feature map:\n", feat)
+# The map is ~0 in flat regions and spikes at the stripe's edges:
+# negative where dark->bright transitions, positive on the other side.
+
+pooled = maxpool2d(np.abs(feat))   # |edges|, then summarise 2x2 blocks
+print("pooled (|edge| strength):\n", pooled)
+# Smaller grid, with the edge response preserved -> "an edge lives here."
+</code></pre>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Convolution is literally the <strong>dot product</strong> from <strong>Week 2</strong> applied to <strong>pixel tensors</strong> from <strong>Week 10</strong>, slid across the image. The filters aren't designed — they're <em>learned by backpropagation</em> (<strong>Week 25</strong>), the same gradient machinery that trains every net in this part. Next lesson, <strong>Week 29 (ResNets &amp; Transfer Learning)</strong>, shows how to make these stacks 100+ layers deep without breaking, and how to borrow a pre-trained CNN's eyes for your own task — the technique that powers <strong>Project 3</strong>.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=KuXjwB4LzSA" target="_blank" rel="noopener">But what is a convolution?</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">The clearest visual intuition anywhere for the sliding multiply-and-sum. Watch the image-processing section to <em>see</em> a kernel detect edges.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://cs231n.github.io/convolutional-networks/" target="_blank" rel="noopener">Stanford CS231n — Convolutional Networks</a><span class="r-src">The canonical course notes on conv layers, stride, padding and pooling. Diagrams worth printing out.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html" target="_blank" rel="noopener">PyTorch nn.Conv2d docs</a><span class="r-src">The exact knobs (in_channels, out_channels, kernel_size, stride, padding) you'll use when you build a real CNN next week.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">What single arithmetic operation does a convolution perform at each position?</div>
+        <button class="opt">A matrix inverse of the patch.</button>
+        <button class="opt">A sort of the pixels from low to high.</button>
+        <button class="opt">A dot product between the kernel and the patch beneath it (multiply-and-sum).</button>
+        <button class="opt">A softmax over the whole image.</button>
+        <div class="explain">Each output cell is the element-wise product of kernel and patch, summed to one number — exactly the dot product from Week 2. Slide it everywhere and you get a feature map.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">Why does a CNN need far fewer parameters than a dense net for images?</div>
+        <button class="opt">It uses smaller numbers.</button>
+        <button class="opt">Weight sharing — the same small filter is reused at every position instead of a unique weight per pixel.</button>
+        <button class="opt">It skips the bias terms.</button>
+        <button class="opt">It only processes black-and-white images.</button>
+        <div class="explain">A 3×3 filter is ~28 weights and is reused across the whole image. A dense layer needs a separate weight for every input pixel — millions of them. Sharing is the saving.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">What does max-pooling mainly buy you?</div>
+        <button class="opt">A smaller map plus tolerance to small shifts — "this feature fired somewhere nearby."</button>
+        <button class="opt">A guarantee the network never overfits.</button>
+        <button class="opt">More parameters to learn.</button>
+        <button class="opt">A way to add colour channels.</button>
+        <div class="explain">Taking the max over a window downsamples the map and makes the response insensitive to exact position — a key source of translation tolerance.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 6 · Python I: Fundamentals &amp; Data Structures — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w06">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 6</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 2 · Data &amp; Python › Lesson 6</div>
+        <span class="eyebrow">🐍 Part 2 · Data &amp; Python</span>
+        <h1>Python I: Fundamentals &amp; Data Structures</h1>
+        <div class="lesson-meta"><span>⏱️ 50 min</span><span>🎯 The language of every later week</span><span>📦 Week 6</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Work confidently with Python's core types: variables, numbers, strings, booleans.</li>
+          <li>Choose the right data structure — list, tuple, set, or dictionary — and explain mutability.</li>
+          <li>Write clean, well-named functions that do one thing well.</li>
+          <li>Loop over data with <code>for</code>, comprehensions, and conditionals.</li>
+          <li>Put it together in a small e-commerce order-management program.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">Every model, every dataset, every neural network you'll build is ultimately a few lines of Python. So what are the handful of building blocks — boxes, lists, lookups, loops, functions — that <em>everything else</em> is made of?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. Variables: labelled boxes</h2>
+      <p>A <strong>variable</strong> is a name attached to a value. In Python you don't declare a type — you just assign, and the name now refers to that value.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">A variable is a labelled box. You write <code>age = 10</code> and now there's a box labelled <strong>age</strong> with the number 10 inside. Later you can peek in the box (use <code>age</code>), or swap what's inside (<code>age = 11</code>). The label never changes; the contents can.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — the basic types</span></div>
+<pre><code class="language-python"># Four everyday types. No type declarations needed.
+name    = "Asha"      # str  — text, in quotes
+age     = 31          # int  — whole number
+spend   = 1650.50     # float— decimal number
+is_vip  = True        # bool — True or False
+
+# f-strings drop variables straight into text
+print(f"{name} is {age} and a VIP: {is_vip}")
+# -> Asha is 31 and a VIP: True
+
+# Python knows the type for you
+print(type(spend))    # -> &lt;class 'float'&gt;</code></pre>
+
+      <h2>2. The four core data structures</h2>
+      <p>Single values are nice, but data science is about <em>collections</em>. Python gives you four, and choosing the right one is half of writing clean code. The deciding questions: is it ordered? can it change (mutable)? are duplicates allowed? do I look things up by position or by name?</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 470 210" aria-label="Lists, tuples, sets and dictionaries compared">
+          <rect x="10" y="20" width="210" height="80" rx="6" fill="#eef0fb" stroke="#4f46e5"/>
+          <text x="20" y="38" font-size="12" fill="#4f46e5" font-family="monospace">list  [ ]  ordered · mutable</text>
+          <text x="20" y="58" font-size="11" font-family="monospace" fill="#222">["a", "b", "b", "c"]</text>
+          <text x="20" y="78" font-size="9" fill="#767c93">duplicates OK · index by position [0]</text>
+
+          <rect x="250" y="20" width="210" height="80" rx="6" fill="#e7faf7" stroke="#14b8a6"/>
+          <text x="260" y="38" font-size="12" fill="#14b8a6" font-family="monospace">tuple ( )  ordered · FIXED</text>
+          <text x="260" y="58" font-size="11" font-family="monospace" fill="#222">(19.07, 72.87)</text>
+          <text x="260" y="78" font-size="9" fill="#767c93">cannot change · a frozen list</text>
+
+          <rect x="10" y="115" width="210" height="80" rx="6" fill="#fef6e7" stroke="#f59e0b"/>
+          <text x="20" y="133" font-size="12" fill="#f59e0b" font-family="monospace">set  { }  unordered · unique</text>
+          <text x="20" y="153" font-size="11" font-family="monospace" fill="#222">{"a", "b", "c"}</text>
+          <text x="20" y="173" font-size="9" fill="#767c93">duplicates removed · fast membership</text>
+
+          <rect x="250" y="115" width="210" height="80" rx="6" fill="#feeef1" stroke="#f43f5e"/>
+          <text x="260" y="133" font-size="12" fill="#f43f5e" font-family="monospace">dict {k:v}  key → value</text>
+          <text x="260" y="153" font-size="11" font-family="monospace" fill="#222">{"name":"Asha","age":31}</text>
+          <text x="260" y="173" font-size="9" fill="#767c93">look up by name, not position</text>
+        </svg>
+        <figcaption>The four collections. Pick by what you need: order, the ability to change, uniqueness, and look-up style.</figcaption>
+      </figure>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — the four collections</span></div>
+<pre><code class="language-python"># LIST: ordered, changeable, allows duplicates. Your default container.
+cart = ["pen", "notebook", "pen"]
+cart.append("eraser")     # add to the end
+print(cart[0])            # index by position -> 'pen'
+
+# TUPLE: ordered but IMMUTABLE — use for fixed groups that shouldn't change
+location = (19.07, 72.87) # (latitude, longitude) of Mumbai
+# location[0] = 0         # would raise TypeError: tuples can't be changed
+
+# SET: unordered, no duplicates. Great for "have I seen this?" and dedup.
+unique_items = set(cart)  # -> {'pen', 'notebook', 'eraser'}  (dupes gone)
+print("pen" in unique_items)   # membership test is very fast -> True
+
+# DICT: maps keys to values. The workhorse of Python — look up by name.
+customer = {"name": "Asha", "age": 31, "city": "Mumbai"}
+print(customer["city"])        # -> Mumbai
+customer["spend"] = 1650       # add a new key:value pair</code></pre>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> Mutability — the trap behind half of all beginner bugs</div>
+        <p style="margin-bottom:0">Lists, sets and dicts are <strong>mutable</strong>: you can change them in place. Tuples and strings are <strong>immutable</strong>: once made, they're frozen. Why care? Two variables can point at the <em>same</em> mutable list, so changing one changes "both." Use a tuple when you want a guarantee that a value won't be altered behind your back — like a fixed (lat, long) coordinate.</p>
+      </div>
+
+      <h2>3. Loops &amp; conditionals: doing something to each item</h2>
+      <p>A <strong>for</strong> loop walks through a collection one item at a time. An <strong>if</strong> statement makes a decision. Together they let you process data.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — loops &amp; comprehensions</span></div>
+<pre><code class="language-python">prices = [120, 45, 300, 89]
+
+# A for-loop with an if: sum only the "big" purchases
+big_total = 0
+for p in prices:
+    if p &gt;= 100:          # the condition
+        big_total += p    # runs only when condition is True
+print(big_total)          # -> 420  (120 + 300)
+
+# A list comprehension: the Pythonic one-liner for "transform each item"
+with_tax = [p * 1.18 for p in prices]   # add 18% tax to every price
+print(with_tax)           # -> [141.6, 53.1, 354.0, 105.02]
+
+# Comprehension with a filter: keep only items that pass the condition
+big = [p for p in prices if p &gt;= 100]   # -> [120, 300]</code></pre>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🍽️</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">A <code>for</code> loop is a waiter going table to table. The <code>if</code> is the waiter's rule: "only refill glasses that are less than half full." A list comprehension is the same waiter, but described in a single efficient sentence — "give every half-empty glass a refill" — instead of spelling out each step. Same work, cleaner instruction.</p>
+      </div>
+
+      <h2>4. Functions: name a recipe, reuse it forever</h2>
+      <p>A <strong>function</strong> packages a piece of logic behind a name so you can run it again and again. Good functions do <em>one thing</em>, have a clear name, take inputs (parameters), and return a result.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — a clean function</span></div>
+<pre><code class="language-python">def order_total(prices, tax_rate=0.18):
+    """Return the after-tax total of a list of prices.
+
+    prices:   list of numbers
+    tax_rate: fraction of tax to add (default 18%)
+    """
+    subtotal = sum(prices)               # built-in sum() adds a list
+    return subtotal * (1 + tax_rate)     # send the answer back
+
+# Call it — the name documents intent better than inline math
+print(round(order_total([120, 45, 300]), 2))   # -> 549.9
+print(round(order_total([120, 45, 300], tax_rate=0.0), 2))  # no tax -> 465.0</code></pre>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> One job per function</div>
+        <p style="margin-bottom:0">If you can't describe a function in one short sentence without saying "and", it's doing too much — split it. <code>load_data()</code>, <code>clean_data()</code>, <code>train_model()</code> beats one giant <code>do_everything()</code>. Small, named, single-purpose functions are what make Week 13 onwards (where pipelines get long) stay readable.</p>
+      </div>
+
+      <h2>5. Mini worked example: an order manager</h2>
+      <p>Let's combine all four structures and a couple of functions into a tiny e-commerce program. Each order is a <strong>dict</strong>; all orders sit in a <strong>list</strong>; we use a <strong>set</strong> to find unique customers and dict lookups to total per customer.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — order management</span></div>
+<pre><code class="language-python"># Each order is a dict; the catalogue of orders is a list of dicts.
+orders = [
+    {"customer": "Asha",  "items": ["pen", "notebook"], "total": 165},
+    {"customer": "Ravi",  "items": ["mouse"],            "total": 800},
+    {"customer": "Asha",  "items": ["eraser"],           "total":  20},
+]
+
+def unique_customers(orders):
+    """Return the set of distinct customer names (no duplicates)."""
+    return {o["customer"] for o in orders}   # set comprehension
+
+def spend_by_customer(orders):
+    """Return a dict: customer name -> their total spend."""
+    totals = {}
+    for o in orders:
+        name = o["customer"]
+        # .get(name, 0) reads the running total, defaulting to 0 first time
+        totals[name] = totals.get(name, 0) + o["total"]
+    return totals
+
+print(unique_customers(orders))   # -> {'Asha', 'Ravi'}
+print(spend_by_customer(orders))  # -> {'Asha': 185, 'Ravi': 800}
+
+# Find the top spender using max() with a key function
+totals = spend_by_customer(orders)
+top = max(totals, key=totals.get)
+print(f"Top spender: {top} ({totals[top]})")   # -> Top spender: Ravi (800)</code></pre>
+
+      <p>Notice how each structure earns its place: the <strong>list</strong> holds an ordered log of orders, each <strong>dict</strong> gives readable named fields, the <strong>set</strong> dedupes customers for free, and a second dict acts as a running tally. This "list of dicts" pattern is <em>exactly</em> how a query result from Week 5 arrives in Python.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Python is the vehicle for every week that follows. The data you <code>SELECT</code>ed in <strong>Week 5</strong> lands in Python as a list of dicts like the one above. Lists are the seed of the NumPy arrays you'll meet in <strong>Week 7</strong> — and a NumPy array <em>is</em> the vector and matrix from <strong>Week 2</strong>. Dicts will hold model configs and word-to-index maps all the way up to the transformers in <strong>Week 32</strong>. Master these four containers now and the rest of the course is "more of the same, at scale."</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=rfscVS0vtbw" target="_blank" rel="noopener">Python Full Course for Beginners</a><span class="r-src">freeCodeCamp's classic 4-hour intro. Watch the variables, lists, dicts and functions chapters alongside sections 1–4 here.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://docs.python.org/3/tutorial/datastructures.html" target="_blank" rel="noopener">Python Docs — Data Structures</a><span class="r-src">The authoritative reference for every list, set, and dict method. Bookmark it.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://realpython.com/python-data-structures/" target="_blank" rel="noopener">Real Python — Common Python Data Structures</a><span class="r-src">A friendly, example-rich deep dive into when to pick each container, with Big-O notes.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">You need a collection of coordinates that must <strong>never change</strong> after creation. Which type fits best?</div>
+        <button class="opt">list</button>
+        <button class="opt">set</button>
+        <button class="opt">tuple</button>
+        <button class="opt">dict</button>
+        <div class="explain">Tuples are immutable — once created, their contents are frozen. That makes them perfect for fixed groups like <code>(lat, long)</code> where accidental modification would be a bug.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">What does <code>{p * 2 for p in [1, 2, 2, 3]}</code> evaluate to?</div>
+        <button class="opt">[2, 4, 4, 6]</button>
+        <button class="opt">{2, 4, 6}</button>
+        <button class="opt">{1, 2, 2, 3}</button>
+        <button class="opt">It raises an error</button>
+        <div class="explain">The <code>{ }</code> with no key:value pairs makes a <strong>set</strong> comprehension. It doubles each value (2, 4, 4, 6) then removes duplicates, leaving <code>{2, 4, 6}</code>.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">In <code>totals.get(name, 0)</code>, what is the role of the <code>0</code>?</div>
+        <button class="opt">A default returned when the key isn't in the dict yet.</button>
+        <button class="opt">The position of the item to fetch.</button>
+        <button class="opt">It deletes the key.</button>
+        <button class="opt">It rounds the result to 0 decimals.</button>
+        <div class="explain"><code>dict.get(key, default)</code> returns the value if the key exists, otherwise the default. Here <code>0</code> lets the running tally start cleanly the first time a customer is seen — no KeyError.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

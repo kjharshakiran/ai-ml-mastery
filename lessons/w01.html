@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 1 · The Big Picture: What is AI, really? — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" id="MathJax-script" async></script>
+</head>
+<body data-lesson="w01">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()" aria-label="Menu">☰</button>
+  <strong>Lesson 1</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Start Here › Lesson 1</div>
+        <span class="eyebrow">🚀 Start Here</span>
+        <h1>The Big Picture: What is AI, <em>really</em>?</h1>
+        <div class="lesson-meta">
+          <span>⏱️ 20 min</span><span>🎯 Intuition only — no math yet</span><span>📦 Week 1</span>
+        </div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain what "machine learning" means to a friend in one sentence.</li>
+          <li>Describe the single mental model that connects all 40 weeks of this course.</li>
+          <li>Tell the difference between AI, Machine Learning, and Deep Learning.</li>
+          <li>See the path from "data is a list of numbers" to "ChatGPT writes a poem."</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">How can a machine — which only knows numbers — learn to recognise a cat, predict a price, or write a sentence it has never seen before?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. Programming vs. Machine Learning</h2>
+      <p>For 70 years, we told computers <em>exactly</em> what to do, step by step. Want to add up a shopping bill? You write the rule: "add each price." That's <strong>traditional programming</strong>: <em>rules in → answers out</em>.</p>
+      <p>But how do you write the rule for "is this photo a cat?" Try it. "It has pointy ears" — so do foxes. "It has whiskers" — so do walruses. Every rule you write has a thousand exceptions. Cats are <em>easy to recognise but impossible to describe</em>. This is the wall that classical programming hit.</p>
+      <p>Machine learning flips the whole thing around. Instead of writing the rule, you show the computer <strong>thousands of examples</strong> ("this is a cat 🐱, this is not 🐶") and let it <em>figure out the rule by itself</em>. That's the entire revolution in one sentence:</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The core flip</div>
+        <p style="margin-bottom:0"><strong>Traditional programming:</strong> Rules + Data → Answers.<br>
+        <strong>Machine learning:</strong> Data + Answers → <em>Rules</em>. We give the machine examples, and it learns the rule that fits them.</p>
+      </div>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine teaching a little kid what a dog is. You don't hand them a 50-page rulebook on ears and tails. You point at dogs: "dog!… dog!… that's a dog too!" After enough pointing, the kid just <em>knows</em> — even for breeds they've never seen. Machine learning is pointing at examples until the computer "just knows." The pointing is called <strong>training</strong>.</p>
+      </div>
+
+      <h2>2. The secret that makes it all work: everything becomes numbers</h2>
+      <p>Here's the trick at the heart of <em>this entire course</em>. A computer can't see a cat or read a word. It only does arithmetic. So before anything else, we turn every kind of thing into a <strong>list of numbers</strong> — a <strong>vector</strong>.</p>
+      <ul>
+        <li>A photo? A grid of brightness numbers (one per pixel).</li>
+        <li>A word? A list of numbers that captures its meaning (you'll build these in Week 31!).</li>
+        <li>A customer? <code>[age, income, num_purchases, …]</code>.</li>
+        <li>A sound? The air-pressure value measured 44,100 times a second.</li>
+      </ul>
+      <p>Once everything is a vector, every problem becomes <strong>geometry</strong>: similar things are <em>close together</em> in number-space, different things are <em>far apart</em>. "Learning" becomes "find a way to move and slice this space of points so the useful patterns line up."</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 520 240" role="img" aria-label="Things turning into vectors that live in a space">
+          <defs>
+            <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#818cf8"/></marker>
+          </defs>
+          <text x="40" y="40" font-size="34">🐱</text>
+          <text x="40" y="120" font-size="34">📷</text>
+          <text x="40" y="200" font-size="34">💬</text>
+          <line x1="90" y1="32" x2="180" y2="60" stroke="#818cf8" stroke-width="2" marker-end="url(#ar)"/>
+          <line x1="90" y1="112" x2="180" y2="110" stroke="#818cf8" stroke-width="2" marker-end="url(#ar)"/>
+          <line x1="90" y1="192" x2="180" y2="160" stroke="#818cf8" stroke-width="2" marker-end="url(#ar)"/>
+          <rect x="185" y="40" width="150" height="140" rx="10" fill="#eef2ff" stroke="#c7d2fe"/>
+          <text x="200" y="70" font-size="13" fill="#4338ca" font-family="monospace">[0.9, 0.1, 0.4]</text>
+          <text x="200" y="115" font-size="13" fill="#4338ca" font-family="monospace">[12, 240, 7 …]</text>
+          <text x="200" y="160" font-size="13" fill="#4338ca" font-family="monospace">[0.2, 0.8, 0.5]</text>
+          <text x="210" y="200" font-size="12" fill="#767c93">vectors</text>
+          <line x1="345" y1="110" x2="380" y2="110" stroke="#818cf8" stroke-width="2" marker-end="url(#ar)"/>
+          <circle cx="440" cy="70" r="6" fill="#f59e0b"/><circle cx="465" cy="90" r="6" fill="#f59e0b"/>
+          <circle cx="430" cy="160" r="6" fill="#14b8a6"/><circle cx="470" cy="175" r="6" fill="#14b8a6"/>
+          <line x1="400" y1="190" x2="500" y2="50" stroke="#f43f5e" stroke-width="2" stroke-dasharray="4"/>
+          <text x="405" y="225" font-size="12" fill="#767c93">a learned boundary slices the space</text>
+        </svg>
+        <figcaption>The universal recipe: turn things into vectors → vectors live in a space → learning finds the lines/curves that separate or predict.</figcaption>
+      </figure>
+
+      <h2>3. AI vs. Machine Learning vs. Deep Learning</h2>
+      <p>These three words get mixed up constantly. They're actually nested, like Russian dolls:</p>
+      <table>
+        <thead><tr><th>Term</th><th>What it means</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Artificial Intelligence</strong></td><td>The big goal: machines doing things that seem "smart."</td><td>A chess engine, a thermostat, Siri.</td></tr>
+          <tr><td><strong>Machine Learning</strong></td><td>A <em>way</em> to do AI: learn the rules from data instead of hand-coding them.</td><td>Spam filters, price prediction.</td></tr>
+          <tr><td><strong>Deep Learning</strong></td><td>A <em>kind</em> of ML using many-layered neural networks. Great for images, audio, language.</td><td>ChatGPT, face unlock, self-driving vision.</td></tr>
+        </tbody>
+      </table>
+      <p>AI ⊃ Machine Learning ⊃ Deep Learning. This course walks you straight through all three, in order.</p>
+
+      <h2>4. The map of this journey</h2>
+      <p>Here's why the weeks are ordered the way they are — each one is a tool you'll need for the next:</p>
+      <ul>
+        <li><strong>Parts 1–2 (Weeks 2–8) — Foundations.</strong> The math (vectors, change, chance) and the tools (Python, SQL, data analysis). This is your toolbox.</li>
+        <li><strong>Part 4 (Weeks 11–23) — Classical ML.</strong> Your first real learning machines: regression, classifiers, clustering. Simple, powerful, still used everywhere.</li>
+        <li><strong>Part 5 (Weeks 24–31) — Deep Learning.</strong> Neural networks: stack simple pieces into something that learns images and sequences.</li>
+        <li><strong>Part 6 (Weeks 32–37) — Transformers &amp; Generative AI.</strong> The architecture behind ChatGPT and image generators.</li>
+        <li><strong>Part 7 (Weeks 38–40) — Production.</strong> Getting models out into the real world.</li>
+      </ul>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Right now "vector" is just a word. <strong>Next lesson</strong> you'll meet vectors properly and learn to <em>add</em> them, <em>measure</em> them, and <em>transform</em> them with matrices — the exact operations that, 30 weeks from now, will let a transformer pay "attention" to the right words in a sentence. Same idea, all the way up.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=aircAruvnKk" target="_blank" rel="noopener">But what <em>is</em> a neural network?</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">The single best 20-minute overview of where this course is heading. Watch it now even if nothing makes sense yet — it will by Week 25.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://www.r2d3.us/visual-intro-to-machine-learning-part-1/" target="_blank" rel="noopener">A Visual Introduction to Machine Learning</a><span class="r-src">R2D3 — a gorgeous, scroll-driven explainer of exactly the "vectors in a space, find the boundary" idea above.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">In one line: what is the key difference between traditional programming and machine learning?</div>
+        <button class="opt">Machine learning is just faster programming.</button>
+        <button class="opt">Programming turns rules+data into answers; ML turns data+answers into rules.</button>
+        <button class="opt">Machine learning never uses any math.</button>
+        <button class="opt">There is no real difference; they're the same thing.</button>
+        <div class="explain">Exactly. We hand the machine examples (data + the right answers) and it <em>discovers the rule</em> — instead of us writing the rule by hand. Everything else in this course is detail on <em>how</em> it discovers that rule.</div>
+      </div>
+
+      <div class="quiz" data-answer="2">
+        <div class="q">Why do we turn images, words, and sounds into vectors (lists of numbers)?</div>
+        <button class="opt">To make files smaller.</button>
+        <button class="opt">Because vectors are prettier than pictures.</button>
+        <button class="opt">Because computers only do arithmetic — numbers are the only language they understand, and as vectors, "similar things sit close together."</button>
+        <button class="opt">It's optional and rarely done in practice.</button>
+        <div class="explain">Numbers are the only thing a computer can compute with. Representing everything as vectors turns every AI problem into geometry — and geometry is something math can chew on.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 17 · SVM I: Discriminant Functions &amp; the Perceptron — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w17">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 17</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 4 · Classical Machine Learning › Lesson 17</div>
+        <span class="eyebrow">🧮 Part 4 · Classical Machine Learning</span>
+        <h1>SVM I: Discriminant Functions &amp; the Perceptron</h1>
+        <div class="lesson-meta"><span>⏱️ 50 min</span><span>🎯 Drawing the boundary directly</span><span>📦 Week 17</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Define a <strong>discriminant function</strong> — a function whose sign decides the class.</li>
+          <li>See how a Bayes classifier secretly produces a discriminant.</li>
+          <li>Contrast <strong>generative</strong> (model the classes) vs <strong>discriminative</strong> (learn the boundary) methods.</li>
+          <li>Run the <strong>perceptron learning algorithm</strong> — update weights only on mistakes.</li>
+          <li>See why the perceptron is literally one neuron, setting up neural networks.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">Last week we modelled each class with a whole probability distribution just to decide which side a point falls on. That's a lot of work for one line. What if we skipped the modelling and learned the <em>boundary itself</em> directly — and could a machine learn that boundary just by fixing its own mistakes?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. Classification via discriminant functions</h2>
+      <p>A <strong>discriminant function</strong> \(g(\mathbf{x})\) is any function whose <em>sign</em> tells you the class. For two classes, the rule is brutally simple: predict class +1 if \(g(\mathbf{x})>0\), and class −1 if \(g(\mathbf{x})<0\). The set of points where \(g(\mathbf{x})=0\) is the <strong>decision boundary</strong>. The most useful discriminant is <em>linear</em> — a straight line (or, in higher dimensions, a flat <strong>hyperplane</strong>):</p>
+      <p>\[ g(\mathbf{x}) = \mathbf{w}\cdot\mathbf{x} + b, \qquad \text{boundary: } \mathbf{w}\cdot\mathbf{x} + b = 0 \]</p>
+      <p>That \(\mathbf{w}\cdot\mathbf{x}\) is the <strong>dot product from Week 2</strong>. The vector \(\mathbf{w}\) is perpendicular to the boundary — it points "uphill" toward the positive class — and \(b\) shifts the line away from the origin.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 380 250" aria-label="A separating hyperplane between two classes with the weight vector normal to it">
+          <rect x="20" y="20" width="340" height="210" fill="none" stroke="#e3e6f0"/>
+          <!-- boundary line -->
+          <line x1="60" y1="220" x2="320" y2="50" stroke="#4f46e5" stroke-width="2.5"/>
+          <text x="270" y="55" font-size="12" fill="#4f46e5">w·x + b = 0</text>
+          <!-- class +1 teal circles (upper-left side) -->
+          <circle cx="90" cy="60" r="7" fill="#14b8a6"/>
+          <circle cx="130" cy="90" r="7" fill="#14b8a6"/>
+          <circle cx="95" cy="120" r="7" fill="#14b8a6"/>
+          <circle cx="160" cy="70" r="7" fill="#14b8a6"/>
+          <!-- class -1 rose squares (lower-right side) -->
+          <rect x="230" y="160" width="13" height="13" fill="#f43f5e"/>
+          <rect x="270" y="130" width="13" height="13" fill="#f43f5e"/>
+          <rect x="200" y="190" width="13" height="13" fill="#f43f5e"/>
+          <rect x="290" y="180" width="13" height="13" fill="#f43f5e"/>
+          <!-- weight vector normal to boundary -->
+          <defs><marker id="wh" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#f59e0b"/></marker></defs>
+          <line x1="190" y1="135" x2="150" y2="105" stroke="#f59e0b" stroke-width="2.5" marker-end="url(#wh)"/>
+          <text x="120" y="100" font-size="12" fill="#f59e0b">w</text>
+          <text x="60" y="45" font-size="11" fill="#14b8a6">g(x) &gt; 0  →  class +1</text>
+          <text x="200" y="225" font-size="11" fill="#f43f5e">g(x) &lt; 0  →  class −1</text>
+        </svg>
+        <figcaption>A linear discriminant. Points are classified by which side of the hyperplane they fall on; the weight vector <strong>w</strong> (amber) is perpendicular to the boundary and points toward the positive class.</figcaption>
+      </figure>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Draw a line on the playground. Footballers on one side, chess players on the other. A new kid shows up — you don't need to study anyone's whole personality, you just check which side of the line they're standing on. The line <em>is</em> the classifier. Learning means nudging the line until it splits the two groups.</p>
+      </div>
+
+      <h2>2. The discriminant hiding inside a Bayes classifier</h2>
+      <p>Last week's Bayes classifier was already a discriminant in disguise. Define \(g(\mathbf{x}) = \log P(C_1\mid\mathbf{x}) - \log P(C_2\mid\mathbf{x})\). Its sign picks the winning class, so it <em>is</em> a discriminant function. Remarkably, if both classes are Gaussians sharing the same covariance, all the curvy exponentials cancel and \(g\) collapses to a <em>straight line</em> — a linear discriminant. So generative and discriminative methods can land on the very same boundary by completely different routes.</p>
+
+      <h2>3. Generative methods: a quick summary</h2>
+      <p>Methods like Bayes, Naïve Bayes, and GMM are <strong>generative</strong> (sometimes called non-discriminative): they learn \(P(\mathbf{x}\mid C)\) — a full model of <em>how each class generates data</em> — and only then derive the boundary by inversion. The upside: they cope with missing data, give calibrated probabilities, work well when training data is scarce (because the modelling assumptions do some of the heavy lifting), and can even synthesise brand-new samples. The downside: modelling an entire distribution is a lot of work when all you wanted was a single dividing line, and if your distributional assumptions are wrong, the boundary inherits those errors. When you have plenty of data and only care about the decision, learning the boundary directly is usually both simpler and more accurate.</p>
+
+      <h2>4. Discriminative methods: learn the boundary directly</h2>
+      <p><strong>Discriminative</strong> methods skip the distributions and fit \(\mathbf{w}\) and \(b\) so the boundary separates the classes. They don't waste effort describing what spam <em>looks like</em>; they only learn what tells spam apart from ham. The perceptron, logistic regression, and SVMs are all discriminative.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🍊</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Sorting oranges from grapefruit: a <em>generative</em> grader studies each fruit in detail — builds a full mental portrait of a typical orange and a typical grapefruit — then judges. A <em>discriminative</em> grader just notices "grapefruit are bigger" and sets a size threshold. Less understanding, but it sorts the conveyor belt faster and just as well.</p>
+      </div>
+
+      <h2>5. The perceptron: a machine that learns from its mistakes</h2>
+      <p>The <strong>perceptron</strong> (Rosenblatt, 1958) is the grandparent of every neural network. It is a linear discriminant that trains itself with one gorgeously simple rule: <em>only adjust the weights when you get an example wrong.</em> Its prediction is the sign of the dot product:</p>
+      <p>\[ \hat{y} = \operatorname{sign}(\mathbf{w}\cdot\mathbf{x} + b) \]</p>
+      <p>For each training point, if the prediction is correct, do nothing. If it's wrong, nudge the weights toward the right answer:</p>
+      <p>\[ \mathbf{w} \leftarrow \mathbf{w} + \eta\,(y - \hat{y})\,\mathbf{x}, \qquad b \leftarrow b + \eta\,(y - \hat{y}) \]</p>
+      <p>Here \(\eta\) is the learning rate and \(y\in\{-1,+1\}\) is the true label. The term \((y-\hat{y})\) is zero on correct points and \(\pm 2\) on mistakes, so the weights only move when needed — rotating the boundary to fix the error. The <strong>perceptron convergence theorem</strong> promises that if the data is linearly separable, this loop is guaranteed to find a separating line in a finite number of steps.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — a perceptron from scratch</span></div>
+<pre><code class="language-python">import numpy as np
+
+# Tiny linearly separable 2D dataset, labels in {-1, +1}
+X = np.array([[2, 1], [3, 2], [1, 1],     # class +1 cluster
+              [-2, -1], [-3, -2], [-1, -2]])  # class -1 cluster
+y = np.array([1, 1, 1, -1, -1, -1])
+
+w = np.zeros(2)        # weight vector (the boundary's normal)
+b = 0.0                # bias / offset
+eta = 0.1              # learning rate
+
+for epoch in range(10):                 # passes over the data
+    errors = 0
+    for xi, yi in zip(X, y):
+        y_hat = np.sign(np.dot(w, xi) + b)   # predict: sign of w·x + b
+        if y_hat != yi:                       # only update on a MISTAKE
+            w += eta * (yi - y_hat) * xi
+            b += eta * (yi - y_hat)
+            errors += 1
+    if errors == 0:                           # separable -> converges
+        print(f"converged after epoch {epoch}")
+        break
+
+print("weights:", w, " bias:", round(b, 2))
+# Check it separates the data: every w·x + b should match the label's sign
+print("all correct:", np.all(np.sign(X @ w + b) == y))   # -> True</code></pre>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">A perceptron computes a weighted sum of inputs, applies a threshold, and corrects its weights whenever it errs. Swap that hard threshold for a smooth activation function and you have <strong>exactly one neuron</strong> of a neural network. Everything in deep learning grows from this seed.</p>
+      </div>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Pitfall</div>
+        <p style="margin-bottom:0">If the data is <em>not</em> linearly separable, the basic perceptron never settles — it loops forever, flip-flopping the boundary. This famous limitation (no single line can solve XOR) stalled the field for years, until multi-layer networks and SVM margins fixed it. That's exactly where next week and Week 24 pick up.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">The boundary \(\mathbf{w}\cdot\mathbf{x}+b=0\) is built on the <strong>dot product from Week 2</strong>, and "which class wins" extends the generative Bayes view of <strong>Week 16</strong>. The perceptron is <em>literally one neuron</em> — it is the direct ancestor of the <strong>neural networks in Week 24</strong> and the backpropagation of Week 25. Next week (<strong>Week 18</strong>) we'll fix the perceptron's weakness: instead of <em>any</em> separating line, SVMs find the <em>best</em> one — the maximum-margin boundary.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=aircAruvnKk" target="_blank" rel="noopener">But what is a neural network?</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">A single neuron = weighted sum + threshold = the perceptron. This builds the picture you'll reuse in Week 24.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=4Gac5I64LM4" target="_blank" rel="noopener">The Perceptron Algorithm</a> <span class="r-src">A clean lecture walkthrough of the update rule and the convergence guarantee.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://en.wikipedia.org/wiki/Perceptron" target="_blank" rel="noopener">Perceptron — history &amp; the convergence theorem</a> <span class="r-src">Rosenblatt's original idea, the XOR limitation, and why it mattered for AI history.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://scikit-learn.org/stable/modules/linear_model.html#perceptron" target="_blank" rel="noopener">scikit-learn: Perceptron</a> <span class="r-src">The production version of the algorithm you just coded by hand.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">A discriminant function g(x) classifies a point by…</div>
+        <button class="opt">computing its distance to every training point.</button>
+        <button class="opt">modelling the full probability distribution of each class.</button>
+        <button class="opt">checking the sign of g(x): positive → one class, negative → the other.</button>
+        <button class="opt">counting how many features are non-zero.</button>
+        <div class="explain">The boundary is g(x) = 0; the sign on either side picks the class. For a linear discriminant, g(x) = w·x + b.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">When does the perceptron update its weights?</div>
+        <button class="opt">Only when it misclassifies a training example.</button>
+        <button class="opt">On every single example, correct or not.</button>
+        <button class="opt">Only at the very end of training.</button>
+        <button class="opt">Never — the perceptron has no training step.</button>
+        <div class="explain">The factor (y − ŷ) is zero for correct predictions, so the rule w ← w + η(y − ŷ)x leaves the weights untouched unless there's a mistake to fix.</div>
+      </div>
+      <div class="quiz" data-answer="3">
+        <div class="q">What's the key difference between generative and discriminative classifiers?</div>
+        <button class="opt">Generative methods are always more accurate.</button>
+        <button class="opt">Discriminative methods can only handle two classes.</button>
+        <button class="opt">Generative methods never use probability.</button>
+        <button class="opt">Generative methods model how each class produces data; discriminative methods learn the boundary directly.</button>
+        <div class="explain">Bayes/Naïve Bayes/GMM (generative) learn P(x | C); the perceptron and SVMs (discriminative) skip that and fit the separating boundary itself.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 8 · Exploratory Data Analysis — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w08">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 8</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 2 · Data &amp; Python › Lesson 8</div>
+        <span class="eyebrow">🐍 Part 2 · Data &amp; Python</span>
+        <h1>Exploratory Data Analysis (EDA)</h1>
+        <div class="lesson-meta"><span>⏱️ 50 min</span><span>🎯 Listen to the data first</span><span>📦 Week 8</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain what EDA is and why every project starts by <em>listening</em> to the data.</li>
+          <li>Compute and interpret central tendency (mean, median, mode) and dispersion (variance, std, IQR).</li>
+          <li>Clean data: handle missing values, spot outliers, and fix wrong types.</li>
+          <li>Measure relationships between features with correlation, and read distributions.</li>
+          <li>Do all of it in pandas with <code>describe()</code>, <code>.isna()</code>, and <code>.corr()</code>.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">Before you fit a single model, how do you find out whether your data is trustworthy — full of typos, missing chunks, or hiding a beautiful pattern — using just a handful of numbers and plots?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>8.1 What EDA is, and why it comes first</h2>
+      <p><strong>Exploratory Data Analysis</strong> is the detective phase: you summarise, visualise, and question your data <em>before</em> modelling. Coined by statistician John Tukey, EDA's whole philosophy is "let the data speak." Skip it and you'll train a flawless model on garbage — and trust its confident, wrong answers.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">EDA is a doctor's check-up for your dataset. Before any treatment (the model), the doctor takes the basics: temperature, height, weight (the averages), checks for anything missing or weird (a broken arm = an outlier), and asks whether things go together ("does eating more relate to weight?"). Only after the check-up does treatment begin. Skipping the check-up is how you prescribe the wrong medicine.</p>
+      </div>
+
+      <h2>8.2 Central tendency &amp; dispersion</h2>
+      <p>Two questions describe any column of numbers: <em>where is the middle?</em> (central tendency) and <em>how spread out is it?</em> (dispersion). These are exactly the statistics from Week 4, now computed on real data.</p>
+      <p><strong>Central tendency</strong>:</p>
+      <ul>
+        <li><strong>Mean</strong> \( \bar{x} = \frac{1}{n}\sum_i x_i \) — the average. Sensitive to outliers.</li>
+        <li><strong>Median</strong> — the middle value when sorted. Robust: one billionaire doesn't move it.</li>
+        <li><strong>Mode</strong> — the most frequent value. The only one that works for categories ("most common city").</li>
+      </ul>
+      <p><strong>Dispersion</strong>:</p>
+      <ul>
+        <li><strong>Variance</strong> \( \sigma^2 = \frac{1}{n}\sum_i (x_i - \bar{x})^2 \) — the average squared distance from the mean.</li>
+        <li><strong>Standard deviation</strong> \( \sigma = \sqrt{\sigma^2} \) — spread in the data's own units. The Gaussian's width from Week 4.</li>
+        <li><strong>IQR</strong> (interquartile range) \( = Q_3 - Q_1 \) — the spread of the middle 50%. Robust to outliers, and the basis of outlier detection.</li>
+      </ul>
+
+      <figure class="figure">
+        <svg viewBox="0 0 460 200" aria-label="A skewed distribution showing mean pulled by an outlier">
+          <line x1="30" y1="160" x2="440" y2="160" stroke="#767c93"/>
+          <!-- bars (histogram) -->
+          <g fill="#e7faf7" stroke="#14b8a6">
+            <rect x="60"  y="110" width="28" height="50"/>
+            <rect x="90"  y="70"  width="28" height="90"/>
+            <rect x="120" y="55"  width="28" height="105"/>
+            <rect x="150" y="85"  width="28" height="75"/>
+            <rect x="180" y="120" width="28" height="40"/>
+            <rect x="210" y="140" width="28" height="20"/>
+            <rect x="380" y="148" width="28" height="12"/>
+          </g>
+          <text x="392" y="140" font-size="10" fill="#f43f5e" text-anchor="middle">outlier</text>
+          <!-- median line -->
+          <line x1="148" y1="40" x2="148" y2="170" stroke="#4f46e5" stroke-width="2"/>
+          <text x="148" y="32" font-size="11" fill="#4f46e5" text-anchor="middle">median</text>
+          <!-- mean line, pulled right -->
+          <line x1="210" y1="40" x2="210" y2="170" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>
+          <text x="215" y="32" font-size="11" fill="#f59e0b">mean (pulled →)</text>
+          <text x="230" y="192" font-size="10" fill="#767c93">one extreme value drags the mean toward it; the median barely moves</text>
+        </svg>
+        <figcaption>Mean vs median on skewed data. The lone large value pulls the mean rightward; the median stays put — which is why median is the robust choice.</figcaption>
+      </figure>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> Mean or median?</div>
+        <p style="margin-bottom:0">When a distribution is roughly symmetric, mean ≈ median — use the mean. When it's skewed or has outliers (incomes, house prices, response times), the <strong>median</strong> tells the honest story. "Average salary" reported as a mean is how a room with one billionaire looks rich on paper.</p>
+      </div>
+
+      <h2>8.3 Data cleaning: missing values, outliers, types</h2>
+      <p>Real data is messy. Three problems show up every single time:</p>
+      <ul>
+        <li><strong>Missing values</strong> (NaN, blanks). Options: drop the rows, or <em>impute</em> — fill with the mean/median (numeric) or mode (categorical). Dropping loses data; imputing risks bias. Choose deliberately.</li>
+        <li><strong>Outliers</strong> — values far from the rest. A common rule: anything below \( Q_1 - 1.5\,\text{IQR} \) or above \( Q_3 + 1.5\,\text{IQR} \) is suspect. Some are errors (age = 200); some are real and important (fraud). Investigate before deleting.</li>
+        <li><strong>Wrong types</strong> — a price stored as text "1,650", a date as a string. Convert before computing, or the math silently breaks.</li>
+      </ul>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> An outlier is a question, not a verdict</div>
+        <p style="margin-bottom:0">Never auto-delete outliers. The most valuable rows in fraud detection, anomaly monitoring, and medical data <em>are</em> the outliers. Flag them, understand them, then decide. Deleting "weird" rows is how you delete exactly the signal you were hired to find.</p>
+      </div>
+
+      <h2>8.4 &amp; 8.5 Relationships: correlation &amp; distributions</h2>
+      <p>EDA gets interesting when you ask how features move <em>together</em>. The <strong>Pearson correlation</strong> \( r \) measures linear association, from −1 to +1:</p>
+      <p>\[ r_{xy} = \frac{\operatorname{cov}(x,y)}{\sigma_x\,\sigma_y} = \frac{\sum_i (x_i-\bar{x})(y_i-\bar{y})}{\sqrt{\sum_i (x_i-\bar{x})^2}\,\sqrt{\sum_i (y_i-\bar{y})^2}} \]</p>
+      <ul>
+        <li>\( r \approx +1 \): move together (more rooms → higher price).</li>
+        <li>\( r \approx 0 \): no <em>linear</em> relationship (it could still be a curve!).</li>
+        <li>\( r \approx -1 \): move oppositely (more age of car → lower price).</li>
+      </ul>
+      <p>Notice this is the dot product from Week 2 in disguise — correlation is the <em>cosine similarity</em> of two mean-centred feature columns. Geometry and statistics meet here.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🌡️</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Correlation is like noticing that ice-cream sales and sunburns rise together. They're correlated (\(r\) high) — but ice cream doesn't <em>cause</em> sunburn; the sun causes both. <strong>Correlation is not causation.</strong> EDA reveals what moves together; it takes careful experiment design to prove what causes what.</p>
+      </div>
+
+      <h2>8.6 EDA in pandas — the practical toolkit</h2>
+      <p>pandas (Week 7) makes all of this a few lines. A <strong>DataFrame</strong> is a labelled table — the query result from Week 5, now in Python with superpowers.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — EDA with pandas</span></div>
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+# A small, messy customer dataset (note the NaN and an outlier)
+df = pd.DataFrame({
+    "city":  ["Mumbai", "Delhi", "Mumbai", "Delhi", "Mumbai"],
+    "age":   [31, 45, np.nan, 38, 29],          # one missing value
+    "spend": [1650, 300, 2400, 280, 99000],     # 99000 is an outlier
+})
+
+# 1. The one-line summary: count, mean, std, min, quartiles, max
+print(df.describe())          # central tendency + dispersion at a glance
+# Notice mean spend is dragged way up by the 99000 outlier...
+print("median spend:", df["spend"].median())   # ...median stays honest
+
+# 2. Find missing values, then impute age with the median
+print(df.isna().sum())                         # how many NaNs per column
+df["age"] = df["age"].fillna(df["age"].median())   # robust fill
+
+# 3. Flag outliers with the 1.5 * IQR rule
+q1, q3 = df["spend"].quantile([0.25, 0.75])
+iqr = q3 - q1
+high_cut = q3 + 1.5 * iqr
+df["is_outlier"] = df["spend"] &gt; high_cut
+print(df[df["is_outlier"]])    # investigate, don't auto-delete!
+
+# 4. Mode for the categorical column
+print("most common city:", df["city"].mode()[0])   # -> Mumbai
+
+# 5. Correlation between numeric features (linear relationships)
+print(df[["age", "spend"]].corr())   # r near 0 here = no linear link</code></pre>
+
+      <p>That single <code>df.describe()</code> call computes count, mean, std, min, the quartiles (for IQR), and max — every number from sections 8.2–8.3 at once. It's the same <code>COUNT</code>/<code>AVG</code>/<code>MIN</code>/<code>MAX</code> aggregation you wrote in SQL back in Week 5, now one method on a DataFrame.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">EDA is the bridge between Part 2 and the rest of the course. It stands on <strong>Week 4</strong>'s statistics (mean, variance, Gaussians) and <strong>Week 7</strong>'s pandas, and it feeds <em>every</em> model in Part 4: you can't pick features for regression (<strong>Week 13</strong>), spot the classes for k-NN (<strong>Week 15</strong>), or decide what to standardise before PCA (<strong>Week 20</strong>) without first knowing your data's shape, gaps, and correlations. This is also <strong>Project 1 — the Tabular ML Pipeline</strong>, where load → EDA → model becomes one real workflow. Always listen before you model.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=mJlRTUuVr04" target="_blank" rel="noopener">The Main Ideas of Exploratory Data Analysis</a> <span class="badge-sq">StatQuest</span><span class="r-src">StatQuest's clear, friendly tour of summary statistics and distributions. Watch before re-reading 8.2.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://pandas.pydata.org/docs/user_guide/10min.html" target="_blank" rel="noopener">10 Minutes to pandas (official)</a><span class="r-src">The fastest path to <code>describe()</code>, <code>fillna()</code>, and <code>corr()</code> hands-on. Run every line in section 8.6.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://seaborn.pydata.org/tutorial/distributions.html" target="_blank" rel="noopener">Seaborn — Visualising Distributions</a><span class="r-src">Histograms, KDEs and box plots in a couple of lines — the visual half of EDA that pairs with the numbers here.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">Your "spend" column has one customer at ₹99,000 while everyone else is under ₹3,000. Which summary best describes the typical customer?</div>
+        <button class="opt">The mean — it uses every value.</button>
+        <button class="opt">The median — it isn't dragged up by the single extreme value.</button>
+        <button class="opt">The mode — it's always most accurate.</button>
+        <button class="opt">The maximum.</button>
+        <div class="explain">The mean gets pulled toward the ₹99,000 outlier, overstating "typical." The median sits at the middle of the sorted values and barely moves — the robust choice for skewed data.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">A feature shows correlation <code>r = 0.95</code> with the target. What is the safest conclusion?</div>
+        <button class="opt">The feature causes the target.</button>
+        <button class="opt">There is no relationship.</button>
+        <button class="opt">They have a strong positive <em>linear</em> association — but this alone doesn't prove causation.</button>
+        <button class="opt">One of them must be deleted.</button>
+        <div class="explain">High \(r\) means a strong linear relationship, useful for modelling — but correlation is not causation (ice cream and sunburns). Also, \(r\) only captures <em>linear</em> structure; curves can have \(r \approx 0\) yet be tightly related.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">In pandas, what does <code>df.describe()</code> give you in one call?</div>
+        <button class="opt">Count, mean, std, min, the quartiles, and max for each numeric column.</button>
+        <button class="opt">A trained machine-learning model.</button>
+        <button class="opt">Only the column names.</button>
+        <button class="opt">A plot of the data.</button>
+        <div class="explain"><code>describe()</code> returns count, mean, std, min, 25/50/75% quartiles, and max — the central-tendency and dispersion summary of sections 8.2–8.3, and the same aggregates you computed with SQL in Week 5.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

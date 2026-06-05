@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 33 · Positional Encoding &amp; Pre-training — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w33">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 33</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 6 · Transformers &amp; Generative AI › Lesson 33</div>
+        <span class="eyebrow">✨ Part 6 · Transformers &amp; Generative AI</span>
+        <h1>Transformers II: Positional Encoding &amp; Pre-training</h1>
+        <div class="lesson-meta"><span>⏱️ 55 min</span><span>🎯 Giving order to attention, then teaching it to read the internet</span><span>📦 Week 33</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain why self-attention is <strong>order-blind</strong>, and why that's a fatal flaw for language.</li>
+          <li>Add <strong>positional information</strong> back in using sinusoidal (and learned) positional encodings — and read the formula.</li>
+          <li>Understand why attention costs \(O(n^2)\) and why a long context window is genuinely expensive.</li>
+          <li>Distinguish the two great <strong>pre-training</strong> recipes: masked-language modelling (BERT, an encoder) vs next-token prediction (GPT, a decoder).</li>
+          <li>See how cheap, label-free <strong>pre-training</strong> followed by <strong>fine-tuning</strong> became the dominant playbook of modern AI.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">Attention lets every word look at every other word at once — but it does so without any sense of <em>who came first</em>. So how does a transformer know that "dog bites man" is a very different story from "man bites dog"? And once we fix that, how does it learn grammar, facts, and reasoning from raw text it has never been told the answers to?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>33.1 Attention is order-blind — and positional encoding cures it</h2>
+      <p>Last lesson ended with a warning that we now have to pay off. Self-attention computes, for every pair of tokens, a dot-product score and a weighted blend of values. Look closely at that machinery: there is <em>nothing</em> in it that depends on <em>where</em> a token sits in the sentence. If you shuffle the input words, the same set of Query/Key/Value vectors comes out — just reordered — and the attention output is reordered the same way. Mathematically, self-attention is <strong>permutation-equivariant</strong>: it treats the input as a <em>bag</em> of tokens, not a sequence.</p>
+      <p>For an RNN (Week 30) this was never a problem — it physically reads left to right, so order is baked into the wiring. But we threw the RNN away precisely to gain parallelism. We bought speed and paid for it with amnesia about position. We need to <em>inject</em> the missing information back in.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine you cut a sentence into word-cards and toss them on a table in a pile. Attention is great at noticing "this card and that card are related!" — but it has no idea which card came first, because they're all just lying there in a heap. So before we drop the cards in, we stamp a little number on each one: "I'm word #1," "I'm word #2." Now even in a messy pile, every card remembers its place in line. That stamp is the <strong>positional encoding</strong>.</p>
+      </div>
+
+      <p>The fix is simple and elegant: give each <em>position</em> its own vector, and <strong>add</strong> it to the token's embedding before the first attention layer. The word "dog" at position 1 and the word "dog" at position 5 now enter the network as <em>different</em> vectors, so attention can tell them apart. The combined input is just:</p>
+      <p>\[ \mathbf{x}_i = \mathbf{e}_{\text{token}_i} + \mathbf{p}_i \]</p>
+      <p>where \(\mathbf{e}\) is the word embedding from Week 31 and \(\mathbf{p}_i\) is the positional vector for slot \(i\). Both live in the same \(d\)-dimensional space, so addition is meaningful — the position vector nudges the word's meaning slightly in a direction that encodes "where I am."</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 540 250" aria-label="Positional encodings added to token embeddings">
+          <text x="10" y="20" font-size="13" fill="#767c93">"the   dog   bites"  →  3 tokens</text>
+          <!-- token embeddings -->
+          <text x="10" y="55" font-size="12" fill="#4f46e5">token embeddings (W31)</text>
+          <rect x="20"  y="65" width="60" height="28" rx="5" fill="#4f46e5" opacity="0.85"/><text x="34" y="84" font-size="12" fill="#fff" font-family="monospace">e₁</text>
+          <rect x="100" y="65" width="60" height="28" rx="5" fill="#4f46e5" opacity="0.85"/><text x="114" y="84" font-size="12" fill="#fff" font-family="monospace">e₂</text>
+          <rect x="180" y="65" width="60" height="28" rx="5" fill="#4f46e5" opacity="0.85"/><text x="194" y="84" font-size="12" fill="#fff" font-family="monospace">e₃</text>
+          <text x="262" y="84" font-size="22" fill="#767c93">+</text>
+          <!-- positional encodings -->
+          <text x="10" y="125" font-size="12" fill="#14b8a6">positional encodings</text>
+          <rect x="20"  y="135" width="60" height="28" rx="5" fill="#14b8a6" opacity="0.85"/><text x="38" y="154" font-size="12" fill="#fff" font-family="monospace">p₁</text>
+          <rect x="100" y="135" width="60" height="28" rx="5" fill="#14b8a6" opacity="0.85"/><text x="118" y="154" font-size="12" fill="#fff" font-family="monospace">p₂</text>
+          <rect x="180" y="135" width="60" height="28" rx="5" fill="#14b8a6" opacity="0.85"/><text x="198" y="154" font-size="12" fill="#fff" font-family="monospace">p₃</text>
+          <line x1="130" y1="170" x2="130" y2="190" stroke="#767c93" stroke-width="1.5"/>
+          <!-- sum -->
+          <text x="10" y="210" font-size="12" fill="#f59e0b">input to attention</text>
+          <rect x="20"  y="218" width="60" height="28" rx="5" fill="#f59e0b" opacity="0.9"/><text x="30" y="237" font-size="11" fill="#fff" font-family="monospace">e₁+p₁</text>
+          <rect x="100" y="218" width="60" height="28" rx="5" fill="#f59e0b" opacity="0.9"/><text x="110" y="237" font-size="11" fill="#fff" font-family="monospace">e₂+p₂</text>
+          <rect x="180" y="218" width="60" height="28" rx="5" fill="#f59e0b" opacity="0.9"/><text x="190" y="237" font-size="11" fill="#fff" font-family="monospace">e₃+p₃</text>
+          <text x="300" y="150" font-size="12" fill="#767c93">same dimension d,</text>
+          <text x="300" y="170" font-size="12" fill="#767c93">so we can simply add them.</text>
+          <text x="300" y="200" font-size="12" fill="#f43f5e">"dog" at pos 2 ≠ "dog" at pos 5</text>
+        </svg>
+        <figcaption>The word embedding (Week 31) carries <em>meaning</em>; the positional encoding carries <em>place</em>. We add them so each token enters attention knowing both what it is and where it sits.</figcaption>
+      </figure>
+
+      <h3>Sinusoidal positional encoding — the clever original</h3>
+      <p>How do we build \(\mathbf{p}_i\)? The original transformer used a fixed, hand-designed pattern of <strong>sines and cosines</strong> of different frequencies. For position \(pos\) and dimension index \(i\) (out of \(d\) total), the encoding is:</p>
+      <p>\[ PE_{(pos,\,2i)} = \sin\!\left(\frac{pos}{10000^{\,2i/d}}\right), \qquad PE_{(pos,\,2i+1)} = \cos\!\left(\frac{pos}{10000^{\,2i/d}}\right) \]</p>
+      <p>Read it as a set of "clock hands" spinning at different speeds. The first dimensions use a high frequency (a fast hand that ticks every few positions); later dimensions use very low frequencies (a slow hand that barely moves across the whole sentence). Together, the pattern of hand-positions forms a unique "binary-clock" fingerprint for every slot — much like how binary counting uses bits flipping at halved rates. Two nice properties fall out for free:</p>
+      <ul>
+        <li><strong>Every position gets a unique vector</strong>, yet nearby positions get <em>similar</em> vectors — so "distance in the sentence" maps to "distance in encoding space."</li>
+        <li>Because of trig identities, \(PE_{pos+k}\) is a fixed linear function of \(PE_{pos}\). The model can learn <em>relative</em> offsets ("the word three slots back") with a simple linear operation, and it extrapolates gracefully to sentence lengths never seen in training.</li>
+      </ul>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🕰️</span> Real-World Analogy: a wall of clocks</div>
+        <p style="margin-bottom:0">Picture a bank of clocks, each running at a different speed — one ticks every second, one every minute, one every hour, one every day. Glance at all of them at once and the <em>combination</em> of hand-positions tells you exactly what moment it is, with no two moments looking alike. Sinusoidal encoding is that wall of clocks: fast sines pin down fine position, slow sines pin down coarse position, and together they stamp each word with a one-of-a-kind timestamp.</p>
+      </div>
+
+      <h3>Learned positional embeddings — the modern default</h3>
+      <p>Many modern models (including the GPT and BERT families) skip the hand-crafted sines and instead use a <strong>learned</strong> positional embedding: a lookup table with one trainable vector per position, optimised by gradient descent just like the word embeddings. It's simpler and lets the model discover whatever positional pattern is most useful — at the cost of not extrapolating past the maximum length it was trained on. Newer schemes (RoPE, ALiBi) inject position <em>inside</em> the attention scores rather than adding it at the input, but the core idea is identical: <strong>attention has no notion of order, so we must supply it.</strong></p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">Self-attention sees a <em>bag</em> of tokens. <strong>Positional encoding</strong> stamps each token with its place in line — a vector we add to the embedding — so the model can finally tell "dog bites man" from "man bites dog."</p>
+      </div>
+
+      <h2>33.2 The cost of attention: why context is expensive</h2>
+      <p>Attention's superpower is that every token can look at every other token. But "every-to-every" has a price. For a sequence of \(n\) tokens, the score matrix \(QK^\top\) has \(n \times n\) entries — one similarity for each ordered pair. Computing and storing it is <strong>\(O(n^2)\)</strong> in both time and memory.</p>
+      <p>That single fact explains a huge amount of LLM economics. Double the context length and you <em>quadruple</em> the attention cost. Going from a 2,000-token prompt to a 100,000-token prompt isn't 50× harder — it's roughly \(50^2 = 2500\times\) harder for the attention step. This is why long context windows were historically rare and pricey, and why an entire research industry exists to make attention cheaper (FlashAttention reorganises the computation to save memory; sparse, linear, and sliding-window attentions approximate the full \(n^2\) grid).</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 520 180" aria-label="Quadratic growth of the attention score matrix">
+          <text x="10" y="18" font-size="12" fill="#767c93">n = 3 tokens → 9 scores</text>
+          <g>
+            <rect x="20" y="30" width="90" height="90" fill="none" stroke="#767c93"/>
+            <line x1="50" y1="30" x2="50" y2="120" stroke="#e3e6f0"/><line x1="80" y1="30" x2="80" y2="120" stroke="#e3e6f0"/>
+            <line x1="20" y1="60" x2="110" y2="60" stroke="#e3e6f0"/><line x1="20" y1="90" x2="110" y2="90" stroke="#e3e6f0"/>
+            <g fill="#4f46e5" opacity="0.7"><rect x="21" y="31" width="28" height="28"/><rect x="51" y="61" width="28" height="28"/><rect x="81" y="91" width="28" height="28"/><rect x="51" y="31" width="28" height="28"/><rect x="81" y="31" width="28" height="28"/><rect x="81" y="61" width="28" height="28"/><rect x="21" y="61" width="28" height="28"/><rect x="21" y="91" width="28" height="28"/><rect x="51" y="91" width="28" height="28"/></g>
+          </g>
+          <text x="200" y="18" font-size="12" fill="#767c93">n = 6 tokens → 36 scores</text>
+          <rect x="210" y="30" width="90" height="90" fill="#14b8a6" opacity="0.6" stroke="#767c93"/>
+          <text x="380" y="60" font-size="14" fill="#f43f5e">2× the tokens</text>
+          <text x="380" y="82" font-size="14" fill="#f43f5e">= 4× the work</text>
+          <text x="380" y="104" font-size="13" fill="#767c93">cost ∝ n²</text>
+          <text x="20" y="150" font-size="12" fill="#767c93">Every token attends to every token: the score grid is n × n.</text>
+        </svg>
+        <figcaption>Attention builds an \(n \times n\) score matrix. Doubling the context length quadruples the cost — the reason long context windows are expensive.</figcaption>
+      </figure>
+
+      <p>Training a transformer is otherwise familiar territory: we stack the blocks from Lesson 32, run the data forward, compute a loss, and <strong>backpropagate</strong> (Week 25) using an adaptive optimiser like Adam (Week 26). Residual connections (Week 29) and layer norm (Week 27) keep gradients healthy through dozens of layers. The transformer is wildly parallel — all \(n\) positions are processed simultaneously on the GPU — which is exactly what makes training on <em>internet-scale</em> data feasible. Which raises the next question: where do the labels come from?</p>
+
+      <h2>33.3 Pre-training: learning from text with no labels</h2>
+      <p>Here is the idea that turned transformers from a good translation model into the foundation of modern AI. Back in Week 12 we met <strong>self-supervised learning</strong>: the data <em>labels itself</em>. You hide part of the input and ask the model to predict the hidden part. No humans, no annotation — just oceans of raw text from the web, each sentence quietly generating its own training targets. This phase is called <strong>pre-training</strong>, and it comes in two famous flavours that map exactly onto the two halves of the transformer from Lesson 32.</p>
+
+      <h3>Flavour 1 — Masked Language Modelling (BERT, the encoder)</h3>
+      <p>BERT (2018) uses an <strong>encoder</strong> stack with <em>unmasked</em> self-attention, so every token can see the whole sentence — left and right. To train it, we randomly hide about 15% of the tokens with a special <code>[MASK]</code> symbol and ask the model to fill in the blanks:</p>
+      <p style="text-align:center"><code>The cat sat on the [MASK].</code> &nbsp;→&nbsp; predict <code>mat</code></p>
+      <p>Because it reads in both directions, BERT builds deep, context-rich representations of each word — perfect for <em>understanding</em> tasks like classification, sentiment, and question answering where you have the full text up front. It's a "fill-in-the-blank" reader, not a writer.</p>
+
+      <h3>Flavour 2 — Next-Token Prediction (GPT, the decoder)</h3>
+      <p>GPT uses a <strong>decoder</strong> stack with the causal mask from Lesson 32, so each token may only look <em>backward</em>. Its self-supervised task is the simplest imaginable: <strong>predict the next word</strong>, over and over, across all of the internet.</p>
+      <p style="text-align:center"><code>The cat sat on the ___</code> &nbsp;→&nbsp; predict <code>mat</code></p>
+      <p>That's it. A single objective — guess what comes next — applied to trillions of words. To predict the next word well, the model is quietly forced to learn grammar, facts, translation, arithmetic, and reasoning, because all of those help reduce the prediction error. This is the engine inside every LLM, and it's exactly what you'll build in Project 4. The whole training signal is just "next token," which makes GPT a natural <em>writer</em>: to generate, you predict the next word, append it, and repeat.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Encoder vs decoder, don't mix them up</div>
+        <p style="margin-bottom:0"><strong>BERT = bidirectional encoder = fill in the blank = understanding.</strong> <strong>GPT = causal decoder = predict the next word = generation.</strong> Same transformer parts (Lesson 32), different masks and different self-supervised objectives. The mask is what makes one a reader and the other a writer.</p>
+      </div>
+
+      <h3>Then: fine-tuning</h3>
+      <p>Pre-training gives you a model that deeply <em>understands</em> language but isn't yet pointed at your specific task. The second phase, <strong>fine-tuning</strong>, takes that pre-trained model and continues training briefly on a small, <em>labelled</em> dataset for the job you actually care about — spam detection, medical Q&amp;A, legal summarisation. This is the very <strong>transfer learning</strong> idea from Week 29 (where we fine-tuned a pre-trained ResNet on new images), now applied to language. The pre-trained model has already paid the enormous cost of learning what words mean; fine-tuning just nudges it toward your goal with a handful of examples.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 560 210" aria-label="The pre-train then fine-tune pipeline">
+          <!-- pretrain -->
+          <rect x="15" y="50" width="170" height="110" rx="8" fill="#eef0fb" stroke="#4f46e5"/>
+          <text x="35" y="40" font-size="13" fill="#4f46e5">① PRE-TRAIN (self-supervised, W12)</text>
+          <text x="30" y="78" font-size="12" fill="#767c93">huge raw text</text>
+          <text x="30" y="96" font-size="12" fill="#767c93">from the internet</text>
+          <text x="30" y="120" font-size="12" fill="#4f46e5">no labels —</text>
+          <text x="30" y="138" font-size="12" fill="#4f46e5">predict masked / next token</text>
+          <line x1="185" y1="105" x2="235" y2="105" stroke="#767c93" stroke-width="2" marker-end="url(#ah)"/>
+          <defs><marker id="ah" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#767c93"/></marker></defs>
+          <!-- base model -->
+          <rect x="235" y="70" width="90" height="70" rx="8" fill="#14b8a6" opacity="0.85"/>
+          <text x="248" y="100" font-size="12" fill="#fff">base /</text>
+          <text x="248" y="118" font-size="12" fill="#fff">foundation</text>
+          <text x="252" y="60" font-size="11" fill="#767c93">"knows language"</text>
+          <line x1="325" y1="105" x2="375" y2="105" stroke="#767c93" stroke-width="2" marker-end="url(#ah)"/>
+          <!-- finetune -->
+          <rect x="375" y="50" width="170" height="110" rx="8" fill="#fdeef0" stroke="#f43f5e"/>
+          <text x="392" y="40" font-size="13" fill="#f43f5e">② FINE-TUNE (transfer, W29)</text>
+          <text x="392" y="78" font-size="12" fill="#767c93">small LABELLED set</text>
+          <text x="392" y="96" font-size="12" fill="#767c93">for your task</text>
+          <text x="392" y="120" font-size="12" fill="#f43f5e">spam? sentiment?</text>
+          <text x="392" y="138" font-size="12" fill="#f43f5e">medical Q&amp;A?</text>
+          <text x="60" y="190" font-size="12" fill="#767c93">Pay the giant cost once (pre-train); reuse it cheaply for many tasks (fine-tune).</text>
+        </svg>
+        <figcaption>The dominant playbook of modern AI: pre-train once on cheap unlabelled text (self-supervised, Week 12), then fine-tune on a small labelled set for each specific task (transfer learning, Week 29).</figcaption>
+      </figure>
+
+      <h2>33.4 Sinusoidal positional encoding in NumPy</h2>
+      <p>Let's make the clock-wall concrete. The code below computes sinusoidal positional encodings for a short sequence and prints the resulting matrix, so you can see the columns oscillating at different frequencies.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — sinusoidal positional encoding</span></div>
+<pre><code class="language-python">import numpy as np
+
+def positional_encoding(seq_len, d_model):
+    """Build the (seq_len, d_model) sinusoidal PE matrix from the
+    'Attention Is All You Need' formula."""
+    pos = np.arange(seq_len)[:, None]          # column of positions: shape (seq_len, 1)
+    i   = np.arange(d_model)[None, :]          # row of dim indices:  shape (1, d_model)
+
+    # Frequency for each dimension. Even dims -> sin, odd dims -> cos,
+    # and BOTH use the same angle, so we floor the index to pairs (2i).
+    angle_rates = 1.0 / np.power(10000, (2 * (i // 2)) / d_model)
+    angles = pos * angle_rates                 # (seq_len, d_model) — each entry is pos / 10000^(2i/d)
+
+    PE = np.zeros((seq_len, d_model))
+    PE[:, 0::2] = np.sin(angles[:, 0::2])      # even dimensions use sine
+    PE[:, 1::2] = np.cos(angles[:, 1::2])      # odd  dimensions use cosine
+    return PE
+
+PE = positional_encoding(seq_len=6, d_model=8)
+print("positional encoding matrix (6 positions, 8 dims):")
+print(np.round(PE, 2))
+
+# Each ROW is the unique "timestamp" vector added to a token at that position.
+# Notice left columns oscillate FAST (high frequency), right columns oscillate
+# SLOWLY — the 'wall of clocks' running at different speeds.
+
+# Nearby positions are similar; far-apart positions are not.
+def cos_sim(a, b):
+    return a @ b / (np.linalg.norm(a) * np.linalg.norm(b))   # cosine similarity (Week 2)
+
+print("sim(pos 0, pos 1):", round(cos_sim(PE[0], PE[1]), 3))   # high  -> neighbours look alike
+print("sim(pos 0, pos 5):", round(cos_sim(PE[0], PE[5]), 3))   # lower -> far apart look different</code></pre>
+      <p>Run it and you'll see the left-hand columns flip sign quickly from row to row while the right-hand columns drift slowly — the fast and slow clock hands. The two cosine similarities confirm the key property: neighbouring positions have similar encodings, distant ones do not, so the model can read "how far apart are these two words?" straight out of the geometry.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This lesson patches the gap left by <strong>Week 32</strong>: attention is order-blind, so we add positional encodings to the <strong>word embeddings (Week 31)</strong>, comparing them with the same <strong>cosine similarity (Week 2)</strong> you've used all course. The <strong>pre-train then fine-tune</strong> recipe <em>is</em> the <strong>self-supervised learning of Week 12</strong> married to the <strong>transfer learning of Week 29</strong> — trained with <strong>backprop (Week 25)</strong> and <strong>Adam (Week 26)</strong>, stabilised by <strong>residuals (Week 29)</strong> and <strong>layer norm (Week 27)</strong>. Next lesson (<strong>Week 34</strong>) we scale next-token prediction to the whole internet and meet the <strong>Large Language Model</strong> — the climax this has all been building toward, and the heart of <strong>Project 4 (Mini-GPT)</strong>.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=wjZofJX0v4M" target="_blank" rel="noopener">But what is a GPT? Visual intro to transformers</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">Shows embeddings carrying both meaning and position, and how next-token prediction trains the whole stack. Watch after section 33.3.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://jalammar.github.io/illustrated-transformer/" target="_blank" rel="noopener">The Illustrated Transformer</a><span class="r-src">Jay Alammar's picture-by-picture walkthrough. The section on positional encoding visualises the exact sine/cosine matrix we built in NumPy.</span></div></li>
+        <li><span class="r-ic">📄</span><div><a href="https://arxiv.org/abs/1810.04805" target="_blank" rel="noopener">BERT: Pre-training of Deep Bidirectional Transformers (Devlin et al., 2018)</a><span class="r-src">The masked-language-modelling paper. Read the abstract and Section 3.1 to see the [MASK] objective in the authors' own words.</span></div></li>
+        <li><span class="r-ic">📄</span><div><a href="https://arxiv.org/abs/1706.03762" target="_blank" rel="noopener">Attention Is All You Need (Vaswani et al., 2017)</a><span class="r-src">Section 3.5 gives the exact sinusoidal positional-encoding formula we implemented.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">Why does a transformer need positional encoding at all?</div>
+        <button class="opt">Because softmax can't handle long sentences.</button>
+        <button class="opt">To make the embeddings shorter and save memory.</button>
+        <button class="opt">Self-attention treats the input as an unordered bag of tokens, so order must be injected separately.</button>
+        <button class="opt">To convert words into numbers in the first place.</button>
+        <div class="explain">Self-attention is permutation-equivariant — shuffle the words and you get the same (reordered) result. It has no built-in notion of position, so we add a positional vector to each embedding to restore word order.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">A model's context length grows from 1,000 to 4,000 tokens. Roughly how does the attention cost change?</div>
+        <button class="opt">It stays the same — attention is O(1).</button>
+        <button class="opt">It grows about 16×, because attention is O(n²) and the length grew 4×.</button>
+        <button class="opt">It grows about 4×, linear in length.</button>
+        <button class="opt">It shrinks, because longer context is more efficient.</button>
+        <div class="explain">The score matrix QKᵀ is n × n, so cost scales with n². Multiplying n by 4 multiplies the cost by 4² = 16 — exactly why long context windows are expensive.</div>
+      </div>
+      <div class="quiz" data-answer="3">
+        <div class="q">What is the key difference between how BERT and GPT are pre-trained?</div>
+        <button class="opt">BERT uses labels; GPT uses none.</button>
+        <button class="opt">BERT is an RNN; GPT is a transformer.</button>
+        <button class="opt">They are pre-trained identically and differ only in size.</button>
+        <button class="opt">BERT fills in masked words using both directions (encoder); GPT predicts the next word using only the past (decoder).</button>
+        <div class="explain">Both are self-supervised (no human labels). BERT is a bidirectional encoder trained by masked-language modelling — fill in the blank. GPT is a causal decoder trained by next-token prediction — guess what comes next. The mask is what makes one a reader and the other a writer.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

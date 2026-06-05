@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 38 · MLOps — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w38">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 38</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 7 · Production &amp; Reinforcement Learning › Lesson 38</div>
+        <span class="eyebrow">⚙️ Part 7 · Production &amp; Reinforcement Learning</span>
+        <h1>MLOps: Deploying &amp; Maintaining Models</h1>
+        <div class="lesson-meta"><span>⏱️ 50 min</span><span>🎯 From notebook to production</span><span>📦 Week 38</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain what MLOps is — and why "it works on my laptop" is not the same as "it works in production."</li>
+          <li>Track experiments and register models with a lightweight MLflow workflow.</li>
+          <li>Name the core MLOps tools and what each one solves (MLflow, DVC, Docker, Kubeflow…).</li>
+          <li>Diagnose the three production killers: data drift, concept drift, and training–serving skew.</li>
+          <li>Reason about Responsible &amp; Explainable AI — fairness, transparency, and what SHAP/LIME actually do.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">You trained a brilliant model in a notebook. Six months from now, with new data flowing in and three teammates touching the code, will it still work — and will you be able to <em>prove</em> it?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>38.1 What MLOps is: DevOps for machine learning</h2>
+      <p>For 37 weeks we've built models — regression in Week 13, CNNs in Week 28, transformers in Week 32. Each lived happily inside a notebook. But a notebook is a <em>demo</em>, not a <em>product</em>. The moment a model has to make real decisions for real users, every day, forever, a new discipline kicks in: <strong>MLOps</strong> — the practices that take a model from "ran once" to "runs reliably."</p>
+      <p>MLOps borrows from <strong>DevOps</strong> (the software-engineering culture of automating build, test, and release) and adds the two things that make ML special: <em>data</em> and <em>models</em> are first-class artifacts that change over time. The pillars:</p>
+      <ul>
+        <li><strong>Reproducibility</strong> — anyone can rebuild your exact result from the same code + data + config. No "magic seed only on my machine."</li>
+        <li><strong>Versioning</strong> — not just code (Git), but <em>data</em> and <em>model weights</em> too. The same code on different data is a different model.</li>
+        <li><strong>Pipelines</strong> — the path from raw data → features → training → evaluation is automated, not a sequence of cells you remember to run in order.</li>
+        <li><strong>CI/CD</strong> — Continuous Integration / Continuous Delivery: every change is automatically tested and, if it passes, shipped.</li>
+        <li><strong>Monitoring</strong> — once live, you watch the model's health like a patient, because the world it learned from keeps moving.</li>
+      </ul>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Baking one perfect cake at home is easy. Running a bakery is hard: you need the recipe written down (code), the exact same flour every time (data versioning), an oven that bakes 500 cakes a day (deployment), and someone tasting them to make sure they didn't go stale (monitoring). MLOps is the rulebook for turning your one great cake into a bakery that never lets a bad cake out the door.</p>
+      </div>
+
+      <figure class="figure">
+        <svg viewBox="0 0 460 300" aria-label="The MLOps lifecycle as a loop: data, train, deploy, monitor, back to data">
+          <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4f46e5"/></marker></defs>
+          <!-- four nodes around a loop -->
+          <circle cx="230" cy="55" r="40" fill="#eef0fb" stroke="#4f46e5" stroke-width="2"/>
+          <text x="230" y="52" font-size="13" text-anchor="middle" fill="#4f46e5" font-weight="bold">Data</text>
+          <text x="230" y="68" font-size="10" text-anchor="middle" fill="#767c93">collect · version</text>
+
+          <circle cx="395" cy="160" r="40" fill="#e8f7f4" stroke="#14b8a6" stroke-width="2"/>
+          <text x="395" y="157" font-size="13" text-anchor="middle" fill="#0f9488" font-weight="bold">Train</text>
+          <text x="395" y="173" font-size="10" text-anchor="middle" fill="#767c93">+ track</text>
+
+          <circle cx="230" cy="245" r="40" fill="#fef4e6" stroke="#f59e0b" stroke-width="2"/>
+          <text x="230" y="242" font-size="13" text-anchor="middle" fill="#b9770a" font-weight="bold">Deploy</text>
+          <text x="230" y="258" font-size="10" text-anchor="middle" fill="#767c93">API · container</text>
+
+          <circle cx="65" cy="160" r="40" fill="#fdeaee" stroke="#f43f5e" stroke-width="2"/>
+          <text x="65" y="157" font-size="13" text-anchor="middle" fill="#d61d3c" font-weight="bold">Monitor</text>
+          <text x="65" y="173" font-size="10" text-anchor="middle" fill="#767c93">drift · alerts</text>
+
+          <!-- arrows clockwise -->
+          <path d="M268,82 A120 120 0 0 1 368,128" fill="none" stroke="#4f46e5" stroke-width="2" marker-end="url(#ar)"/>
+          <path d="M390,200 A120 120 0 0 1 268,238" fill="none" stroke="#4f46e5" stroke-width="2" marker-end="url(#ar)"/>
+          <path d="M192,238 A120 120 0 0 1 72,200" fill="none" stroke="#4f46e5" stroke-width="2" marker-end="url(#ar)"/>
+          <path d="M70,120 A120 120 0 0 1 192,82" fill="none" stroke="#4f46e5" stroke-width="2" marker-end="url(#ar)"/>
+          <text x="230" y="162" font-size="11" text-anchor="middle" fill="#767c93" font-style="italic">never-ending loop</text>
+        </svg>
+        <figcaption>The MLOps lifecycle. Unlike normal software, it's a <em>loop</em>: monitoring feeds drift back into fresh data, which retrains the model. The work is never "done."</figcaption>
+      </figure>
+
+      <h2>38.2 A lightweight workflow with MLflow</h2>
+      <p>The very first habit to build is <strong>experiment tracking</strong>. During Weeks 13–37 you ran dozens of training jobs — different learning rates, different layers, different features. Which one was best? If your answer is "I think it was the one in the cell I overwrote," you've already lost reproducibility.</p>
+      <p><strong>MLflow</strong> is a small open-source tool that fixes this. Two pieces matter:</p>
+      <ul>
+        <li><strong>Tracking</strong> — every run logs its <em>parameters</em> (hyper-params), <em>metrics</em> (accuracy, loss), and <em>artifacts</em> (the trained model, plots). You get a searchable dashboard of every experiment you've ever run.</li>
+        <li><strong>Model Registry</strong> — once a run wins, you <em>register</em> its model under a name and promote it through stages: <code>Staging</code> → <code>Production</code> → <code>Archived</code>. Deployment then just asks the registry for "the current Production model."</li>
+      </ul>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">mlflow — track an experiment</span></div>
+<pre><code class="language-python">import mlflow
+import mlflow.sklearn
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+# 1) Load + split data (the Random Forest from Week 22)
+X, y = load_iris(return_X_y=True)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=0)
+
+# 2) Tell MLflow which "experiment" (project) these runs belong to
+mlflow.set_experiment("iris-rf")
+
+# 3) Each `with` block is ONE tracked run. Everything inside is logged.
+with mlflow.start_run():
+    n_estimators, max_depth = 200, 4
+
+    model = RandomForestClassifier(n_estimators=n_estimators,
+                                   max_depth=max_depth, random_state=0)
+    model.fit(X_tr, y_tr)
+    acc = accuracy_score(y_te, model.predict(X_te))
+
+    # Log the knobs we turned (params) and the result (metric)
+    mlflow.log_param("n_estimators", n_estimators)   # a hyper-parameter
+    mlflow.log_param("max_depth", max_depth)
+    mlflow.log_metric("accuracy", acc)               # the score we care about
+
+    # Save the actual trained model as an artifact, and register it by name
+    mlflow.sklearn.log_model(model, name="model",
+                             registered_model_name="iris-classifier")
+
+    print(f"logged run with accuracy = {acc:.3f}")
+    # -> logged run with accuracy = 0.974
+# Run `mlflow ui` in a terminal to browse every run in a web dashboard.</code></pre>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one habit to keep</div>
+        <p style="margin-bottom:0">If a result isn't logged, it didn't happen. Track <em>params, metrics, and the model artifact</em> on every run from day one. Future-you (and your teammates) will be able to answer "why did we ship this version?" instead of guessing.</p>
+      </div>
+
+      <h2>38.3 The tool landscape</h2>
+      <p>No single tool does everything; MLOps is a stack you assemble. The essentials, mapped to the problem each one solves:</p>
+      <ul>
+        <li><strong>MLflow</strong> — experiment tracking + model registry (section 38.2).</li>
+        <li><strong>DVC (Data Version Control)</strong> — "Git for data." It versions large datasets and model files that are too big for Git, while keeping a tiny pointer in Git so code and data stay in sync.</li>
+        <li><strong>Docker</strong> — packages your model <em>plus its exact environment</em> (Python version, libraries) into a container that runs identically everywhere. (This is Week 39's main act.)</li>
+        <li><strong>Kubeflow</strong> — runs ML pipelines on Kubernetes at scale, orchestrating multi-step training/serving workflows across many machines.</li>
+        <li><strong>Airflow / Prefect</strong> — schedule and orchestrate the pipeline (e.g. "retrain every Monday at 2am").</li>
+        <li><strong>Evidently / WhyLabs</strong> — monitoring dashboards that detect drift (section 38.4).</li>
+      </ul>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🏭</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Think of a factory assembly line. DVC is the warehouse logging which batch of raw materials went into each product. MLflow is the quality-control clipboard recording every test result. Docker is the shipping crate that protects the product in transit. Kubeflow is the conveyor-belt system tying it all together. You don't buy one machine — you design a line.</p>
+      </div>
+
+      <h2>38.4 The challenges: drift, skew, and monitoring</h2>
+      <p>Here's the uncomfortable truth that separates ML from ordinary software: <strong>your model can rot while the code never changes.</strong> A web server behaves the same on Tuesday as on Monday. A model's accuracy can quietly collapse, because the <em>world</em> it learned from has moved on. Three distinct failures:</p>
+      <ul>
+        <li><strong>Data drift</strong> — the input distribution \(P(X)\) shifts. A spam filter trained in 2023 meets 2026's new phishing styles; the features look different from training.</li>
+        <li><strong>Concept drift</strong> — the relationship \(P(y \mid X)\) itself changes. The <em>same</em> input now means something different — e.g. "free shipping" was once a spam signal, now every legit shop says it.</li>
+        <li><strong>Training–serving skew</strong> — the features computed at <em>training</em> time differ subtly from those computed live at <em>serving</em> time (different code paths, a missing normalisation). The model sees inputs it was never trained on, despite no drift at all.</li>
+      </ul>
+      <p>We <em>detect</em> drift by comparing distributions. A common test is the <strong>Population Stability Index</strong>, which sums how much each bucket of a feature shifted between a reference window and live traffic:</p>
+      <p>\[ \text{PSI} = \sum_{i} \left( p_i^{\text{live}} - p_i^{\text{ref}} \right) \ln\!\frac{p_i^{\text{live}}}{p_i^{\text{ref}}} \]</p>
+      <p>A PSI above ~0.2 is a loud alarm that the inputs have moved. The fix is <strong>monitoring</strong>: log live predictions and (when ground truth eventually arrives) live accuracy, alert on drops, and trigger a <em>retrain</em> — which closes the loop back to "Data" in our diagram.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> The silent failure</div>
+        <p style="margin-bottom:0">Training–serving skew throws <em>no error</em>. Accuracy just quietly sags. The classic culprit: you log-transform a feature in your training notebook but forget to apply the exact same transform in the serving API. The cure is to share a <em>single</em> preprocessing function (or pipeline) between training and serving — never two copies that can drift apart.</p>
+      </div>
+
+      <h2>38.5 Responsible &amp; Explainable AI</h2>
+      <p>Shipping a model means it now affects people — who gets a loan, a diagnosis, a job interview. That makes <strong>Responsible AI</strong> not optional. Two threads:</p>
+      <p><strong>Fairness &amp; bias.</strong> A model trained on historical data inherits historical bias. If past hiring favoured one group, a model that learns to predict "would we have hired them?" will too. We measure this with fairness metrics — e.g. <em>demographic parity</em> (the positive-prediction rate should be similar across groups) or <em>equalised odds</em> (similar true-positive and false-positive rates across groups) — and we mitigate by reweighting data, adjusting thresholds, or constraining training.</p>
+      <p><strong>Transparency &amp; explainability.</strong> A 175-billion-parameter model is a black box. <strong>Explainable AI (XAI)</strong> opens it just enough to ask "<em>why</em> did you predict that?" Two famous tools:</p>
+      <ul>
+        <li><strong>LIME</strong> (Local Interpretable Model-agnostic Explanations) — to explain one prediction, it wiggles the input slightly, watches how the output changes, and fits a tiny <em>linear</em> model in that neighbourhood. The linear weights tell you which features pushed this one decision.</li>
+        <li><strong>SHAP</strong> (SHapley Additive exPlanations) — borrows the <em>Shapley value</em> from game theory: it fairly distributes the prediction among the features by averaging each feature's marginal contribution over all possible orderings. SHAP values are additive and sum back to the prediction, giving consistent, theoretically grounded attributions.</li>
+      </ul>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine a robot says "loan denied" and you ask "why?" SHAP is like the robot honestly splitting the blame: "low income took away 30 points, short credit history took away 10, but living in the city added 5." Now you know what mattered — and you can check it wasn't something unfair, like a zip code standing in for race.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This lesson takes <em>every</em> model you built in <strong>Part 4 (classical ML)</strong>, <strong>Part 5 (deep learning)</strong>, and <strong>Part 6 (transformers &amp; GenAI)</strong> and asks the grown-up question: how do we run them for real? It's the foundation of <strong>Project 5 (Ship It)</strong>. Next week, <strong>Week 39 (Cloud Deployment)</strong>, we take the Docker container hinted at here and actually push it to the cloud, autoscaled and serverless.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">📖</span><div><a href="https://ml-ops.org/content/mlops-principles" target="_blank" rel="noopener">MLOps Principles (ml-ops.org)</a><span class="r-src">A clear, vendor-neutral rundown of reproducibility, versioning, CI/CD and monitoring — the spine of section 38.1.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://mlflow.org/docs/latest/tracking.html" target="_blank" rel="noopener">MLflow Tracking documentation</a><span class="r-src">The official guide to the exact <code>log_param</code> / <code>log_metric</code> / <code>log_model</code> calls in section 38.2.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://github.com/shap/shap" target="_blank" rel="noopener">SHAP — explainable AI library</a><span class="r-src">The reference implementation and visual examples behind section 38.5; the README explains Shapley values intuitively.</span></div></li>
+        <li><span class="r-ic">📄</span><div><a href="https://research.google/pubs/the-ml-test-score-a-rubric-for-ml-production-readiness-and-technical-debt-reduction/" target="_blank" rel="noopener">The ML Test Score (Google)</a><span class="r-src">A famous rubric of what "production-ready ML" really requires — drift, skew, and monitoring included.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">A model's accuracy quietly drops over months even though no one changed the code. What's the most likely cause?</div>
+        <button class="opt">A bug in the training script appeared by itself.</button>
+        <button class="opt">The model forgot what it learned.</button>
+        <button class="opt">Drift — the real-world data distribution has shifted away from the training data.</button>
+        <button class="opt">The CPU is getting slower.</button>
+        <div class="explain">Unlike ordinary software, an ML model decays as the world moves. Data drift (inputs shift) or concept drift (the input→output relationship shifts) erode accuracy without any code change — which is why monitoring and retraining loops exist.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">In MLflow, what is the Model Registry for?</div>
+        <button class="opt">Storing your raw training data.</button>
+        <button class="opt">Naming, versioning, and promoting trained models through stages like Staging → Production.</button>
+        <button class="opt">Writing the Python code for the model.</button>
+        <button class="opt">Drawing accuracy charts.</button>
+        <div class="explain">Tracking logs each <em>run</em>; the Registry manages the <em>winning models</em> — giving each a name, version, and lifecycle stage so deployment can simply request "the current Production model."</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">SHAP and LIME both aim to do what?</div>
+        <button class="opt">Explain <em>why</em> a model made a particular prediction by attributing it to input features.</button>
+        <button class="opt">Make the model train faster.</button>
+        <button class="opt">Compress the model for mobile devices.</button>
+        <button class="opt">Encrypt the training data.</button>
+        <div class="explain">Both are explainability (XAI) tools. LIME fits a local linear surrogate around one prediction; SHAP uses game-theoretic Shapley values to fairly split a prediction among its features. Both turn a black box into something you can interrogate for correctness and fairness.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

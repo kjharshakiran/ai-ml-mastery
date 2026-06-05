@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 11 · Paradigms of ML I — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w11">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 11</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 4 · Classical Machine Learning › Lesson 11</div>
+        <span class="eyebrow">🧮 Part 4 · Classical Machine Learning</span>
+        <h1>Paradigms of ML I: Supervised &amp; Unsupervised</h1>
+        <div class="lesson-meta"><span>⏱️ 45 min</span><span>🎯 How machines learn from data</span><span>📦 Week 11</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Say precisely what "learning from data" means — and how it differs from ordinary programming.</li>
+          <li>Draw the family tree of ML paradigms and place any new algorithm on it.</li>
+          <li>Explain <strong>supervised learning</strong> and split it into classification vs regression.</li>
+          <li>Explain <strong>unsupervised learning</strong> and its two big jobs: clustering and dimensionality reduction.</li>
+          <li>Look at a real problem and instantly name which paradigm it needs.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A traditional programmer writes the rules by hand. But how would you write the rules for "is this email spam?" or "which customers are about to leave?" — when you can't even list the rules yourself?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. What "learning from data" actually means</h2>
+      <p>For most of computing history we did it one way: a human stares at a problem, figures out the rules, and types them as code. <code>IF income &gt; 50000 AND age &lt; 30 THEN approve</code>. This works beautifully — until the rules are too subtle, too numerous, or too tangled for any human to write down. Nobody can write the <em>if-statements</em> that distinguish a cat photo from a dog photo pixel by pixel.</p>
+      <p><strong>Machine learning flips the arrow.</strong> Instead of giving the computer the rules and watching it produce answers, we give it <em>answers</em> (examples) and let it produce the <em>rules</em> itself. The "rules" it learns are called a <strong>model</strong> — a function \(f\) with adjustable knobs (parameters) that we tune until \(f\) reproduces the examples well and, crucially, generalises to examples it has never seen.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine teaching a friend to recognise dogs. You <em>could</em> try to describe a dog in words ("four legs, a tail, floppy ears…") — but a cat fits that too! Instead, you just point at hundreds of animals and say "dog… not a dog… dog…". After enough pointing, your friend just <em>knows</em>. That's machine learning: learning from lots of examples instead of from a written rulebook.</p>
+      </div>
+
+      <p>Formally, we have data — a pile of examples \(\{(\mathbf{x}_1,\dots),(\mathbf{x}_2,\dots),\dots\}\) where each \(\mathbf{x}_i\) is a feature vector (remember Week 2: everything becomes a vector). The whole game of Part 4 is: <em>find a function that captures the pattern in this pile</em>. What separates the paradigms is one simple question: <strong>what extra information comes with each example?</strong></p>
+
+      <h2>2. The family tree of paradigms</h2>
+      <p>There are a handful of fundamentally different teaching situations, and they're organised by the kind of feedback the learner gets. This tree is the map for all of Part 4 (and most of the rest of the course):</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 640 360" aria-label="A tree of machine learning paradigms">
+          <!-- root -->
+          <rect x="250" y="14" width="140" height="40" rx="8" fill="#4f46e5"/>
+          <text x="320" y="39" font-size="15" fill="#fff" text-anchor="middle" font-family="sans-serif">Machine Learning</text>
+          <!-- branches to three -->
+          <line x1="320" y1="54" x2="120" y2="100" stroke="#767c93" stroke-width="2"/>
+          <line x1="320" y1="54" x2="320" y2="100" stroke="#767c93" stroke-width="2"/>
+          <line x1="320" y1="54" x2="520" y2="100" stroke="#767c93" stroke-width="2"/>
+          <!-- supervised -->
+          <rect x="40" y="100" width="160" height="40" rx="8" fill="#14b8a6"/>
+          <text x="120" y="118" font-size="13" fill="#fff" text-anchor="middle" font-family="sans-serif">Supervised</text>
+          <text x="120" y="133" font-size="11" fill="#d7f5ef" text-anchor="middle" font-family="sans-serif">labelled data</text>
+          <!-- unsupervised -->
+          <rect x="240" y="100" width="160" height="40" rx="8" fill="#f59e0b"/>
+          <text x="320" y="118" font-size="13" fill="#fff" text-anchor="middle" font-family="sans-serif">Unsupervised</text>
+          <text x="320" y="133" font-size="11" fill="#fff3dd" text-anchor="middle" font-family="sans-serif">no labels</text>
+          <!-- reinforcement -->
+          <rect x="440" y="100" width="160" height="40" rx="8" fill="#f43f5e"/>
+          <text x="520" y="118" font-size="13" fill="#fff" text-anchor="middle" font-family="sans-serif">Reinforcement</text>
+          <text x="520" y="133" font-size="11" fill="#ffe0e6" text-anchor="middle" font-family="sans-serif">rewards (Wk 40)</text>
+          <!-- supervised children -->
+          <line x1="120" y1="140" x2="70" y2="190" stroke="#767c93" stroke-width="2"/>
+          <line x1="120" y1="140" x2="180" y2="190" stroke="#767c93" stroke-width="2"/>
+          <rect x="10" y="190" width="120" height="40" rx="8" fill="#fff" stroke="#14b8a6" stroke-width="2"/>
+          <text x="70" y="208" font-size="12" fill="#0f766e" text-anchor="middle" font-family="sans-serif">Classification</text>
+          <text x="70" y="223" font-size="10" fill="#767c93" text-anchor="middle" font-family="sans-serif">label = category</text>
+          <rect x="140" y="190" width="120" height="40" rx="8" fill="#fff" stroke="#14b8a6" stroke-width="2"/>
+          <text x="200" y="208" font-size="12" fill="#0f766e" text-anchor="middle" font-family="sans-serif">Regression</text>
+          <text x="200" y="223" font-size="10" fill="#767c93" text-anchor="middle" font-family="sans-serif">label = number</text>
+          <!-- unsupervised children -->
+          <line x1="320" y1="140" x2="320" y2="190" stroke="#767c93" stroke-width="2"/>
+          <line x1="320" y1="140" x2="440" y2="190" stroke="#767c93" stroke-width="2"/>
+          <rect x="262" y="190" width="116" height="40" rx="8" fill="#fff" stroke="#f59e0b" stroke-width="2"/>
+          <text x="320" y="208" font-size="12" fill="#b45309" text-anchor="middle" font-family="sans-serif">Clustering</text>
+          <text x="320" y="223" font-size="10" fill="#767c93" text-anchor="middle" font-family="sans-serif">find groups</text>
+          <rect x="392" y="190" width="150" height="40" rx="8" fill="#fff" stroke="#f59e0b" stroke-width="2"/>
+          <text x="467" y="208" font-size="12" fill="#b45309" text-anchor="middle" font-family="sans-serif">Dim. reduction</text>
+          <text x="467" y="223" font-size="10" fill="#767c93" text-anchor="middle" font-family="sans-serif">compress / view</text>
+          <!-- middle ground note -->
+          <rect x="170" y="290" width="300" height="44" rx="8" fill="#eef0fa" stroke="#c7cdf0" stroke-width="1.5"/>
+          <text x="320" y="310" font-size="12" fill="#4f46e5" text-anchor="middle" font-family="sans-serif">In between: semi-supervised, self-supervised,</text>
+          <text x="320" y="326" font-size="12" fill="#4f46e5" text-anchor="middle" font-family="sans-serif">online, meta-learning → next lesson (Week 12)</text>
+        </svg>
+        <figcaption>The ML paradigm tree. This lesson covers the two big left branches; Week 12 fills in the "in-between" paradigms and reinforcement learning.</figcaption>
+      </figure>
+
+      <p>The branching question is always the same: <em>what does each training example come with?</em> A correct answer attached? That's supervised. Nothing but the data? Unsupervised. A reward signal earned by acting? Reinforcement. Get this one question and the whole tree falls into place.</p>
+
+      <h2>3. Supervised learning: learning with an answer key</h2>
+      <p>In supervised learning every training example is a <strong>pair</strong>: an input \(\mathbf{x}\) and its correct output \(y\), the <strong>label</strong>. The dataset is \(\{(\mathbf{x}_1, y_1), \dots, (\mathbf{x}_n, y_n)\}\), and we want a function \(f\) such that \(f(\mathbf{x}_i) \approx y_i\) — and that keeps working on new \(\mathbf{x}\) it never saw.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">📚</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Supervised learning is studying with flashcards that have the answer on the back. Question on the front (\(\mathbf{x}\)), answer on the back (\(y\)). You quiz yourself thousands of times, peeking at the back to correct yourself, until you can answer cards you've never seen. The "answer on the back" is the supervision — a teacher signal telling you exactly how wrong you were.</p>
+      </div>
+
+      <p>Supervised learning splits cleanly in two, depending on the <strong>type of label</strong>:</p>
+      <ul>
+        <li><strong>Classification</strong> — the label is a <em>category</em> from a fixed set. Spam / not-spam. Cat / dog / horse. Tumour benign / malignant. The output is discrete. (Algorithms in Weeks 15–18, 21–22.)</li>
+        <li><strong>Regression</strong> — the label is a <em>number</em> on a continuous scale. Tomorrow's temperature. A house's price. A patient's blood pressure next year. The output is real-valued. (Weeks 13–14.)</li>
+      </ul>
+
+      <p>How does the machine "know" it's wrong? Through a <strong>loss function</strong> that scores the gap between its prediction \(f(\mathbf{x})\) and the truth \(y\). For regression the classic is squared error; averaged over the data it becomes mean squared error:</p>
+      <p>\[ \text{MSE} = \frac{1}{n}\sum_{i=1}^{n}\bigl(y_i - f(\mathbf{x}_i)\bigr)^2 \]</p>
+      <p>Training = nudging the model's knobs to make this number small (the optimisation idea from Week 3). That's literally all supervised learning is: <em>guess, measure the error, adjust, repeat.</em></p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0"><strong>Categorical label → classification. Numeric label → regression.</strong> Both are supervised because both come with an answer key. Ask "what's on the back of the flashcard?" — a class name or a number — and you've classified the problem.</p>
+      </div>
+
+      <h2>4. Unsupervised learning: finding structure with no answer key</h2>
+      <p>Now remove the labels. The dataset is just \(\{\mathbf{x}_1, \dots, \mathbf{x}_n\}\) — raw vectors, no \(y\), nobody telling you the right answer. This is the situation most real data is born in: you have a million customer records and zero labels. The goal shifts from "predict the label" to "<strong>discover the hidden structure</strong>."</p>
+
+      <p>Two main jobs live here:</p>
+      <ul>
+        <li><strong>Clustering</strong> — group the data so that points in the same group are similar and points in different groups are different. "These 10,000 customers actually fall into 4 natural types." (k-Means &amp; hierarchical clustering, Week 23.)</li>
+        <li><strong>Dimensionality reduction</strong> — squash high-dimensional data down to a few meaningful directions, for visualisation or compression, while keeping the important variation. "Reduce these 500 gene measurements to the 2 axes that explain most of the differences." (PCA &amp; LDA, Week 20.)</li>
+      </ul>
+
+      <figure class="figure">
+        <svg viewBox="0 0 560 220" aria-label="Clustering finds groups in unlabelled points">
+          <text x="140" y="22" font-size="13" fill="#767c93" text-anchor="middle" font-family="sans-serif">Before: just points</text>
+          <text x="420" y="22" font-size="13" fill="#767c93" text-anchor="middle" font-family="sans-serif">After: clusters discovered</text>
+          <!-- before: grey points -->
+          <g fill="#767c93">
+            <circle cx="60" cy="70" r="5"/><circle cx="80" cy="90" r="5"/><circle cx="55" cy="100" r="5"/><circle cx="90" cy="65" r="5"/>
+            <circle cx="200" cy="60" r="5"/><circle cx="215" cy="85" r="5"/><circle cx="190" cy="95" r="5"/><circle cx="225" cy="68" r="5"/>
+            <circle cx="120" cy="170" r="5"/><circle cx="145" cy="185" r="5"/><circle cx="105" cy="190" r="5"/><circle cx="135" cy="160" r="5"/>
+          </g>
+          <line x1="270" y1="110" x2="320" y2="110" stroke="#4f46e5" stroke-width="2" marker-end="url(#ah11)"/>
+          <defs><marker id="ah11" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4f46e5"/></marker></defs>
+          <!-- after: coloured -->
+          <g fill="#14b8a6">
+            <circle cx="360" cy="70" r="5"/><circle cx="380" cy="90" r="5"/><circle cx="355" cy="100" r="5"/><circle cx="390" cy="65" r="5"/>
+          </g>
+          <g fill="#f59e0b">
+            <circle cx="500" cy="60" r="5"/><circle cx="515" cy="85" r="5"/><circle cx="490" cy="95" r="5"/><circle cx="525" cy="68" r="5"/>
+          </g>
+          <g fill="#f43f5e">
+            <circle cx="420" cy="170" r="5"/><circle cx="445" cy="185" r="5"/><circle cx="405" cy="190" r="5"/><circle cx="435" cy="160" r="5"/>
+          </g>
+        </svg>
+        <figcaption>Clustering: no labels go in, yet natural groups come out. The algorithm decided the colours, not a human.</figcaption>
+      </figure>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🧦</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Unsupervised learning is dumping a basket of unsorted laundry on the bed with no instructions and naturally piling socks with socks, shirts with shirts. Nobody told you the categories — you <em>invented</em> them by noticing similarity. Clustering is exactly that: structure you find, not structure you were handed.</p>
+      </div>
+
+      <p>Because there's no answer key, evaluating unsupervised results is genuinely harder — there's no single "accuracy" to compute. We judge clusters by how tight and well-separated they are, and dimensionality reduction by how much variation it preserves. We'll make all of this concrete in Weeks 20 and 23.</p>
+
+      <h2>5. A tiny taste in code</h2>
+      <p>Let's see both paradigms side by side on the classic Iris flowers dataset. Supervised: predict the species (a label). Unsupervised: ignore the labels and let k-Means find groups on its own.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">scikit-learn — both paradigms</span></div>
+<pre><code class="language-python">import numpy as np
+from sklearn.datasets import load_iris
+from sklearn.linear_model import LogisticRegression
+from sklearn.cluster import KMeans
+from sklearn.model_selection import train_test_split
+
+X, y = load_iris(return_X_y=True)   # X: 150 flowers x 4 measurements, y: species 0/1/2
+
+# --- SUPERVISED: we DO use the labels y to learn species ---
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.3, random_state=0)
+clf = LogisticRegression(max_iter=500).fit(X_tr, y_tr)   # learn from answer key
+print("Supervised accuracy:", round(clf.score(X_te, y_te), 3))  # ~0.98
+
+# --- UNSUPERVISED: we IGNORE y entirely and just look for 3 groups ---
+km = KMeans(n_clusters=3, n_init=10, random_state=0).fit(X)   # no y passed in!
+print("Cluster labels found:", np.unique(km.labels_))         # [0 1 2] -- it invented 3 groups
+
+# The clusters often line up with the real species -- structure was there all along
+# (cluster IDs are arbitrary, so a direct == comparison isn't meaningful)</code></pre>
+      <p>Notice the single most important difference in the whole lesson: the supervised call passes <code>y</code> in, the unsupervised call does not. That one argument is the entire distinction between the two great branches of the tree.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This lesson is the map for all of <strong>Part 4</strong>. It builds directly on <strong>Week 2 (vectors)</strong> — every example is a feature vector — and <strong>Week 3 (optimisation)</strong> — training means minimising a loss. From here the tree branches into real algorithms: <strong>regression</strong> (Weeks 13–14), <strong>classification</strong> (k-NN, Bayes, SVM, trees — Weeks 15–18, 21–22), <strong>clustering</strong> (Week 23), and <strong>PCA</strong> for dimensionality reduction (Week 20). Next lesson, <strong>Week 12</strong>, fills in the paradigms <em>between</em> supervised and unsupervised — including self-supervised learning, the trick that trains modern LLMs.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=Gv9_4yMHFhI" target="_blank" rel="noopener">Machine Learning Fundamentals: Bias and Variance &amp; the ML map</a> <span class="badge-sq">StatQuest</span><span class="r-src">Josh Starmer's gentle on-ramp to what learning from data means, BAM! Great companion to sections 1–3.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=aircAruvnKk" target="_blank" rel="noopener">But what is a neural network?</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">The opening minutes give the clearest picture anywhere of "learning a function from examples" — exactly section 1.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://scikit-learn.org/stable/tutorial/machine_learning_map/index.html" target="_blank" rel="noopener">scikit-learn: Choosing the right estimator</a><span class="r-src">A real-world version of our tree — a flowchart that routes a problem to the right algorithm. Bookmark it.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">You're predicting a house's <em>sale price in dollars</em> from its features. Which paradigm and task?</div>
+        <button class="opt">Unsupervised — clustering.</button>
+        <button class="opt">Supervised — regression.</button>
+        <button class="opt">Supervised — classification.</button>
+        <button class="opt">Reinforcement learning.</button>
+        <div class="explain">You have labelled examples (past sales with known prices), so it's supervised. The label is a continuous number (price), so it's regression — not classification, which predicts categories.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">A marketing team hands you a million customer records with <strong>no labels</strong> and asks "what types of customers do we have?" The natural approach is…</div>
+        <button class="opt">Supervised classification.</button>
+        <button class="opt">Supervised regression.</button>
+        <button class="opt">Unsupervised clustering.</button>
+        <button class="opt">It's impossible without labels.</button>
+        <div class="explain">No labels means unsupervised. "What natural groups exist?" is the definition of clustering. The algorithm discovers the customer types rather than predicting a known answer.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">What single change turns the supervised example into an unsupervised one in our Iris code?</div>
+        <button class="opt">Not passing the labels <code>y</code> to the algorithm during fitting.</button>
+        <button class="opt">Using a smaller test set.</button>
+        <button class="opt">Switching from NumPy to pandas.</button>
+        <button class="opt">Adding more flowers to the dataset.</button>
+        <div class="explain">The defining difference is the answer key. Supervised <code>fit(X, y)</code> uses labels; unsupervised <code>fit(X)</code> sees only the inputs and must find structure on its own.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

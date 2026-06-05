@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 24 · Neurons &amp; Activation Functions — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w24">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 24</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 5 · Deep Learning › Lesson 24</div>
+        <span class="eyebrow">🧠 Part 5 · Deep Learning</span>
+        <h1>Neural Networks I: Neurons &amp; Activation Functions</h1>
+        <div class="lesson-meta"><span>⏱️ 55 min</span><span>🎯 From a dot product to a thinking cell</span><span>📦 Week 24</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain why a stack of <em>linear</em> models can never solve a problem like XOR — and why we need non-linearity.</li>
+          <li>Write a single neuron as a weighted sum (a Week 2 dot product) + bias + an activation function.</li>
+          <li>Compare the classic step neuron with the smooth sigmoid, tanh, and the modern ReLU.</li>
+          <li>Turn raw scores into a probability distribution over many classes with softmax.</li>
+          <li>Implement a neuron and all four activations from scratch in NumPy.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A straight line can split "spam vs. not-spam" only when the data is neatly separable. How do we build a model that can carve out <em>curved, tangled</em> boundaries — the kind real pictures, words, and sounds actually live on?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>24.1 The cell that started it all</h2>
+      <p>For the last few weeks we built models that draw <strong>straight</strong> decision boundaries: a line, a plane, a hyperplane. Logistic regression, the perceptron (Week 17), even a linear SVM (Week 18) — all of them ultimately ask "which side of a flat wall does this point fall on?" That works astonishingly often. But the real world is full of patterns no flat wall can separate, and to cross that gap we borrow an idea from biology: the <strong>artificial neuron</strong>.</p>
+      <p>A biological neuron collects electrical signals from thousands of neighbours, adds them up, and <em>fires</em> only when the total crosses a threshold. The artificial version keeps exactly that shape — collect, sum, decide — but makes every step a clean piece of math. It is the LEGO brick of deep learning: tiny and dumb alone, but stack enough of them and you get systems that recognise faces, translate languages, and write code.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine a tiny judge at a talent show. Each act gives the judge some points — singing matters a lot (big weight), juggling matters a little (small weight). The judge adds up all the points, and if the total is high enough, they hold up a "YES!" sign; otherwise they hold up "no." A neuron is exactly that judge: it weighs its inputs, adds them, and decides yes or no. A brain is millions of these judges passing notes to each other.</p>
+      </div>
+
+      <h2>24.2 Why linear models hit a wall: the XOR problem</h2>
+      <p>Here is the famous puzzle that nearly killed neural-network research in the 1960s. Suppose two switches, each 0 or 1, and we want the output to be 1 when <em>exactly one</em> switch is on — the "exclusive OR" (XOR):</p>
+      <ul>
+        <li>(0,0) → 0, (1,1) → 0 &nbsp;&nbsp;(both same → off)</li>
+        <li>(0,1) → 1, (1,0) → 1 &nbsp;&nbsp;(different → on)</li>
+      </ul>
+      <p>Plot those four points. The two "on" points sit on one diagonal, the two "off" points on the other. <strong>No single straight line can put the two 1's on one side and the two 0's on the other.</strong> The classes are <em>not linearly separable</em>. A perceptron, which can only draw one line, provably cannot learn XOR.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 360 240" aria-label="XOR points cannot be separated by a single straight line">
+          <g stroke="#e3e6f0"><line x1="50" y1="200" x2="320" y2="200"/><line x1="50" y1="30" x2="50" y2="200"/></g>
+          <text x="40" y="215" font-size="12" fill="#767c93">0</text>
+          <text x="250" y="215" font-size="12" fill="#767c93">1  (x₁)</text>
+          <text x="30" y="45" font-size="12" fill="#767c93">1 (x₂)</text>
+          <!-- class 0: (0,0) and (1,1) -->
+          <circle cx="50" cy="200" r="9" fill="#f43f5e"/>
+          <circle cx="250" cy="60" r="9" fill="#f43f5e"/>
+          <!-- class 1: (0,1) and (1,0) -->
+          <circle cx="50" cy="60" r="9" fill="#14b8a6"/>
+          <circle cx="250" cy="200" r="9" fill="#14b8a6"/>
+          <!-- a failed straight line -->
+          <line x1="60" y1="220" x2="300" y2="40" stroke="#4f46e5" stroke-width="2" stroke-dasharray="6 5"/>
+          <text x="150" y="120" font-size="12" fill="#4f46e5">any line fails ✗</text>
+          <text x="265" y="58" font-size="11" fill="#f43f5e">0</text>
+          <text x="265" y="200" font-size="11" fill="#14b8a6">1</text>
+          <text x="32" y="58" font-size="11" fill="#14b8a6">1</text>
+          <text x="32" y="200" font-size="11" fill="#f43f5e">0</text>
+        </svg>
+        <figcaption>XOR: the teal (output 1) and rose (output 0) points alternate at the corners. No straight line separates the colours — we need a <em>bent</em> boundary.</figcaption>
+      </figure>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">✂️</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">A single straight cut through a pizza can only make two pieces with a flat edge between them. If you want a curvy, S-shaped slice, one straight cut will never do — you need to make several cuts and combine them. Stacking neurons is exactly "several cuts combined": each neuron is one straight cut, and the layers fold those cuts into a curved boundary that <em>can</em> isolate the XOR corners.</p>
+      </div>
+
+      <p>The fix is two ideas working together. First, <strong>stack neurons in layers</strong> so one layer can recombine the cuts of the previous one. Second — and this is the crucial part — put a <strong>non-linear activation</strong> between the layers. Without it, stacking is pointless: a sum of linear functions is still linear, so a hundred linear layers collapse into one straight line again. The activation is what bends space.</p>
+
+      <h2>24.3 The neuron, precisely</h2>
+      <p>A neuron takes an input vector \(\mathbf{x}=[x_1,\dots,x_n]\), holds its own weight vector \(\mathbf{w}\) and a single bias \(b\), and computes two steps. First the <strong>pre-activation</strong> \(z\) — a weighted sum, which is exactly the <strong>dot product from Week 2</strong>:</p>
+      <p>\[ z = \mathbf{w}\cdot\mathbf{x} + b = \sum_{i=1}^{n} w_i x_i + b \]</p>
+      <p>Then it passes \(z\) through an <strong>activation function</strong> \(\sigma\) to get the neuron's output \(a\):</p>
+      <p>\[ a = \sigma(z) = \sigma\!\left(\mathbf{w}\cdot\mathbf{x} + b\right) \]</p>
+      <p>The weights say "how much do I care about each input," and the bias shifts the threshold ("how eager am I to fire even with no input"). The activation is the neuron's personality — its decision rule.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 420 220" aria-label="A single artificial neuron">
+          <!-- inputs -->
+          <circle cx="40" cy="50" r="14" fill="#e3e6f0"/><text x="33" y="55" font-size="13" fill="#767c93">x₁</text>
+          <circle cx="40" cy="110" r="14" fill="#e3e6f0"/><text x="33" y="115" font-size="13" fill="#767c93">x₂</text>
+          <circle cx="40" cy="170" r="14" fill="#e3e6f0"/><text x="33" y="175" font-size="13" fill="#767c93">x₃</text>
+          <!-- weights -->
+          <line x1="54" y1="50" x2="190" y2="105" stroke="#4f46e5" stroke-width="2"/>
+          <line x1="54" y1="110" x2="190" y2="110" stroke="#4f46e5" stroke-width="2"/>
+          <line x1="54" y1="170" x2="190" y2="115" stroke="#4f46e5" stroke-width="2"/>
+          <text x="110" y="68" font-size="11" fill="#4f46e5">w₁</text>
+          <text x="110" y="103" font-size="11" fill="#4f46e5">w₂</text>
+          <text x="110" y="150" font-size="11" fill="#4f46e5">w₃</text>
+          <!-- body: sum -->
+          <circle cx="215" cy="110" r="26" fill="#fff" stroke="#4f46e5" stroke-width="2"/>
+          <text x="205" y="106" font-size="15" fill="#4f46e5">Σ</text>
+          <text x="198" y="124" font-size="9" fill="#767c93">+ b</text>
+          <!-- activation -->
+          <rect x="270" y="88" width="56" height="44" rx="6" fill="#fff" stroke="#14b8a6" stroke-width="2"/>
+          <text x="282" y="115" font-size="13" fill="#14b8a6">σ(z)</text>
+          <line x1="241" y1="110" x2="270" y2="110" stroke="#767c93" stroke-width="2"/>
+          <text x="248" y="103" font-size="10" fill="#767c93">z</text>
+          <!-- output -->
+          <line x1="326" y1="110" x2="380" y2="110" stroke="#767c93" stroke-width="2" marker-end="url(#nh)"/>
+          <defs><marker id="nh" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#767c93"/></marker></defs>
+          <text x="384" y="106" font-size="13" fill="#f59e0b">a</text>
+        </svg>
+        <figcaption>One neuron: inputs are weighted (indigo), summed with a bias (Σ), then squashed by an activation σ to produce the output a.</figcaption>
+      </figure>
+
+      <h2>24.4 Threshold logic: the step neuron</h2>
+      <p>The oldest activation is the <strong>step function</strong> of McCulloch &amp; Pitts (1943): fire (output 1) if the sum clears zero, stay silent (0) otherwise.</p>
+      <p>\[ \text{step}(z) = \begin{cases} 1 & z \ge 0 \\ 0 & z < 0 \end{cases} \]</p>
+      <p>This is precisely the perceptron from Week 17. It is beautifully decisive, but it has a fatal flaw for learning: it is <strong>flat almost everywhere and has a vertical cliff at zero</strong>. Its derivative is 0 (no slope to follow) or undefined (at the cliff). Next week we will train networks by following slopes downhill — and a function with no usable slope gives the learner nothing to grip. We need smooth activations.</p>
+
+      <h2>24.5 Smooth activations: sigmoid and tanh</h2>
+      <p>The <strong>sigmoid</strong> (logistic) function is a soft, S-shaped version of the step. It squashes any real number into the open interval \((0,1)\), so its output reads naturally as a <em>probability</em>:</p>
+      <p>\[ \sigma(z) = \frac{1}{1+e^{-z}} \]</p>
+      <p>It is smooth everywhere, so it has a gradient everywhere — and a famously tidy one, \(\sigma'(z)=\sigma(z)\,(1-\sigma(z))\), which we will use in Week 25. Its cousin <strong>tanh</strong> has the same S-shape but is centred on zero, mapping into \((-1,1)\):</p>
+      <p>\[ \tanh(z) = \frac{e^{z}-e^{-z}}{e^{z}+e^{-z}} \]</p>
+      <p>Because tanh is zero-centred, its outputs don't all carry the same sign, which often makes the next layer learn faster. Both share a weakness called <strong>vanishing gradients</strong>: way out in the tails the curve goes flat, the slope shrinks toward zero, and learning stalls — a problem we will confront head-on in Weeks 25–27.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 460 220" aria-label="Step, sigmoid, tanh and ReLU activation curves">
+          <g stroke="#e3e6f0"><line x1="30" y1="170" x2="430" y2="170"/><line x1="230" y1="20" x2="230" y2="200"/></g>
+          <text x="415" y="185" font-size="11" fill="#767c93">z</text>
+          <!-- step (rose) -->
+          <path d="M30,150 L230,150 L230,60 L430,60" fill="none" stroke="#f43f5e" stroke-width="2"/>
+          <!-- sigmoid (indigo) -->
+          <path d="M30,168 C140,168 180,70 230,70 C280,70 320,62 430,62" fill="none" stroke="#4f46e5" stroke-width="2"/>
+          <!-- tanh (teal) -->
+          <path d="M30,170 C120,170 175,40 230,40 C285,40 340,40 430,40" fill="none" stroke="#14b8a6" stroke-width="2" opacity="0.45"/>
+          <!-- relu (amber) -->
+          <path d="M30,170 L230,170 L380,40" fill="none" stroke="#f59e0b" stroke-width="2"/>
+          <text x="40" y="40" font-size="11" fill="#f43f5e">step</text>
+          <text x="40" y="58" font-size="11" fill="#4f46e5">sigmoid</text>
+          <text x="40" y="76" font-size="11" fill="#14b8a6">tanh</text>
+          <text x="40" y="94" font-size="11" fill="#f59e0b">ReLU</text>
+        </svg>
+        <figcaption>Four activations. Step is a hard cliff; sigmoid and tanh are smooth S-curves; ReLU is a hinge — flat for negatives, a straight ramp for positives.</figcaption>
+      </figure>
+
+      <h2>24.6 ReLU: the modern default</h2>
+      <p>Today's networks overwhelmingly use the <strong>Rectified Linear Unit</strong> (ReLU). It could not be simpler: pass positives straight through, clamp negatives to zero.</p>
+      <p>\[ \text{ReLU}(z) = \max(0,\,z) \]</p>
+      <p>Why has this beaten the elegant sigmoid? Its gradient is exactly 1 for any positive input, so signals don't vanish as they pass through deep stacks of layers — networks train far faster and go far deeper. It is also dirt cheap to compute. Its one quirk is "dead neurons" (a unit stuck outputting 0), which variants like Leaky ReLU patch by letting a trickle through for negatives. For now: <strong>when in doubt in a hidden layer, use ReLU.</strong></p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">A neuron is just <strong>(weighted sum + bias) → non-linearity</strong>. The weighted sum is a dot product you already know from Week 2. The non-linearity is the whole magic: <em>without it, no depth of stacking can bend a straight boundary into a curved one.</em> Hidden layers use ReLU; an output that must be a probability uses sigmoid (or softmax for many classes).</p>
+      </div>
+
+      <h2>24.7 Softmax: probabilities over many classes</h2>
+      <p>Sigmoid handles a yes/no output. But what about "is this digit a 0, 1, 2, … or 9?" We need a vector of probabilities over \(K\) classes that are all positive and <strong>sum to 1</strong>. That is <strong>softmax</strong>. Given the raw scores (logits) \(z_1,\dots,z_K\) from the final layer:</p>
+      <p>\[ \text{softmax}(z)_k = \frac{e^{z_k}}{\sum_{j=1}^{K} e^{z_j}} \]</p>
+      <p>It exponentiates each score (making all values positive and amplifying the leader), then divides by the total so the outputs form a probability distribution. The biggest logit becomes the most confident class. Softmax is the standard final layer for every multi-class classifier you'll build — including, eventually, the next-word predictor inside a language model.</p>
+
+      <h2>24.8 Stacking neurons: the multilayer perceptron</h2>
+      <p>Wire many neurons side-by-side into a <strong>layer</strong>, then feed that layer's outputs into another layer. The middle layers, hidden from the outside world, are <strong>hidden layers</strong>. With just one hidden layer of two ReLU neurons, a network can finally solve XOR: the hidden layer bends the input space so the two "on" corners line up on one side of the output neuron's cut.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 420 240" aria-label="A multilayer perceptron with one hidden layer">
+          <!-- input layer -->
+          <circle cx="50" cy="80" r="16" fill="#e3e6f0"/><text x="43" y="85" font-size="12" fill="#767c93">x₁</text>
+          <circle cx="50" cy="160" r="16" fill="#e3e6f0"/><text x="43" y="165" font-size="12" fill="#767c93">x₂</text>
+          <!-- hidden layer -->
+          <circle cx="210" cy="50" r="16" fill="#fff" stroke="#4f46e5" stroke-width="2"/>
+          <circle cx="210" cy="120" r="16" fill="#fff" stroke="#4f46e5" stroke-width="2"/>
+          <circle cx="210" cy="190" r="16" fill="#fff" stroke="#4f46e5" stroke-width="2"/>
+          <!-- output layer -->
+          <circle cx="370" cy="120" r="16" fill="#fff" stroke="#14b8a6" stroke-width="2"/>
+          <text x="362" y="125" font-size="12" fill="#14b8a6">ŷ</text>
+          <!-- edges in->hidden -->
+          <g stroke="#c7cbe0" stroke-width="1.2">
+            <line x1="66" y1="80" x2="194" y2="50"/><line x1="66" y1="80" x2="194" y2="120"/><line x1="66" y1="80" x2="194" y2="190"/>
+            <line x1="66" y1="160" x2="194" y2="50"/><line x1="66" y1="160" x2="194" y2="120"/><line x1="66" y1="160" x2="194" y2="190"/>
+          </g>
+          <!-- edges hidden->out -->
+          <g stroke="#9fe7dd" stroke-width="1.2">
+            <line x1="226" y1="50" x2="354" y2="120"/><line x1="226" y1="120" x2="354" y2="120"/><line x1="226" y1="190" x2="354" y2="120"/>
+          </g>
+          <text x="30" y="215" font-size="11" fill="#767c93">input</text>
+          <text x="180" y="225" font-size="11" fill="#4f46e5">hidden (ReLU)</text>
+          <text x="345" y="160" font-size="11" fill="#14b8a6">output</text>
+        </svg>
+        <figcaption>A multilayer perceptron (MLP). Each arrow is a weight; each hidden node is a neuron with a ReLU. The hidden layer bends space so the output neuron can draw a clean boundary.</figcaption>
+      </figure>
+
+      <h2>24.9 Build one in NumPy</h2>
+      <p>Let's put it together. A neuron is one line of NumPy; the activations are a few more.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — a neuron &amp; its activations</span></div>
+<pre><code class="language-python">import numpy as np
+
+# ---- activation functions ----
+def step(z):    return (z &gt;= 0).astype(float)          # McCulloch-Pitts / perceptron
+def sigmoid(z): return 1.0 / (1.0 + np.exp(-z))        # squashes to (0, 1)
+def tanh(z):    return np.tanh(z)                       # squashes to (-1, 1), zero-centred
+def relu(z):    return np.maximum(0.0, z)              # the modern default
+
+def softmax(z):
+    z = z - z.max()                # subtract max for numerical stability (no overflow)
+    e = np.exp(z)
+    return e / e.sum()             # outputs are positive and sum to 1
+
+# ---- a single neuron: weighted sum (dot product) + bias + activation ----
+def neuron(x, w, b, activation):
+    z = np.dot(w, x) + b           # pre-activation  (Week 2 dot product!)
+    return activation(z)
+
+x = np.array([0.5, -1.0, 2.0])     # one input example (3 features)
+w = np.array([0.4,  0.6, 0.1])     # this neuron's learned weights
+b = 0.2
+
+print("z   =", np.dot(w, x) + b)               # -> 0.2 (0.2 + -0.6 + 0.2 + 0.2)
+print("relu:", neuron(x, w, b, relu))          # -> 0.2   (positive, passes through)
+print("sig :", round(float(neuron(x, w, b, sigmoid)), 3))  # -> 0.55
+
+# softmax turns 3 raw class scores into a probability distribution
+logits = np.array([2.0, 1.0, 0.1])
+print("probs:", np.round(softmax(logits), 3))  # -> [0.659 0.242 0.099], sums to 1.0</code></pre>
+      <p>The print-outs confirm it: the dot product gives a pre-activation of <code>0.2</code>, ReLU passes it through unchanged, sigmoid squashes it to <code>0.55</code>, and softmax converts three scores into <code>[0.659, 0.242, 0.099]</code> — a clean probability distribution that sums to one.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">A neuron <em>is</em> the <strong>perceptron of Week 17</strong> with the hard step swapped for a smooth activation — that one change is what makes it learnable. The weighted sum at its core is the <strong>dot product of Week 2</strong>. But how do we set all those weights? A whole network has thousands of them, and we can't tune them by hand. <strong>Week 25 (Backpropagation)</strong> answers exactly that, using the chain rule from Week 3 to push every weight in the right direction. Master that and you can train anything that follows — CNNs (Week 28), RNNs (Week 30), and transformers (Week 32).</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=aircAruvnKk" target="_blank" rel="noopener">But what is a neural network?</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">Chapter 1 of the neural-network series. The clearest picture anywhere of neurons, weights, biases and activations working together. Watch before re-reading sections 24.3–24.8.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://cs231n.github.io/neural-networks-1/" target="_blank" rel="noopener">Stanford CS231n — Neural Networks Part 1</a><span class="r-src">A rigorous, friendly tour of activation functions (sigmoid, tanh, ReLU) and why ReLU dominates modern nets.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://pytorch.org/docs/stable/nn.html#non-linear-activations-weighted-sum-nonlinearity" target="_blank" rel="noopener">PyTorch activation functions reference</a><span class="r-src">The library list of every activation you'll meet — ReLU, Sigmoid, Tanh, Softmax — with their exact formulas.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">Why can't a single perceptron (one straight line) solve the XOR problem?</div>
+        <button class="opt">XOR has too many input features.</button>
+        <button class="opt">The step function is too slow to compute.</button>
+        <button class="opt">The two classes are not linearly separable — no single line splits them.</button>
+        <button class="opt">XOR requires negative weights, which perceptrons can't have.</button>
+        <div class="explain">XOR's "on" points sit on one diagonal and its "off" points on the other, so they alternate at the corners. No straight line can separate the colours. You need a hidden layer plus a non-linear activation to bend the boundary.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">What does the activation function add that a plain weighted sum does not?</div>
+        <button class="opt">It makes the neuron compute a dot product.</button>
+        <button class="opt">Non-linearity — without it, stacked layers collapse into one straight line.</button>
+        <button class="opt">It stores the neuron's weights.</button>
+        <button class="opt">It guarantees the output is always between 0 and 1.</button>
+        <div class="explain">A sum of linear functions is still linear, so depth alone buys nothing. The non-linear activation is what lets stacked layers carve curved boundaries. (Sigmoid happens to map to (0,1), but ReLU and tanh do not — bounding isn't the point.)</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">You're building the final layer of a model that classifies an image into one of 10 digits. Which activation fits?</div>
+        <button class="opt">Softmax — it gives 10 positive probabilities that sum to 1.</button>
+        <button class="opt">ReLU — it's the modern default everywhere.</button>
+        <button class="opt">Step — it's decisive.</button>
+        <button class="opt">Tanh — it's zero-centred.</button>
+        <div class="explain">Multi-class output needs a probability distribution over all classes, which is exactly what softmax produces. ReLU is for hidden layers; sigmoid is for a single yes/no output.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 14 · Overfitting &amp; Regularisation — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w14">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 14</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 4 · Classical Machine Learning › Lesson 14</div>
+        <span class="eyebrow">🧮 Part 4 · Classical Machine Learning</span>
+        <h1>Regression II: Nonlinear, Overfitting &amp; Regularisation</h1>
+        <div class="lesson-meta"><span>⏱️ 55 min</span><span>🎯 The most important practical idea in ML</span><span>📦 Week 14</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Fit curves, not just lines, with <strong>polynomial regression</strong>.</li>
+          <li>Diagnose <strong>underfitting</strong> vs <strong>overfitting</strong> and explain the <strong>bias–variance tradeoff</strong>.</li>
+          <li>See train error and test error diverge as model complexity grows.</li>
+          <li>Tame overfitting with <strong>regularisation</strong> — specifically <strong>ridge (L2)</strong> regression.</li>
+          <li>Apply all of this to polynomial hypersurface fitting.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A wiggly curve that threads through <em>every</em> training point perfectly sounds like the best possible model. So why does it often make the <em>worst</em> predictions on new data?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. When a line isn't enough: nonlinear regression</h2>
+      <p>Last week we fit straight lines and flat hyperplanes. But plenty of relationships curve — temperature over a day, the path of a thrown ball, diminishing returns on advertising. A straight line through curved data will always miss. We need models that <em>bend</em>.</p>
+      <p>The cleverest trick is also the laziest: keep linear regression's machinery, but feed it <strong>new features made from the old ones</strong>. To fit a curve in \(x\), add \(x^2\), \(x^3\), and so on as extra columns. The model stays linear <em>in its weights</em> (so the normal equation still works) but becomes a curve <em>in \(x\)</em>. This is <strong>polynomial regression</strong>:</p>
+      <p>\[ \hat{y} = w_0 + w_1 x + w_2 x^2 + \dots + w_d x^d \]</p>
+      <p>The <strong>degree</strong> \(d\) is a dial for model complexity. Degree 1 is a line; degree 2 a parabola; high degrees can wiggle wildly. And therein lies the whole drama of this lesson.</p>
+
+      <h2>2. Underfitting, good fit, overfitting</h2>
+      <p>Turn the complexity dial and three regimes appear:</p>
+      <ul>
+        <li><strong>Underfitting (too simple):</strong> a degree-1 line on clearly curved data. It can't capture the trend; it's wrong on both training and new data. We say it has high <strong>bias</strong>.</li>
+        <li><strong>Good fit (just right):</strong> the model captures the real trend and ignores the random noise. Low error on training <em>and</em> new data.</li>
+        <li><strong>Overfitting (too complex):</strong> a high-degree curve that snakes through every training point, chasing the noise. Near-zero error on training, but it lurches wildly between points and predicts terribly on new data. We say it has high <strong>variance</strong>.</li>
+      </ul>
+
+      <figure class="figure">
+        <svg viewBox="0 0 660 220" aria-label="Underfitting, good fit, and overfitting">
+          <!-- panel 1: underfit -->
+          <g>
+            <text x="100" y="20" font-size="13" fill="#f43f5e" text-anchor="middle" font-family="sans-serif">Underfit</text>
+            <g fill="#767c93"><circle cx="40" cy="150" r="4"/><circle cx="70" cy="120" r="4"/><circle cx="100" cy="135" r="4"/><circle cx="130" cy="95" r="4"/><circle cx="160" cy="110" r="4"/><circle cx="185" cy="70" r="4"/></g>
+            <line x1="40" y1="150" x2="185" y2="85" stroke="#4f46e5" stroke-width="3"/>
+            <text x="100" y="205" font-size="11" fill="#767c93" text-anchor="middle" font-family="sans-serif">too simple (high bias)</text>
+          </g>
+          <!-- panel 2: good -->
+          <g transform="translate(220,0)">
+            <text x="100" y="20" font-size="13" fill="#14b8a6" text-anchor="middle" font-family="sans-serif">Good fit</text>
+            <g fill="#767c93"><circle cx="40" cy="150" r="4"/><circle cx="70" cy="120" r="4"/><circle cx="100" cy="135" r="4"/><circle cx="130" cy="95" r="4"/><circle cx="160" cy="110" r="4"/><circle cx="185" cy="70" r="4"/></g>
+            <path d="M40 150 Q 110 100 185 80" stroke="#14b8a6" stroke-width="3" fill="none"/>
+            <text x="100" y="205" font-size="11" fill="#767c93" text-anchor="middle" font-family="sans-serif">captures trend, ignores noise</text>
+          </g>
+          <!-- panel 3: overfit -->
+          <g transform="translate(440,0)">
+            <text x="100" y="20" font-size="13" fill="#f59e0b" text-anchor="middle" font-family="sans-serif">Overfit</text>
+            <g fill="#767c93"><circle cx="40" cy="150" r="4"/><circle cx="70" cy="120" r="4"/><circle cx="100" cy="135" r="4"/><circle cx="130" cy="95" r="4"/><circle cx="160" cy="110" r="4"/><circle cx="185" cy="70" r="4"/></g>
+            <path d="M40 150 C 55 90, 70 120, 100 135 S 130 70, 160 110 Q 175 60 185 70" stroke="#f59e0b" stroke-width="3" fill="none"/>
+            <text x="100" y="205" font-size="11" fill="#767c93" text-anchor="middle" font-family="sans-serif">chases noise (high variance)</text>
+          </g>
+        </svg>
+        <figcaption>Same dots, three models. The middle curve learned the <em>signal</em>; the right curve memorised the <em>noise</em> and will flail on new data.</figcaption>
+      </figure>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Two kids study for a maths test. One <em>memorises</em> the exact answers to last year's practice questions — they ace the practice but flop on the real test because the questions changed. The other <em>understands</em> how the maths works — they do fine on anything. Overfitting is memorising the practice answers. Good learning is understanding the pattern. We always want understanding.</p>
+      </div>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The bias–variance tradeoff</div>
+        <p style="margin-bottom:0">Total prediction error splits into <strong>bias</strong> (error from being too simple to capture the truth) plus <strong>variance</strong> (error from being so flexible you fit the noise), plus irreducible noise. Simpler models: high bias, low variance. Complex models: low bias, high variance. <strong>The sweet spot is in the middle.</strong> This single tradeoff governs <em>every</em> model in the rest of the course.</p>
+      </div>
+
+      <h2>3. The tell-tale sign: train error vs test error</h2>
+      <p>How do you <em>detect</em> overfitting without a crystal ball? Split your data: train on one part, evaluate on a held-out <strong>test set</strong> the model never saw. Then watch both errors as complexity rises:</p>
+      <ul>
+        <li><strong>Training error</strong> falls steadily — more flexibility always fits the seen data better, all the way to zero.</li>
+        <li><strong>Test error</strong> falls at first (escaping underfitting), bottoms out at the sweet spot, then <em>rises</em> as the model starts memorising noise.</li>
+      </ul>
+      <p>That widening gap — tiny train error, growing test error — is the unmistakable fingerprint of overfitting.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 420 250" aria-label="Train and test error vs model complexity">
+          <line x1="50" y1="210" x2="400" y2="210" stroke="#767c93" stroke-width="1.5"/>
+          <line x1="50" y1="210" x2="50" y2="20" stroke="#767c93" stroke-width="1.5"/>
+          <text x="230" y="240" font-size="12" fill="#767c93" text-anchor="middle" font-family="sans-serif">model complexity (polynomial degree) →</text>
+          <text x="20" y="120" font-size="12" fill="#767c93" font-family="sans-serif" transform="rotate(-90 20,120)">error</text>
+          <!-- training error: monotonic down -->
+          <path d="M60 70 C 140 150, 240 190, 390 200" stroke="#14b8a6" stroke-width="3" fill="none"/>
+          <text x="300" y="195" font-size="12" fill="#14b8a6" font-family="sans-serif">train error</text>
+          <!-- test error: U-shape -->
+          <path d="M60 90 C 140 175, 200 175, 260 150 S 350 60, 390 40" stroke="#f43f5e" stroke-width="3" fill="none"/>
+          <text x="300" y="60" font-size="12" fill="#f43f5e" font-family="sans-serif">test error</text>
+          <!-- sweet spot -->
+          <line x1="215" y1="20" x2="215" y2="210" stroke="#4f46e5" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <text x="215" y="35" font-size="11" fill="#4f46e5" text-anchor="middle" font-family="sans-serif">sweet spot</text>
+          <text x="120" y="35" font-size="11" fill="#767c93" text-anchor="middle" font-family="sans-serif">underfit</text>
+          <text x="340" y="200" font-size="11" fill="#767c93" text-anchor="middle" font-family="sans-serif">overfit</text>
+        </svg>
+        <figcaption>As complexity grows, training error keeps dropping but test error makes a U. The bottom of the U — where the two curves are about to diverge — is the model you want.</figcaption>
+      </figure>
+
+      <h2>4. The cure: regularisation &amp; ridge regression</h2>
+      <p>Overfitting in polynomial models shows up as <em>enormous</em> weights — the curve needs giant, opposing coefficients to make those violent wiggles. <strong>Regularisation</strong> fights back by adding a penalty for large weights right into the loss, so the model has to <em>earn</em> any complexity it uses. <strong>Ridge regression</strong> (a.k.a. L2 regularisation) adds the sum of squared weights:</p>
+      <p>\[ J(\mathbf{w}) = \underbrace{\sum_{i=1}^{n}\bigl(y_i - \hat{y}_i\bigr)^2}_{\text{fit the data}} \;+\; \underbrace{\alpha \sum_{j=1}^{d} w_j^2}_{\text{stay simple}} \]</p>
+      <p>The knob \(\alpha \ge 0\) sets the strength. At \(\alpha=0\) it's plain regression. Crank \(\alpha\) up and the penalty <strong>shrinks the weights toward zero</strong>, smoothing the curve and trading a little bias for a big drop in variance. Beautifully, ridge keeps a closed-form solution — just add \(\alpha\) to the diagonal before inverting:</p>
+      <p>\[ \mathbf{w}^\star = (X^\top X + \alpha I)^{-1} X^\top \mathbf{y} \]</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🎚️</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Regularisation is a "complexity tax." Every unit of wiggle a model wants to add costs it something, so it only buys the wiggles that genuinely reduce error and leaves the noise-chasing flourishes on the shelf. Raise the tax (\(\alpha\)) and the model gets simpler and calmer; drop it to zero and the model is free to overfit.</p>
+      </div>
+
+      <h2>5. Seeing it happen in code</h2>
+      <p>Let's fit polynomials of growing degree to noisy data, watch train and test error diverge, then rescue the wiggly degree-15 model with ridge.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">scikit-learn — overfitting &amp; ridge</span></div>
+<pre><code class="language-python">import numpy as np
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+
+# True signal is a gentle sine; we only see noisy samples of it
+rng = np.random.default_rng(0)
+X = np.sort(rng.uniform(0, 1, 60)).reshape(-1, 1)
+y = np.sin(2*np.pi*X).ravel() + rng.normal(0, 0.2, 60)
+Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.4, random_state=0)
+
+# Fit increasing polynomial degrees; print train vs test error
+print("degree | train MSE | test MSE")
+for deg in [1, 3, 9, 15]:
+    pipe = make_pipeline(PolynomialFeatures(deg), LinearRegression()).fit(Xtr, ytr)
+    tr = mean_squared_error(ytr, pipe.predict(Xtr))
+    te = mean_squared_error(yte, pipe.predict(Xte))
+    print(f"  {deg:>4} |  {tr:7.3f}  |  {te:7.3f}")
+# As degree rises, train MSE keeps dropping but test MSE balloons -> OVERFITTING
+
+# Now regularise the wiggly degree-15 model with ridge (L2 penalty)
+ridge = make_pipeline(PolynomialFeatures(15), Ridge(alpha=1e-2)).fit(Xtr, ytr)
+print("ridge deg15 test MSE:", round(mean_squared_error(yte, ridge.predict(Xte)), 3))
+# The alpha penalty shrinks the huge weights -> test error drops back down</code></pre>
+      <p>Run it and you'll see the unregularised test MSE explode at high degree while training MSE shrinks toward zero — the signature of overfitting. Switching on ridge tames the degree-15 model, pulling its test error back down without touching the polynomial degree. Same flexibility, but penalised into behaving.</p>
+
+      <h2>6. Polynomial hypersurfaces &amp; the takeaway</h2>
+      <p>Everything here generalises beyond one feature. With several inputs you can add cross-terms like \(x_1 x_2\) and squares \(x_1^2\), fitting a curved <strong>hypersurface</strong> instead of a flat hyperplane. More features and higher degrees mean more flexibility — and more chances to overfit — so regularisation becomes <em>more</em> essential, not less, as dimensionality grows.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Watch out</div>
+        <p style="margin-bottom:0">Never tune \(\alpha\) or the polynomial degree on your test set — that leaks test information and quietly overfits to it. Use a separate validation set or cross-validation (e.g. <code>RidgeCV</code>). Keep the test set in a sealed envelope, opened once, for the final honest score.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Overfitting and regularisation are not a regression footnote — they are the central tension of <em>all</em> machine learning, and they recur in every later model. Decision trees overfit until you prune them (<strong>Week 21</strong>); the bias–variance tradeoff is exactly why we average many trees into a <strong>random forest (Week 22)</strong>. And the L2 penalty you just met returns as <strong>weight decay</strong> and its cousin <strong>dropout</strong> for neural networks (<strong>Week 27</strong>) — same idea, same goal: stop the model from memorising the noise. This lesson closes Part 4's regression arc; next we turn to classification, starting with k-NN in <strong>Week 15</strong>.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=EuBBz3bI-aA" target="_blank" rel="noopener">Machine Learning Fundamentals: Bias and Variance</a> <span class="badge-sq">StatQuest</span><span class="r-src">The clearest 6-minute explanation of the tradeoff from section 2. Watch it twice.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=Q81RR3yKn30" target="_blank" rel="noopener">Regularization Part 1: Ridge (L2) Regression</a> <span class="badge-sq">StatQuest</span><span class="r-src">Exactly the ridge penalty of section 4, drawn out intuitively with the shrinking-weights picture.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://scikit-learn.org/stable/auto_examples/model_selection/plot_underfitting_overfitting.html" target="_blank" rel="noopener">scikit-learn: Underfitting vs Overfitting example</a><span class="r-src">The official polynomial-degree demo — run it yourself to reproduce section 5's curves.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">A model gets near-zero error on training data but high error on new test data. This is…</div>
+        <button class="opt">Underfitting (high bias).</button>
+        <button class="opt">Overfitting (high variance).</button>
+        <button class="opt">A perfect model.</button>
+        <button class="opt">Impossible.</button>
+        <div class="explain">Acing the training set but failing on unseen data is the textbook signature of overfitting: the model memorised the noise rather than learning the underlying pattern.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">How does ridge (L2) regularisation reduce overfitting?</div>
+        <button class="opt">By deleting training examples.</button>
+        <button class="opt">By increasing the polynomial degree.</button>
+        <button class="opt">By adding a penalty on large weights, shrinking them toward zero for a smoother model.</button>
+        <button class="opt">By memorising the test set.</button>
+        <div class="explain">Ridge adds \(\alpha\sum w_j^2\) to the loss, so large weights are costly. The model shrinks its coefficients, smoothing the curve and trading a little bias for a big drop in variance.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">As you increase a polynomial model's degree, what typically happens to training error?</div>
+        <button class="opt">It keeps decreasing, even past the point where test error starts rising.</button>
+        <button class="opt">It increases steadily.</button>
+        <button class="opt">It stays exactly constant.</button>
+        <button class="opt">It exactly equals the test error at all times.</button>
+        <div class="explain">More flexibility always fits the <em>seen</em> data better, so training error falls monotonically toward zero. Test error, however, makes a U — and the gap between them reveals overfitting.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

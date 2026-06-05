@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI &amp; ML Mastery — From a Vector to a Thinking Machine</title>
+<meta name="description" content="A world-class, beginner-to-pro course in Applied AI & Machine Learning. 40 lessons, 5 projects, crystal-clear explanations a 10-year-old can follow.">
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()" aria-label="Menu">☰</button>
+  <strong>AI &amp; ML Mastery</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()" aria-label="Theme"><span data-theme-icon>🌙</span></button>
+</div>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <div class="content">
+    <main class="page">
+
+      <section class="hero">
+        <div style="display:flex;justify-content:center;margin-bottom:14px">
+          <button class="icon-btn" onclick="toggleTheme()" aria-label="Theme" title="Toggle light/dark"><span data-theme-icon>🌙</span></button>
+        </div>
+        <span class="eyebrow">⭐ Beginner → Pro · No prerequisites</span>
+        <h1>From a number in a vector<br>to a thinking machine.</h1>
+        <p class="lead">A complete, hands-on journey through Applied Artificial Intelligence &amp; Machine Learning — rebuilt as 40 crystal-clear lessons and 5 real projects. Every idea is explained so simply a curious 10-year-old can follow it, yet deep enough to make you genuinely <em>good</em>.</p>
+        <div class="cta-row">
+          <a class="btn primary" href="lessons/w01.html">Start Lesson 1 →</a>
+          <a class="btn ghost" href="#map">See the full map</a>
+        </div>
+      </section>
+
+      <!-- The learning arc -->
+      <section class="arc">
+        <div class="arc-track">
+          <div class="arc-node"><span class="dot">🔢</span><small>Numbers &amp; vectors</small></div>
+          <span class="arc-arrow">→</span>
+          <div class="arc-node"><span class="dot">📐</span><small>Math foundations</small></div>
+          <span class="arc-arrow">→</span>
+          <div class="arc-node"><span class="dot">🧮</span><small>Classical ML</small></div>
+          <span class="arc-arrow">→</span>
+          <div class="arc-node"><span class="dot">🧠</span><small>Neural nets</small></div>
+          <span class="arc-arrow">→</span>
+          <div class="arc-node"><span class="dot">✨</span><small>Transformers</small></div>
+          <span class="arc-arrow">→</span>
+          <div class="arc-node"><span class="dot">🤖</span><small>LLMs like ChatGPT</small></div>
+        </div>
+      </section>
+
+      <section class="stats">
+        <div class="stat"><b>40</b><span>Weekly lessons</span></div>
+        <div class="stat"><b>5</b><span>Capstone projects</span></div>
+        <div class="stat"><b>100%</b><span>Hands-on Python</span></div>
+        <div class="stat"><b>0</b><span>Prerequisites</span></div>
+      </section>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🧭</span> The one idea that ties everything together</div>
+        <p class="prose" style="margin-bottom:0">Almost <em>all</em> of modern AI is the same trick repeated: <strong>turn things you care about — words, pixels, sounds, customers — into lists of numbers called <em>vectors</em>, then learn a function that moves those vectors around until useful patterns pop out.</strong> Linear algebra moves vectors. Calculus tunes the function. Probability handles the uncertainty. Everything from linear regression to ChatGPT is a richer and richer version of this one idea. Keep it in mind and the whole course clicks into place.</p>
+      </div>
+
+      <!-- Full course map (generated) -->
+      <h2 id="map">The complete map</h2>
+      <p>Seven parts, building strictly on each other. Click any lesson to dive in — your progress saves automatically in this browser.</p>
+      <div id="courseMap"></div>
+
+      <!-- Projects -->
+      <h2 id="projects">🏆 The 5 Capstone Projects</h2>
+      <p>Each project deliberately reuses concepts from across the course, so by the end you’ll have <em>built</em> everything — including a working mini language model.</p>
+      <div id="projectList"></div>
+
+      <div class="callout analogy" style="margin-top:40px">
+        <div class="c-title"><span class="c-emoji">🎬</span> How to use this course</div>
+        <p>Read each lesson top-to-bottom — they’re short. When you see a <strong>Watch &amp; Read</strong> box, the linked <span class="badge-3b1b">3Blue1Brown</span> videos give you the visual intuition; this site gives you the words, the math, and the code. Run the Python yourself. Do the <em>Check Yourself</em> quiz before moving on. Then mark the lesson complete. That’s it. See you at the top. 🏔️</p>
+      </div>
+
+    </main>
+    <footer class="site">
+      Built as a self-paced learning companion · Rebuilt from the IITM Pravartak Applied AI &amp; ML curriculum ·
+      Visual intuition credit: <a href="https://www.youtube.com/c/3blue1brown" target="_blank" rel="noopener">3Blue1Brown</a>
+    </footer>
+  </div>
+</div>
+
+<script src="assets/js/curriculum.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+  // Build the course map + projects from the manifest.
+  (function () {
+    const done = AIML.getDone();
+    const map = document.getElementById("courseMap");
+    map.innerHTML = CURRICULUM.parts.map(part => `
+      <div class="part-card">
+        <div class="p-head">
+          <div class="p-emoji">${part.emoji}</div>
+          <div><h3>${part.title}</h3></div>
+        </div>
+        <p class="p-blurb">${part.blurb}</p>
+        <div class="lesson-grid">
+          ${part.lessons.map(l => `
+            <a class="lesson-chip ${done.has(l.id) ? "done" : ""}" href="${l.file}">
+              <span class="lc-num">${done.has(l.id) ? "✓" : l.n}</span>
+              <span class="lc-t">${l.title}<small>${l.dur}</small></span>
+            </a>`).join("")}
+        </div>
+      </div>`).join("");
+
+    document.getElementById("projectList").innerHTML = CURRICULUM.projects.map(p => `
+      <a class="project-card" href="${p.file}">
+        <div class="pj-num">${p.emoji}</div>
+        <div>
+          <h4>Project ${p.n}: ${p.title}</h4>
+          <p>${p.blurb}</p>
+          <div style="margin-top:8px">${p.uses.map(u => `<span class="tag">${u}</span>`).join("")}</div>
+        </div>
+      </a>`).join("");
+  })();
+</script>
+</body>
+</html>

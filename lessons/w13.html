@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 13 · Linear Regression — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w13">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 13</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 4 · Classical Machine Learning › Lesson 13</div>
+        <span class="eyebrow">🧮 Part 4 · Classical Machine Learning</span>
+        <h1>Regression I: Linear &amp; Multiple Linear Regression</h1>
+        <div class="lesson-meta"><span>⏱️ 55 min</span><span>🎯 The simplest learning machine</span><span>📦 Week 13</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Frame numeric prediction as fitting a line \(y = wx + b\).</li>
+          <li>Define the least-squares loss and explain why we square the errors.</li>
+          <li>Solve for the best line in one shot with the <strong>normal equation</strong>.</li>
+          <li>Generalise to many features with <strong>multiple linear regression</strong> in vector form (a Week-2 dot product!).</li>
+          <li>Fit a regression in NumPy <em>and</em> scikit-learn and read off the coefficients.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">Given a scatter of dots — house sizes vs prices — there are infinitely many lines you could draw through them. Which line is <em>best</em>, and can we compute it exactly instead of eyeballing it?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. Numeric prediction: drawing the right line</h2>
+      <p>Last lesson we placed regression on the map: supervised learning where the label is a <em>number</em>. Now we build the simplest possible regressor. Suppose each house has one feature — its size \(x\) in square metres — and a known price \(y\). Plot the data and you get a scatter of dots that roughly trends upward. <strong>Linear regression</strong> assumes the relationship is a straight line:</p>
+      <p>\[ \hat{y} = w x + b \]</p>
+      <p>Here \(w\) is the <strong>slope</strong> (how many dollars per extra square metre) and \(b\) is the <strong>intercept</strong> (the predicted price of a zero-size house — a useful baseline, even if not physically meaningful). The hat on \(\hat{y}\) means "our prediction," to distinguish it from the true \(y\). Learning = finding the \(w\) and \(b\) that make the line hug the dots.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine dots scattered on graph paper and a stretchy ruler. You slide and tilt the ruler until it sits right in the middle of the cloud of dots — not too high, not too low. The ruler is your prediction line: point at any spot along it and it tells you the price for that house size. Linear regression is just the maths for placing the ruler perfectly.</p>
+      </div>
+
+      <h2>2. What makes a line "best"? The least-squares loss</h2>
+      <p>For each data point, the line makes an error: the <strong>residual</strong> \(r_i = y_i - \hat{y}_i\), the vertical gap between the real dot and the line. A good line makes these gaps small overall. We score a line with the <strong>sum (or mean) of squared residuals</strong>:</p>
+      <p>\[ J(w, b) = \frac{1}{n}\sum_{i=1}^{n}\bigl(y_i - (w x_i + b)\bigr)^2 \]</p>
+      <p>Why <em>square</em> the errors rather than just add them? Three reasons: squaring makes every error positive (so overshoots and undershoots can't cancel), it punishes big misses far more than small ones (a residual of 4 costs 16, not 4), and — the deep reason — it makes \(J\) a smooth bowl-shaped function with a single lowest point we can find exactly.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 380 260" aria-label="Scatter plot with best-fit line and residuals">
+          <defs><marker id="ah13" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#767c93"/></marker></defs>
+          <!-- axes -->
+          <line x1="40" y1="220" x2="360" y2="220" stroke="#767c93" stroke-width="1.5" marker-end="url(#ah13)"/>
+          <line x1="40" y1="220" x2="40" y2="20" stroke="#767c93" stroke-width="1.5" marker-end="url(#ah13)"/>
+          <text x="350" y="240" font-size="12" fill="#767c93" font-family="sans-serif">size x</text>
+          <text x="8" y="30" font-size="12" fill="#767c93" font-family="sans-serif">price y</text>
+          <!-- best fit line -->
+          <line x1="40" y1="200" x2="350" y2="50" stroke="#4f46e5" stroke-width="3"/>
+          <text x="250" y="80" font-size="12" fill="#4f46e5" font-family="monospace">ŷ = wx + b</text>
+          <!-- residuals (dashed) + points -->
+          <g stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="3 3">
+            <line x1="90"  y1="175" x2="90"  y2="140"/>
+            <line x1="160" y1="141" x2="160" y2="175"/>
+            <line x1="230" y1="106" x2="230" y2="80"/>
+            <line x1="300" y1="71"  x2="300" y2="110"/>
+          </g>
+          <g fill="#14b8a6">
+            <circle cx="90"  cy="140" r="5"/>
+            <circle cx="160" cy="175" r="5"/>
+            <circle cx="230" cy="80"  r="5"/>
+            <circle cx="300" cy="110" r="5"/>
+          </g>
+          <text x="305" y="95" font-size="11" fill="#f43f5e" font-family="sans-serif">residual</text>
+        </svg>
+        <figcaption>Teal dots are data; the indigo line is the fit. Each rose dashed segment is a residual \(y_i-\hat y_i\). Least squares chooses the line that minimises the total of the <em>squared</em> dashed lengths.</figcaption>
+      </figure>
+
+      <h2>3. Solving it exactly: the normal equation</h2>
+      <p>Because \(J\) is a smooth bowl, its minimum is where the slope is zero. We could nudge \(w\) and \(b\) downhill step by step — that's <strong>gradient descent</strong> (Weeks 3 and 26), the universal method that scales to giant models. But for linear regression there's a shortcut: set the derivatives to zero and solve in one move. Stack the data into a matrix \(X\) (one row per example, with a column of 1s to absorb the intercept) and a vector \(\mathbf{y}\). The best parameter vector \(\mathbf{w}\) satisfies the <strong>normal equation</strong>:</p>
+      <p>\[ \mathbf{w}^\star = (X^\top X)^{-1} X^\top \mathbf{y} \]</p>
+      <p>That's it — a closed-form formula, no iteration, that hands you the optimal line directly. Under the hood it's the same least-squares projection that NumPy's <code>lstsq</code> performs. (When \(X^\top X\) is huge or ill-conditioned we prefer gradient descent, which is the bridge to everything in Part 5.)</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">Linear regression = <strong>pick the line that minimises the sum of squared vertical errors</strong>. There's a one-shot formula for the answer (the normal equation), and there's an iterative way (gradient descent) that generalises to every model you'll meet later. Same goal, two routes.</p>
+      </div>
+
+      <h2>4. Multiple linear regression: many features at once</h2>
+      <p>Houses aren't described by size alone — there's also the number of bedrooms, the age, the distance to the city centre. Each example becomes a feature vector \(\mathbf{x} = [x_1, x_2, \dots, x_d]\), and the prediction becomes a weighted sum of all features plus a bias:</p>
+      <p>\[ \hat{y} = w_1 x_1 + w_2 x_2 + \dots + w_d x_d + b = \mathbf{w}\cdot\mathbf{x} + b \]</p>
+      <p>Look closely: \(\mathbf{w}\cdot\mathbf{x}\) is exactly the <strong>dot product</strong> from Week 2. Each weight \(w_j\) says how much feature \(j\) pushes the prediction up or down. Geometrically, instead of a line in 2D we're fitting a flat <strong>hyperplane</strong> through points in \((d{+}1)\)-dimensional space — but the recipe is identical: minimise squared error, and the very same normal equation \(\mathbf{w}^\star = (X^\top X)^{-1}X^\top\mathbf{y}\) solves it, now with \(X\) holding all \(d\) feature columns.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🍰</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Think of a price as a recipe. Each ingredient (feature) contributes a fixed amount per unit: +\$1,500 per square metre, +\$10,000 per bedroom, −\$800 per year of age. The dot product \(\mathbf{w}\cdot\mathbf{x}\) just totals up everyone's contribution. Training is figuring out the per-ingredient prices \(\mathbf{w}\) from past sales.</p>
+      </div>
+
+      <h2>5. Doing it in code — two ways</h2>
+      <p>Let's fit the same data twice: first by literally coding the normal equation in NumPy, then with scikit-learn's <code>LinearRegression</code>. They should agree to the decimal.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy (normal equation) vs sklearn</span></div>
+<pre><code class="language-python">import numpy as np
+from sklearn.linear_model import LinearRegression
+
+# Toy data: 2 features (size, bedrooms) -> price.  True rule: price = 3*size + 50*beds + 20
+rng = np.random.default_rng(0)
+size = rng.uniform(50, 200, size=40)
+beds = rng.integers(1, 5, size=40)
+X = np.column_stack([size, beds])                 # shape (40, 2): one row per house
+y = 3*size + 50*beds + 20 + rng.normal(0, 10, 40) # add a little noise
+
+# ---- Method A: the normal equation, by hand ----
+# Add a column of 1s so the intercept b is just another weight
+Xb = np.column_stack([np.ones(len(X)), X])        # shape (40, 3): [1, size, beds]
+w = np.linalg.inv(Xb.T @ Xb) @ Xb.T @ y           # w* = (X^T X)^-1 X^T y
+print("normal eq  [b, w_size, w_beds] =", np.round(w, 2))   # ~[20, 3, 50]
+
+# ---- Method B: scikit-learn ----
+model = LinearRegression().fit(X, y)              # solves the same least-squares problem
+print("sklearn    intercept b =", round(model.intercept_, 2))   # ~20
+print("sklearn    coefs [w_size, w_beds] =", np.round(model.coef_, 2))  # ~[3, 50]
+
+# Predict the price of a new 120 m^2, 3-bedroom house
+print("prediction =", round(model.predict([[120, 3]])[0], 2))</code></pre>
+      <p>The recovered coefficients (\(\approx 3\) per square metre, \(\approx 50\) per bedroom, intercept \(\approx 20\)) match the rule that generated the data — the model <em>learned</em> the recipe from examples. And the hand-coded normal equation and sklearn produce the same numbers, because they're solving the identical least-squares problem.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Watch out</div>
+        <p style="margin-bottom:0">Inverting \(X^\top X\) directly is fine for a few features but numerically fragile when features are large or highly correlated. In practice prefer <code>np.linalg.lstsq</code> or scikit-learn (which use stable factorisations), and standardise your features so no single column dominates — a habit we formalise in Week 19.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Linear regression is the simplest learning machine, and it stitches together earlier weeks: the prediction \(\mathbf{w}\cdot\mathbf{x}+b\) is the <strong>dot product of Week 2</strong>, and minimising the squared-error loss is the <strong>optimisation of Week 3</strong> (with gradient descent returning in force in <strong>Week 26</strong>). Next lesson, <strong>Week 14</strong>, we let the model bend into curves and meet its greatest enemy — <em>overfitting</em> — plus the cure, regularisation. And its classification cousin, <strong>logistic regression (Week 25)</strong>, reuses this exact \(\mathbf{w}\cdot\mathbf{x}+b\) core but squashes the output into a probability.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=nk2CQITm_eo" target="_blank" rel="noopener">Linear Regression, Clearly Explained</a> <span class="badge-sq">StatQuest</span><span class="r-src">Josh Starmer walks through least squares and what the line means, step by step. The ideal companion to sections 1–3.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=fNk_zzaMoSs&list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab" target="_blank" rel="noopener">Essence of Linear Algebra — dot products &amp; projections</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">The normal equation is a projection; this series gives the geometric "why" behind \((X^\top X)^{-1}X^\top y\).</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://scikit-learn.org/stable/modules/linear_model.html#ordinary-least-squares" target="_blank" rel="noopener">scikit-learn: Ordinary Least Squares</a><span class="r-src">The official docs for <code>LinearRegression</code> — the exact API used in section 5.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">In \(\hat{y} = wx + b\), what does the slope \(w\) represent?</div>
+        <button class="opt">The prediction when \(x = 0\).</button>
+        <button class="opt">The total squared error.</button>
+        <button class="opt">How much \(\hat{y}\) changes per one-unit increase in \(x\).</button>
+        <button class="opt">The number of data points.</button>
+        <div class="explain">The slope is the rate of change: add one unit of \(x\) and the prediction moves by \(w\). The intercept \(b\) is the value at \(x=0\).</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">Why does least-squares regression <em>square</em> the residuals instead of just summing them?</div>
+        <button class="opt">Squaring is faster to compute than addition.</button>
+        <button class="opt">It stops positive and negative errors from cancelling, penalises big misses more, and yields a smooth bowl with one minimum.</button>
+        <button class="opt">It guarantees the line passes through every point.</button>
+        <button class="opt">Because residuals are always negative.</button>
+        <div class="explain">Squaring makes errors positive (no cancelling), heavily penalises large errors, and produces a convex loss with a single, exactly-solvable minimum — the normal equation.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">In multiple linear regression, the prediction \(\mathbf{w}\cdot\mathbf{x}+b\) is built from which Week-2 operation?</div>
+        <button class="opt">The dot product.</button>
+        <button class="opt">The eigenvalue.</button>
+        <button class="opt">The matrix determinant.</button>
+        <button class="opt">The cross product.</button>
+        <div class="explain">\(\mathbf{w}\cdot\mathbf{x}=\sum_j w_j x_j\) is exactly the dot product from Week 2 — each weight scales its feature and the results are summed. This same core reappears in logistic regression and every neural-network neuron.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

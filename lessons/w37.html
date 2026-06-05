@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 37 · Applications of Generative AI — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w37">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 37</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 6 · Transformers &amp; Generative AI › Lesson 37</div>
+        <span class="eyebrow">✨ Part 6 · Transformers &amp; Generative AI</span>
+        <h1>Applications of Generative AI</h1>
+        <div class="lesson-meta"><span>⏱️ 45 min</span><span>🎯 The big picture of generation</span><span>📦 Week 37</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Survey where <strong>generative AI</strong> is changing real domains: art, code, drug discovery, and synthetic data.</li>
+          <li>Connect today's <strong>text generation</strong> (LLMs) back to the transformers of Week 34.</li>
+          <li>Explain <strong>diffusion models</strong> — add noise, then learn to reverse it — the engine behind Stable Diffusion, DALL·E and Midjourney.</li>
+          <li>Contrast diffusion with <strong>GANs</strong> (Week 35) and briefly with <strong>VAEs</strong>.</li>
+          <li>Simulate the <strong>forward diffusion</strong> process yourself in a few lines of NumPy.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">GANs play a clever cat-and-mouse game to fake data. But what if, instead of an adversary, we taught a model to do something far simpler — <em>undo noise</em> — and discovered that this single skill produces the most stunning images, audio and molecules of all?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>37.1 Generative AI is everywhere now</h2>
+      <p>Across Weeks 32–36 you built the machinery of generation: transformers that produce text, and GANs that produce images. Step back and the applications are sweeping:</p>
+      <ul>
+        <li><strong>Art &amp; media.</strong> Type a sentence and get an illustration, a logo, a concept render, a song, a short video. Tools like Midjourney and Stable Diffusion turned image creation into a conversation.</li>
+        <li><strong>Code.</strong> Models like GitHub Copilot generate functions from comments — an LLM trained on billions of lines of source, completing yours in context.</li>
+        <li><strong>Drug discovery.</strong> Generative models propose <em>novel molecules</em> with desired properties, and models like AlphaFold predict protein structure — searching a chemical space far too vast to enumerate by hand.</li>
+        <li><strong>Synthetic data.</strong> When real data is scarce, private, or imbalanced (rare medical conditions, fraud), a generative model can manufacture realistic training examples — privacy-preserving fuel for other models.</li>
+      </ul>
+      <p>Underneath this variety sit just a handful of model families. Let's organise them.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine you have a magic photo of a sandcastle, and slowly you sprinkle sand over it until it's just a flat pile — totally messy. Now imagine learning, grain by grain, how to <em>un-sprinkle</em>: take a flat pile of sand and carefully scrape it back into a perfect castle. A <strong>diffusion model</strong> learns exactly that un-sprinkling trick. Start with pure random "static," and it patiently cleans the static into a picture of whatever you asked for.</p>
+      </div>
+
+      <h2>37.2 Generating text: LLMs, revisited</h2>
+      <p>For <strong>text</strong>, the dominant generative model is the <strong>Large Language Model</strong> from Week 34. An LLM is a transformer trained to predict the next token given everything before it:</p>
+      <p>\[ p(\text{sentence}) = \prod_{t=1}^{T} p\big(x_t \mid x_1, x_2, \dots, x_{t-1}\big). \]</p>
+      <p>Generation is then just sampling one token at a time and feeding it back in — <em>autoregression</em>. Because the model has read a huge slice of the internet, those conditional probabilities encode grammar, facts, reasoning patterns and style. This is a fundamentally different generative recipe from images: text is produced <em>left-to-right, one symbol at a time</em>, whereas the image models below produce a whole canvas <em>all at once</em> and refine it. Same goal — sample from \(p(\text{data})\) — different mechanics suited to the medium.</p>
+
+      <h2>37.3 Generating images: enter diffusion models</h2>
+      <p>For <strong>images</strong>, the state of the art shifted from GANs to <strong>diffusion models</strong>. The idea is gorgeous in its simplicity and rests on a fact you met in Week 4: <strong>Gaussian noise</strong>.</p>
+      <p><strong>Forward process (fixed, no learning).</strong> Take a real image and add a little Gaussian noise. Repeat for many steps \(t=1\dots T\). After enough steps the image is indistinguishable from pure static \(\mathcal{N}(0,I)\). Each step is</p>
+      <p>\[ \mathbf{x}_t = \sqrt{1-\beta_t}\,\mathbf{x}_{t-1} + \sqrt{\beta_t}\,\boldsymbol{\epsilon}, \qquad \boldsymbol{\epsilon}\sim\mathcal{N}(0,I), \]</p>
+      <p>where the small \(\beta_t\) is the amount of noise added at step \(t\). This direction needs no training — it's just destruction by Gaussian noise.</p>
+      <p><strong>Reverse process (this is what we learn).</strong> Train a neural network — typically a U-Net (Week 29) — to look at a noisy \(\mathbf{x}_t\) and predict the noise that was added, so we can subtract it and step back toward \(\mathbf{x}_{t-1}\). Do this \(T\) times starting from pure static and a clean image emerges. The training loss is simply: predict the noise.</p>
+      <p>\[ \mathcal{L} = \mathbb{E}_{\mathbf{x}_0,\,t,\,\boldsymbol{\epsilon}}\Big[\big\lVert \boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)\big\rVert^2\Big]. \]</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 560 200" aria-label="The diffusion forward-noising and reverse-denoising chain">
+          <!-- frames -->
+          <g>
+            <!-- x0 clean -->
+            <rect x="20" y="60" width="70" height="70" rx="6" fill="#14b8a6"/>
+            <circle cx="55" cy="95" r="18" fill="#0d9488"/>
+            <text x="55" y="148" font-size="11" fill="#767c93" text-anchor="middle">x₀ clean</text>
+            <!-- x_t a bit noisy -->
+            <rect x="180" y="60" width="70" height="70" rx="6" fill="#5eead4"/>
+            <g fill="#767c93"><circle cx="200" cy="80" r="2"/><circle cx="230" cy="100" r="2"/><circle cx="210" cy="120" r="2"/><circle cx="235" cy="75" r="2"/><circle cx="195" cy="110" r="2"/></g>
+            <text x="215" y="148" font-size="11" fill="#767c93" text-anchor="middle">xₜ noisier</text>
+            <!-- x_T static -->
+            <rect x="340" y="60" width="70" height="70" rx="6" fill="#e3e6f0"/>
+            <g fill="#767c93"><circle cx="352" cy="72" r="2"/><circle cx="372" cy="92" r="2"/><circle cx="392" cy="78" r="2"/><circle cx="360" cy="112" r="2"/><circle cx="388" cy="118" r="2"/><circle cx="402" cy="100" r="2"/><circle cx="350" cy="98" r="2"/><circle cx="378" cy="120" r="2"/><circle cx="400" cy="70" r="2"/></g>
+            <text x="375" y="148" font-size="11" fill="#767c93" text-anchor="middle">x_T pure noise</text>
+          </g>
+          <!-- forward arrows -->
+          <line x1="92" y1="80" x2="178" y2="80" stroke="#f43f5e" stroke-width="2" marker-end="url(#ah37f)"/>
+          <line x1="252" y1="80" x2="338" y2="80" stroke="#f43f5e" stroke-width="2" marker-end="url(#ah37f)"/>
+          <text x="215" y="42" font-size="11" fill="#f43f5e" text-anchor="middle">forward: add noise (fixed)</text>
+          <!-- reverse arrows -->
+          <line x1="338" y1="112" x2="252" y2="112" stroke="#4f46e5" stroke-width="2" marker-end="url(#ah37r)"/>
+          <line x1="178" y1="112" x2="92" y2="112" stroke="#4f46e5" stroke-width="2" marker-end="url(#ah37r)"/>
+          <text x="215" y="180" font-size="11" fill="#4f46e5" text-anchor="middle">reverse: learned denoiser removes noise</text>
+          <!-- caption tag -->
+          <text x="470" y="92" font-size="11" fill="#767c93">sample to</text>
+          <text x="470" y="106" font-size="11" fill="#767c93">generate →</text>
+          <defs>
+            <marker id="ah37f" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#f43f5e"/></marker>
+            <marker id="ah37r" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4f46e5"/></marker>
+          </defs>
+        </svg>
+        <figcaption>The diffusion chain. <span style="color:#f43f5e">Forward</span> (rose): repeatedly add Gaussian noise until the image is pure static — no learning needed. <span style="color:#4f46e5">Reverse</span> (indigo): a trained network removes noise one step at a time. To <em>generate</em>, start from static on the right and walk the learned reverse path leftward.</figcaption>
+      </figure>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🗿</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Michelangelo said he just "removed everything that wasn't the statue." Diffusion is that, in reverse-fog. The forward process is fog rolling in until a sculpture vanishes into grey. The model studies thousands of "foggy → clear" snapshots until it can stand in front of a wall of pure fog and, layer by layer, reveal a statue that was never actually there — guided by your prompt about what statue to find.</p>
+      </div>
+
+      <h2>37.4 Diffusion vs GANs vs VAEs</h2>
+      <p>All three are <em>generative</em> — they learn to sample new data — but they get there differently:</p>
+      <ul>
+        <li><strong>GANs (Weeks 35–36).</strong> One generator, one adversary. <em>Fast</em> to sample (one forward pass) and sharp, but training is a fragile balancing act prone to mode collapse.</li>
+        <li><strong>Diffusion.</strong> No adversary — just a stable regression loss (predict the noise). <em>Slower</em> to sample (many denoising steps) but remarkably stable to train, with excellent quality <em>and</em> diversity. This stability is why it overtook GANs for text-to-image.</li>
+        <li><strong>VAEs (Variational Autoencoders).</strong> An encoder squeezes data into a probabilistic latent code and a decoder reconstructs it, trained to make that latent space smooth and samplable. VAEs are easy to train and give a clean latent space, but their samples tend to look blurrier than GAN or diffusion outputs. (Modern systems like Stable Diffusion actually combine ideas — running diffusion <em>inside</em> a VAE's compressed latent space for speed.)</li>
+      </ul>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">A diffusion model learns one humble skill — <strong>predict and remove the noise</strong> — and by applying it many times from pure static, it generates. No adversary, no minimax: just a stable denoising regression. That stability, not raw cleverness, is what made it the engine of Stable Diffusion, DALL·E and Midjourney.</p>
+      </div>
+
+      <h2>37.5 Code: simulating the forward process</h2>
+      <p>You don't need a GPU to feel how diffusion's forward process works — it's literally "add Gaussian noise, repeatedly." Here we corrupt a clean 1-D signal (a sine wave) step by step and watch it dissolve into static. The <em>reverse</em> direction is what a trained network would learn; the forward direction is free.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — forward diffusion</span></div>
+<pre><code class="language-python">import numpy as np
+
+rng = np.random.default_rng(0)
+
+# A clean "signal" (our stand-in for an image): one period of a sine wave,
+# sampled at 256 points so the standard deviation is a stable estimate.
+x0 = np.sin(np.linspace(0, 2 * np.pi, 256))
+print("clean x0 std :", round(float(x0.std()), 2))   # ~0.71
+
+T = 50                                   # number of diffusion steps
+betas = np.linspace(1e-3, 0.2, T)        # noise schedule: a little noise -> more over time
+
+x = x0.copy()
+for t in range(T):
+    b = betas[t]
+    noise = rng.standard_normal(x.shape)               # fresh Gaussian noise (Week 4!)
+    # one forward step: shrink the signal slightly, then add a dab of noise
+    x = np.sqrt(1 - b) * x + np.sqrt(b) * noise
+    if t in (0, 9, 24, 49):
+        print(f"step {t+1:2d} | std={x.std():.2f}")   # std climbs toward 1.0 as structure dissolves
+
+# As t grows, the signal washes out and x looks like pure standard-normal static.
+# A diffusion MODEL would learn the reverse: predict 'noise' at each step and subtract it,
+# walking from static all the way back to a clean, NEW signal.
+print("final std ~", round(float(x.std()), 2))   # close to 1.0  -> pure N(0, I) noise</code></pre>
+      <p>Run it and you'll watch the sine wave's structure fade as the standard deviation creeps toward 1.0 — the signature of pure \(\mathcal{N}(0,I)\) noise. Training a model to invert each of those 50 steps is the whole game of image generation.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Watch out</div>
+        <p style="margin-bottom:0">The forward process is <em>fixed and free</em> — there is nothing to learn there. A common confusion is thinking the model "learns to add noise." It doesn't: it learns only the <strong>reverse</strong>, predicting the noise so it can remove it. The forward chain just generates the (noisy image → noise) training pairs.</p>
+      </div>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This lesson ties the whole of Part 6 together. The <strong>Gaussian noise</strong> at the heart of diffusion is straight from <strong>Week 4</strong>. Text generation reuses the <strong>LLMs of Week 34</strong>; image generation contrasts <strong>diffusion</strong> with the <strong>GANs of Weeks 35–36</strong> and the conditional/text-to-image tricks you just learned. The denoiser itself is a <strong>U-Net (Week 29)</strong>. With the model zoo complete, <strong>Part 7</strong> turns to the next question: how do we <em>deploy</em> these models — package, serve, monitor and scale them (Weeks 38–39) — and how does <strong>reinforcement learning (Week 40)</strong> let an agent learn by acting?</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">📖</span><div><a href="https://lilianweng.github.io/posts/2021-07-11-diffusion-models/" target="_blank" rel="noopener">What are Diffusion Models? (Lilian Weng)</a><span class="r-src">The definitive, beautifully-derived reference for everything in section 37.3 — the forward chain, the noise-prediction loss, and how DDPMs work. Bookmark it.</span></div></li>
+        <li><span class="r-ic">📄</span><div><a href="https://arxiv.org/abs/2006.11239" target="_blank" rel="noopener">Denoising Diffusion Probabilistic Models (Ho et al., 2020)</a><span class="r-src">The paper that made diffusion practical. Section 3's training objective is the simple noise-prediction loss used in our code.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=wTcSmZ4xTQM" target="_blank" rel="noopener">Diffusion models explained (StatQuest / Computerphile-style walkthrough)</a><span class="r-src">A friendly visual explanation of the noising/denoising chain to cement the intuition before re-reading section 37.3.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">In a diffusion model, what does the neural network actually <em>learn</em>?</div>
+        <button class="opt">How to add the right amount of Gaussian noise at each step.</button>
+        <button class="opt">How to predict and remove the noise, reversing one corruption step at a time.</button>
+        <button class="opt">To classify whether an image is real or fake, like a discriminator.</button>
+        <button class="opt">To compress an image into the smallest possible latent code.</button>
+        <div class="explain">The forward (noising) process is fixed and needs no learning. The network learns only the reverse: given a noisy image, predict the noise so it can be subtracted, walking from static back to a clean image.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">A key reason diffusion models overtook GANs for text-to-image was that they…</div>
+        <button class="opt">Train with a stable regression loss (no adversary), avoiding mode collapse.</button>
+        <button class="opt">Generate images in a single forward pass, far faster than GANs.</button>
+        <button class="opt">Require no training data at all.</button>
+        <button class="opt">Never use Gaussian noise.</button>
+        <div class="explain">Diffusion trades sampling speed (many steps) for training stability: there's no minimax game, just a noise-prediction regression. That stability gives both high quality and high diversity, which is why it won out for text-to-image.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">Which statement about the three model families is correct?</div>
+        <button class="opt">GANs train more stably than diffusion models.</button>
+        <button class="opt">VAEs typically produce the sharpest images of the three.</button>
+        <button class="opt">GANs sample fast but can collapse; diffusion is stable but slower; VAEs are easy to train but blurrier.</button>
+        <button class="opt">Diffusion models require an adversary to train.</button>
+        <div class="explain">GANs: fast, sharp, fragile (mode collapse). Diffusion: stable, high-quality, slower to sample. VAEs: easy to train with a clean latent space but blurrier samples. Modern systems often combine them.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

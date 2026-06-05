@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 23 · Clustering: k-Means &amp; Hierarchical — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w23">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 23</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 4 · Classical Machine Learning › Lesson 23</div>
+        <span class="eyebrow">🧮 Part 4 · Classical Machine Learning</span>
+        <h1>Clustering: k-Means &amp; Hierarchical</h1>
+        <div class="lesson-meta"><span>⏱️ 50 min</span><span>🎯 Finding groups with no labels</span><span>📦 Week 23</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain clustering as unsupervised grouping by similarity.</li>
+          <li>Run the <strong>k-means</strong> loop: assign to nearest centroid → recompute centroids → repeat.</li>
+          <li>Tie the "nearest" decision to the distance/norm from Week 2.</li>
+          <li>Build a hierarchy with <strong>agglomerative</strong> (bottom-up) clustering and read a dendrogram.</li>
+          <li>Contrast agglomerative with <strong>divisive</strong> (top-down), and cluster toy data in scikit-learn.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">Nobody has labelled your customers. Can a machine still discover that they naturally fall into "bargain hunters," "loyalists," and "big spenders" — entirely on its own?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. Clustering: grouping without labels</h2>
+      <p>Every model since Week 13 has been <strong>supervised</strong> — we handed it the right answers (labels) to learn from. <strong>Clustering</strong> is <strong>unsupervised</strong> (the paradigm from Week 11): there are no labels at all. The algorithm gets only the raw feature vectors and must discover structure by itself — grouping points so that members of a group are similar to each other and different from other groups.</p>
+      <p>It's used for customer segmentation, grouping documents by topic, compressing images, and spotting anomalies (a point that joins no cluster is suspicious). The key question, as always, is "what does <em>similar</em> mean?" — and the answer, as always, is <strong>distance</strong>.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Picture a giant messy toy box. Nobody told you the categories, but you instinctively sort them into bins: cars here, blocks there, stuffed animals over there — putting things that <em>look alike</em> together. Clustering is a computer doing exactly that with data points: making bins of similar things, with no labels to guide it.</p>
+      </div>
+
+      <h2>2. k-Means: the assign-and-update dance</h2>
+      <p>k-means is the most-used clustering algorithm. You tell it how many groups \(k\) you want; it finds \(k\) <strong>centroids</strong> (cluster centres) and assigns every point to its nearest one. It minimises the total squared distance from points to their centroid — the <strong>inertia</strong>:</p>
+      <p>\[ J = \sum_{j=1}^{k} \sum_{\mathbf{x}\in C_j} \lVert \mathbf{x} - \boldsymbol{\mu}_j \rVert^{2} \]</p>
+      <p>where \(\boldsymbol{\mu}_j\) is the centroid of cluster \(C_j\), and that \(\lVert\cdot\rVert\) is precisely the <strong>norm from Week 2</strong>. It can't solve this in one shot, so it iterates a beautifully simple loop:</p>
+      <ol>
+        <li><strong>Initialise:</strong> drop \(k\) centroids somewhere (often \(k\) random points).</li>
+        <li><strong>Assign:</strong> attach each point to the <em>nearest</em> centroid (smallest \(\lVert \mathbf{x}-\boldsymbol{\mu}_j\rVert\)).</li>
+        <li><strong>Update:</strong> move each centroid to the <em>mean</em> of the points now assigned to it.</li>
+        <li><strong>Repeat</strong> assign + update until nothing changes (the centroids settle).</li>
+      </ol>
+      <p>Each round can only lower (or hold) the inertia, so it always converges — usually within a dozen iterations.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 380 240" aria-label="Points grouped into three clusters with centroids">
+          <!-- cluster 1 (indigo) -->
+          <circle cx="70" cy="70" r="4" fill="#4f46e5"/><circle cx="90" cy="55" r="4" fill="#4f46e5"/>
+          <circle cx="60" cy="90" r="4" fill="#4f46e5"/><circle cx="95" cy="85" r="4" fill="#4f46e5"/>
+          <path d="M78 73 l-6 -6 M78 73 l6 -6 M78 73 l-6 6 M78 73 l6 6" stroke="#4f46e5" stroke-width="2"/>
+          <!-- cluster 2 (teal) -->
+          <circle cx="250" cy="55" r="4" fill="#14b8a6"/><circle cx="275" cy="70" r="4" fill="#14b8a6"/>
+          <circle cx="260" cy="90" r="4" fill="#14b8a6"/><circle cx="290" cy="55" r="4" fill="#14b8a6"/>
+          <path d="M268 67 l-6 -6 M268 67 l6 -6 M268 67 l-6 6 M268 67 l6 6" stroke="#0f766e" stroke-width="2"/>
+          <!-- cluster 3 (amber) -->
+          <circle cx="150" cy="180" r="4" fill="#f59e0b"/><circle cx="175" cy="195" r="4" fill="#f59e0b"/>
+          <circle cx="135" cy="200" r="4" fill="#f59e0b"/><circle cx="170" cy="170" r="4" fill="#f59e0b"/>
+          <path d="M155 185 l-6 -6 M155 185 l6 -6 M155 185 l-6 6 M155 185 l6 6" stroke="#b45309" stroke-width="2"/>
+          <text x="40" y="120" font-size="11" fill="#767c93">cluster 1</text>
+          <text x="245" y="120" font-size="11" fill="#767c93">cluster 2</text>
+          <text x="125" y="225" font-size="11" fill="#767c93">cluster 3</text>
+          <text x="300" y="160" font-size="11" fill="#767c93">✕ = centroid</text>
+        </svg>
+        <figcaption>k-means with k=3: each point belongs to its nearest centroid (✕), and each centroid sits at the mean of its cluster.</figcaption>
+      </figure>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0">k-means alternates two steps forever: <strong>assign</strong> points to the nearest centroid, then <strong>move</strong> each centroid to its points' mean. "Nearest" is the Week 2 norm; "mean" is the average. Because distances drive everything, you must <strong>scale your features first</strong> (Week 19).</p>
+      </div>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Common Pitfall</div>
+        <p style="margin-bottom:0">You must choose \(k\) up front, and a bad starting position can trap k-means in a poor solution. Run it several times (scikit-learn's <code>k-means++</code> init and <code>n_init</code> do this for you) and use the "elbow" of the inertia curve or a silhouette score to pick \(k\). k-means also assumes roughly round, equal-sized clusters — it struggles with stringy or nested shapes.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">scikit-learn — KMeans on toy blobs</span></div>
+<pre><code class="language-python">import numpy as np
+from sklearn.datasets import make_blobs
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+
+# 300 points that really form 3 blobs (but we hide that from the model)
+X, _ = make_blobs(n_samples=300, centers=3, random_state=42)
+X = StandardScaler().fit_transform(X)        # Week 19: scale before distance-based clustering
+
+km = KMeans(n_clusters=3, n_init=10, random_state=0)  # n_init: try 10 starts, keep the best
+labels = km.fit_predict(X)                   # the assign/update loop, run to convergence
+
+print("cluster sizes:", np.bincount(labels)) # roughly even -> 3 balanced groups
+print("centroids:\n", km.cluster_centers_.round(2))
+print("inertia (total squared distance):", round(km.inertia_, 1))</code></pre>
+
+      <h2>3. Hierarchical clustering: a family tree of groups</h2>
+      <p>k-means makes you commit to \(k\) and gives a flat set of groups. <strong>Hierarchical clustering</strong> instead builds a whole <em>tree</em> of nested clusters, so you can choose how many groups you want <em>afterwards</em> by slicing the tree at the right height. The tree is drawn as a <strong>dendrogram</strong>. There are two directions to build it: bottom-up (agglomerative) and top-down (divisive).</p>
+
+      <h2>4. Agglomerative: bottom-up merging</h2>
+      <p>Agglomerative clustering starts with every point as its own tiny cluster, then repeatedly <strong>merges the two closest clusters</strong> until only one remains. The order of merges is the dendrogram. "Closest" depends on the <strong>linkage</strong> rule — how you measure distance between two <em>groups</em>:</p>
+      <ul>
+        <li><strong>Single linkage</strong> — distance between the two nearest members (makes long, chain-like clusters).</li>
+        <li><strong>Complete linkage</strong> — distance between the two farthest members (makes tight, compact clusters).</li>
+        <li><strong>Average linkage</strong> — average over all pairs.</li>
+        <li><strong>Ward</strong> — merge the pair that increases total within-cluster variance the least (the common default).</li>
+      </ul>
+
+      <figure class="figure">
+        <svg viewBox="0 0 380 220" aria-label="A small dendrogram">
+          <line x1="40" y1="190" x2="40" y2="150" stroke="#4f46e5" stroke-width="2"/>
+          <line x1="90" y1="190" x2="90" y2="150" stroke="#4f46e5" stroke-width="2"/>
+          <line x1="40" y1="150" x2="90" y2="150" stroke="#4f46e5" stroke-width="2"/>
+          <line x1="65" y1="150" x2="65" y2="95" stroke="#4f46e5" stroke-width="2"/>
+          <line x1="170" y1="190" x2="170" y2="120" stroke="#14b8a6" stroke-width="2"/>
+          <line x1="230" y1="190" x2="230" y2="120" stroke="#14b8a6" stroke-width="2"/>
+          <line x1="170" y1="120" x2="230" y2="120" stroke="#14b8a6" stroke-width="2"/>
+          <line x1="200" y1="120" x2="200" y2="95" stroke="#14b8a6" stroke-width="2"/>
+          <line x1="65" y1="95" x2="200" y2="95" stroke="#767c93" stroke-width="2"/>
+          <line x1="132" y1="95" x2="132" y2="50" stroke="#767c93" stroke-width="2"/>
+          <line x1="20" y1="50" x2="20" y2="190" stroke="#e3e6f0"/>
+          <text x="34" y="205" font-size="11" fill="#767c93">A</text>
+          <text x="84" y="205" font-size="11" fill="#767c93">B</text>
+          <text x="164" y="205" font-size="11" fill="#767c93">C</text>
+          <text x="224" y="205" font-size="11" fill="#767c93">D</text>
+          <line x1="20" y1="75" x2="360" y2="75" stroke="#f43f5e" stroke-dasharray="5 4"/>
+          <text x="300" y="70" font-size="11" fill="#f43f5e">cut here → 2 clusters</text>
+          <text x="290" y="190" font-size="11" fill="#767c93">↑ merge height = distance</text>
+        </svg>
+        <figcaption>A dendrogram. A &amp; B merge first (closest), then C &amp; D, then the two pairs join. Slicing at the dashed line yields 2 clusters: {A,B} and {C,D}.</figcaption>
+      </figure>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🌳</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Agglomerative clustering is a family tree built backwards. Start with every individual, then keep pairing up the closest relatives — siblings join, then cousins, then whole branches — until everyone shares one ancestor. Cut the tree at any height to ask "how many family groups exist at <em>this</em> level of closeness?"</p>
+      </div>
+
+      <h2>5. Divisive: top-down splitting</h2>
+      <p><strong>Divisive</strong> clustering runs the other way: start with <em>all</em> points in one big cluster and recursively <strong>split</strong> the least-cohesive cluster into two, again and again, until each point stands alone (or you stop early). It's conceptually the mirror image of agglomerative, but more expensive to compute, so agglomerative is far more common in practice. Both produce a dendrogram; they just build it from opposite ends.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">scikit-learn — AgglomerativeClustering</span></div>
+<pre><code class="language-python">import numpy as np
+from sklearn.datasets import make_blobs
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import AgglomerativeClustering
+
+X, _ = make_blobs(n_samples=300, centers=3, random_state=42)
+X = StandardScaler().fit_transform(X)
+
+# Bottom-up merging with Ward linkage (minimises within-cluster variance)
+agg = AgglomerativeClustering(n_clusters=3, linkage="ward")
+labels = agg.fit_predict(X)
+print("cluster sizes:", np.bincount(labels))  # 3 groups, no centroids needed
+
+# Try different linkages to see how cluster shape changes
+for link in ["ward", "complete", "average", "single"]:
+    m = AgglomerativeClustering(n_clusters=3, linkage=link).fit(X)
+    print(f"{link:<9} -> sizes {np.bincount(m.labels_)}")</code></pre>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Clustering is the <strong>unsupervised</strong> paradigm introduced in <strong>Week 11</strong>, powered by the <strong>distance/norm</strong> from <strong>Week 2</strong> and standing on <strong>Week 19</strong>'s scaling. It's the "hard" cousin of the <strong>Gaussian Mixture Models (Week 16)</strong>, which do <em>soft</em> clustering (a point can belong partly to several clusters). Clustering is a core step in <strong>Project 1</strong>'s pipeline — after reducing dimensions with PCA, you group the customers. Next we leave classical ML and enter <strong>deep learning</strong>, starting with a single neuron in Week 24.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=4b5d3muPQmA" target="_blank" rel="noopener">StatQuest: K-means clustering</a><span class="r-src">The assign/update loop, choosing k, and the elbow method — animated. Watch before re-reading section 2.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=7xHsRkOdVwo" target="_blank" rel="noopener">StatQuest: Hierarchical Clustering</a><span class="r-src">Builds a dendrogram by hand and explains linkage choices — the perfect partner for sections 3–4.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://scikit-learn.org/stable/modules/clustering.html" target="_blank" rel="noopener">scikit-learn: Clustering</a><span class="r-src">Compares <code>KMeans</code>, <code>AgglomerativeClustering</code>, DBSCAN and more, with a gallery showing which method suits which cluster shape.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">What are the two repeating steps of the k-means algorithm?</div>
+        <button class="opt">Split the largest cluster, then merge the smallest.</button>
+        <button class="opt">Assign each point to its nearest centroid, then move each centroid to the mean of its points.</button>
+        <button class="opt">Sort the data, then label it.</button>
+        <button class="opt">Compute eigenvectors, then project.</button>
+        <div class="explain">k-means alternates assignment (nearest centroid by Week-2 distance) and update (recompute centroids as the mean). It repeats until the centroids stop moving, lowering total inertia each round.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">How does agglomerative hierarchical clustering build its tree?</div>
+        <button class="opt">Top-down: it splits one big cluster repeatedly.</button>
+        <button class="opt">By averaging centroids like k-means.</button>
+        <button class="opt">Bottom-up: every point starts alone, then the two closest clusters merge repeatedly.</button>
+        <button class="opt">By assigning labels from a training set.</button>
+        <div class="explain">Agglomerative is bottom-up: start with singletons and merge the two nearest clusters (per the linkage rule) until one remains. That merge order is the dendrogram. Divisive is the top-down mirror image.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">Why should you scale your features before running k-means?</div>
+        <button class="opt">Because k-means uses distances, so a large-scale feature would dominate the "nearest centroid" decision.</button>
+        <button class="opt">Because k-means cannot handle negative numbers.</button>
+        <button class="opt">Because it makes the dendrogram taller.</button>
+        <button class="opt">Scaling is never needed for k-means.</button>
+        <div class="explain">k-means assigns points by Euclidean distance, so an unscaled big-range feature drowns out the others — exactly the Week 19 problem. Standardising first gives every feature a fair say in the clustering.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

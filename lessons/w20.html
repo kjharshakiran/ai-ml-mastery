@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 20 · PCA &amp; Fisher LDA — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w20">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 20</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 4 · Classical Machine Learning › Lesson 20</div>
+        <span class="eyebrow">🧮 Part 4 · Classical Machine Learning</span>
+        <h1>Dimensionality Reduction II: PCA &amp; Fisher LDA</h1>
+        <div class="lesson-meta"><span>⏱️ 55 min</span><span>🎯 Find the directions that matter</span><span>📦 Week 20</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain dimensionality reduction and why we collapse many features into a few.</li>
+          <li>Run the full <strong>PCA procedure</strong>: centre → covariance matrix → eigenvectors → keep top-k.</li>
+          <li>See that PCA <em>is</em> the eigen-analysis from Week 2 applied to data.</li>
+          <li>Contrast PCA (preserve variance) with <strong>Fisher LDA</strong> (separate classes).</li>
+          <li>Run PCA in scikit-learn and read <code>explained_variance_ratio_</code>.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A dataset has 784 features (the pixels of a digit). Can we throw away 99% of them and still <em>see</em> the structure — even plot it on a flat page?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. Dimensionality reduction: fewer axes, same story</h2>
+      <p>Last week we scaled features so they'd compete fairly. This week we go further: we <strong>combine</strong> them. Most high-dimensional data is secretly low-dimensional — its features are correlated, so the "true" information lives on a thin slab inside the big space. Dimensionality reduction finds that slab and re-describes the data using just a handful of new axes.</p>
+      <p>Two famous techniques do this with linear algebra: <strong>PCA</strong> (unsupervised — ignores labels, keeps variance) and <strong>Fisher LDA</strong> (supervised — uses labels, keeps class separation). Both project data onto a few well-chosen directions; they just disagree about what "well-chosen" means.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Think of a fish. It's a 3D object, but if someone asks "what does it look like?" you draw its <em>side</em> view, not the head-on view — because the side shows the most. PCA is a machine that automatically finds the "side view" of your data: the flat picture that keeps the most of what makes the data interesting.</p>
+      </div>
+
+      <h2>2. The PCA procedure, step by step</h2>
+      <p>PCA looks for the directions along which the data <strong>varies the most</strong>. Spread = information; a direction where all points have the same value tells you nothing. Here's the recipe.</p>
+
+      <p><strong>Step 1 — Centre the data.</strong> Subtract the mean of each feature so the cloud is centred at the origin: \(\tilde{\mathbf{x}}_i = \mathbf{x}_i - \boldsymbol{\mu}\). (We also scale first, per Week 19, so no feature fakes large variance with big units.)</p>
+
+      <p><strong>Step 2 — Build the covariance matrix.</strong> Covariance measures how features vary <em>together</em>. For centred data \(\tilde{X}\) (rows = points), the \(d \times d\) covariance matrix is:</p>
+      <p>\[ C = \frac{1}{n-1}\,\tilde{X}^{\top}\tilde{X}, \qquad C_{jk} = \frac{1}{n-1}\sum_{i=1}^{n} \tilde{x}_{ij}\,\tilde{x}_{ik} \]</p>
+      <p>The diagonal holds each feature's variance; the off-diagonals say how pairs of features move together. A big positive \(C_{jk}\) means features \(j\) and \(k\) rise and fall in sync.</p>
+
+      <p><strong>Step 3 — Take its eigenvectors.</strong> Here's where Week 2 returns in force. The <strong>eigenvectors of the covariance matrix are the principal axes</strong>, and each eigenvalue tells you how much variance lies along its axis:</p>
+      <p>\[ C\,\mathbf{v} = \lambda\,\mathbf{v} \]</p>
+      <p>The eigenvector with the <em>largest</em> eigenvalue \(\lambda_1\) points along the direction of greatest spread — that's <strong>Principal Component 1</strong>. The next-largest, orthogonal to it, is PC2, and so on. Because \(C\) is symmetric, its eigenvectors are guaranteed orthogonal — a perfectly clean new coordinate system.</p>
+
+      <p><strong>Step 4 — Keep the top \(k\).</strong> Sort eigenvectors by eigenvalue, keep the top \(k\), and project the data onto them. You've gone from \(d\) dimensions to \(k\) while throwing away only the low-variance "noise" directions.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 360 260" aria-label="A 2D data cloud with its two principal axes">
+          <g stroke="#e3e6f0"><line x1="30" y1="220" x2="340" y2="220"/><line x1="40" y1="20" x2="40" y2="240"/></g>
+          <!-- elongated cloud of points -->
+          <circle cx="90"  cy="200" r="3" fill="#767c93"/><circle cx="120" cy="185" r="3" fill="#767c93"/>
+          <circle cx="150" cy="172" r="3" fill="#767c93"/><circle cx="175" cy="158" r="3" fill="#767c93"/>
+          <circle cx="205" cy="142" r="3" fill="#767c93"/><circle cx="235" cy="128" r="3" fill="#767c93"/>
+          <circle cx="265" cy="112" r="3" fill="#767c93"/><circle cx="135" cy="200" r="3" fill="#767c93"/>
+          <circle cx="190" cy="172" r="3" fill="#767c93"/><circle cx="220" cy="158" r="3" fill="#767c93"/>
+          <circle cx="160" cy="150" r="3" fill="#767c93"/><circle cx="250" cy="142" r="3" fill="#767c93"/>
+          <!-- PC1: along the long axis -->
+          <line x1="100" y1="205" x2="285" y2="105" stroke="#4f46e5" stroke-width="3"/>
+          <text x="288" y="102" font-size="13" fill="#4f46e5">PC1 (most variance)</text>
+          <!-- PC2: orthogonal, short -->
+          <line x1="178" y1="130" x2="218" y2="182" stroke="#f59e0b" stroke-width="3"/>
+          <text x="220" y="190" font-size="13" fill="#f59e0b">PC2</text>
+        </svg>
+        <figcaption>The data spreads most along PC1 (indigo); PC2 (amber) is orthogonal and captures the small remaining spread. Drop PC2 and you reduce 2D → 1D, keeping nearly all the information.</figcaption>
+      </figure>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0"><strong>PCA = eigen-analysis of the covariance matrix.</strong> The eigenvectors are the new axes (principal components); the eigenvalues are how much variance each one carries. Keep the high-eigenvalue axes, discard the rest. (Equivalently, run SVD on the centred data — same answer, more numerically stable. That's the Week 2 SVD in action.)</p>
+      </div>
+
+      <h2>3. Reading the variance: how many axes do I keep?</h2>
+      <p>Each eigenvalue \(\lambda_i\) is the variance along PC\(i\). The fraction of total information captured by PC\(i\) is its <strong>explained variance ratio</strong>:</p>
+      <p>\[ \text{ratio}_i = \frac{\lambda_i}{\sum_{j=1}^{d}\lambda_j} \]</p>
+      <p>Stack these up and you get a cumulative curve. A common rule: keep enough components to retain, say, 95% of the variance. Often a 784-dimensional image dataset needs only ~50 components for 95% — a 15× compression with almost no loss.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🎒</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Packing for a trip with a tiny suitcase. You can't bring all 784 items, so you rank them by usefulness and pack the top few. The explained-variance ratio is your "usefulness score" per item; the cumulative curve tells you when the suitcase is "good enough" (95% packed) and you can stop.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">scikit-learn — PCA on the digits dataset</span></div>
+<pre><code class="language-python">import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
+X, y = load_digits(return_X_y=True)     # 1797 samples, 64 pixel features
+X = StandardScaler().fit_transform(X)   # Week 19: scale BEFORE PCA
+
+# Project 64-D pixels down to 2-D for plotting
+pca = PCA(n_components=2)
+X2 = pca.fit_transform(X)               # centre + covariance + eigenvectors, done for you
+print("shape after PCA:", X2.shape)               # -> (1797, 2)
+print("variance kept by PC1, PC2:",
+      pca.explained_variance_ratio_.round(3))     # e.g. [0.12 0.10]
+
+# How many components to keep 95% of the variance?
+full = PCA().fit(X)
+cum = np.cumsum(full.explained_variance_ratio_)
+k95 = np.searchsorted(cum, 0.95) + 1
+print(f"{k95} components keep 95% of the variance (out of 64)")</code></pre>
+
+      <h2>4. PCA in action — and what it can't do</h2>
+      <p>Projecting those 64-pixel digits to 2D, the digits cluster into rough blobs you can <em>see</em> — that's PCA's superpower: turning unplottable data into a picture. It also de-noises (the discarded directions are mostly noise) and speeds up downstream models by shrinking the input.</p>
+      <p>But PCA is <strong>blind to labels</strong>. It chases variance, not usefulness for prediction. Sometimes the direction of greatest spread is irrelevant to the class you care about, and the direction that actually separates the classes has small variance — so PCA happily discards it. That's the gap Fisher LDA fills.</p>
+
+      <h2>5. Fisher Linear Discriminant Analysis: separate, don't just spread</h2>
+      <p>LDA is <strong>supervised</strong>. Instead of "find the direction of maximum variance," it asks: "find the direction that best <strong>separates the classes</strong>." Project the data onto a line so that, after projecting, the class means are far apart <em>and</em> each class stays tightly clustered. Fisher captured this as a single ratio to maximise:</p>
+      <p>\[ J(\mathbf{w}) = \frac{\mathbf{w}^{\top} S_B\, \mathbf{w}}{\mathbf{w}^{\top} S_W\, \mathbf{w}} = \frac{\text{between-class scatter}}{\text{within-class scatter}} \]</p>
+      <p>where \(S_B\) measures how far apart the class means are and \(S_W\) measures the spread inside each class. Maximise the gap between classes; minimise the smear within them. The optimal direction works out to \(\mathbf{w} \propto S_W^{-1}(\boldsymbol{\mu}_1 - \boldsymbol{\mu}_2)\) for two classes.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 380 250" aria-label="PCA versus LDA projection directions">
+          <!-- two classes -->
+          <circle cx="90" cy="80" r="4" fill="#4f46e5"/><circle cx="110" cy="60" r="4" fill="#4f46e5"/>
+          <circle cx="125" cy="95" r="4" fill="#4f46e5"/><circle cx="105" cy="105" r="4" fill="#4f46e5"/>
+          <circle cx="80" cy="100" r="4" fill="#4f46e5"/>
+          <circle cx="200" cy="160" r="4" fill="#f43f5e"/><circle cx="220" cy="140" r="4" fill="#f43f5e"/>
+          <circle cx="235" cy="175" r="4" fill="#f43f5e"/><circle cx="215" cy="185" r="4" fill="#f43f5e"/>
+          <circle cx="190" cy="180" r="4" fill="#f43f5e"/>
+          <!-- PCA direction: along overall spread (diagonal) -->
+          <line x1="70" y1="60" x2="250" y2="190" stroke="#767c93" stroke-width="2.5" stroke-dasharray="5 4"/>
+          <text x="252" y="195" font-size="12" fill="#767c93">PCA: max variance</text>
+          <!-- LDA direction: connects the two class means -->
+          <line x1="100" y1="160" x2="240" y2="70" stroke="#14b8a6" stroke-width="3"/>
+          <text x="120" y="170" font-size="12" fill="#14b8a6">LDA: best separates classes</text>
+        </svg>
+        <figcaption>PCA (grey, dashed) follows the overall spread, ignoring colour. LDA (teal) chooses the direction that pulls the two classes apart — better for classification.</figcaption>
+      </figure>
+
+      <h2>6. Classifying on the reduced representation &amp; multiclass</h2>
+      <p>Once LDA has projected the data onto its discriminant direction(s), classification is easy: a new point is assigned to the class whose projected mean it lands nearest (with the threshold sitting between the projected class means). For \(c\) classes, LDA can find up to \(c-1\) discriminant directions — so 10 digit classes give up to 9 LDA axes, a compact and class-aware representation. Each axis is chosen to maximise that same between/within scatter ratio, generalised to many classes.</p>
+      <p>In short: <strong>PCA</strong> compresses for visualisation and de-noising; <strong>LDA</strong> compresses <em>and</em> sharpens class boundaries, doubling as a lightweight classifier. They're often complementary — PCA first to denoise, LDA after to separate.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">scikit-learn — LDA as a classifier</span></div>
+<pre><code class="language-python">from sklearn.datasets import load_digits
+from sklearn.preprocessing import StandardScaler
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
+from sklearn.model_selection import train_test_split
+
+X, y = load_digits(return_X_y=True)
+X = StandardScaler().fit_transform(X)
+Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.3, random_state=0)
+
+lda = LDA()                 # supervised: uses the labels y
+lda.fit(Xtr, ytr)
+print("LDA test accuracy:", round(lda.score(Xte, yte), 3))   # ~0.95
+
+# LDA can also project to (#classes - 1) = 9 dims for a compact representation
+X_proj = lda.transform(Xtr)
+print("LDA projection shape:", X_proj.shape)   # -> (n_train, 9)</code></pre>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This lesson <em>is</em> <strong>Week 2's eigenvectors &amp; SVD</strong> applied to data, on top of <strong>Week 19's</strong> scaling (always scale before PCA). The 2D pictures PCA produces are how we'll visualise the <strong>word embeddings</strong> of <strong>Week 31</strong>, where similar words sit near each other in a reduced space. And PCA-reduced features feed straight into <strong>Project 1</strong>'s tabular pipeline. Next week we change gears entirely — from continuous geometry to the yes/no logic of <strong>decision trees</strong>.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=FgakZw6K1QQ" target="_blank" rel="noopener">StatQuest: Principal Component Analysis (PCA), Step-by-Step</a><span class="r-src">The clearest explanation of the centre → covariance → eigenvector pipeline anywhere. Watch before re-reading section 2.</span></div></li>
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=PFDu9oVAE-g" target="_blank" rel="noopener">Eigenvectors and eigenvalues</a> <span class="badge-3b1b">3Blue1Brown</span><span class="r-src">Revisit this Week 2 video with PCA in mind — the covariance matrix's eigenvectors are precisely the "axes a transformation doesn't rotate."</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://scikit-learn.org/stable/modules/decomposition.html#pca" target="_blank" rel="noopener">scikit-learn: PCA &amp; matrix decomposition</a><span class="r-src">API details, <code>explained_variance_ratio_</code>, and whitening — your reference for the code above.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">In PCA, what do the eigenvectors of the covariance matrix represent?</div>
+        <button class="opt">The data points themselves.</button>
+        <button class="opt">The principal axes — the new directions along which the data varies, ordered by their eigenvalues.</button>
+        <button class="opt">The class labels.</button>
+        <button class="opt">The mean of each feature.</button>
+        <div class="explain">PCA is eigen-analysis of the covariance matrix. Each eigenvector is a principal component (a new axis), and its eigenvalue is the variance carried along that axis — exactly the Week 2 idea applied to data.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">What is the key difference between PCA and Fisher LDA?</div>
+        <button class="opt">PCA is faster; LDA is always more accurate.</button>
+        <button class="opt">PCA needs labels; LDA does not.</button>
+        <button class="opt">PCA is unsupervised and preserves variance; LDA is supervised and maximises class separation.</button>
+        <button class="opt">They produce identical projections.</button>
+        <div class="explain">PCA ignores labels and chases maximum variance. LDA uses labels and chases the direction that best separates the classes (maximising between-class over within-class scatter).</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">You run PCA and the first 3 components have explained_variance_ratio_ = [0.6, 0.25, 0.1]. How much variance do the first two components retain?</div>
+        <button class="opt">85%</button>
+        <button class="opt">60%</button>
+        <button class="opt">25%</button>
+        <button class="opt">95%</button>
+        <div class="explain">The explained-variance ratios add up: 0.60 + 0.25 = 0.85, so keeping PC1 and PC2 retains 85% of the total variance — usually plenty for a 2D plot.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

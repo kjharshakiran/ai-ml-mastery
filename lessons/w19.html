@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 19 · Normalisation &amp; Data Reduction — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w19">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 19</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 4 · Classical Machine Learning › Lesson 19</div>
+        <span class="eyebrow">🧮 Part 4 · Classical Machine Learning</span>
+        <h1>Dimensionality Reduction I: Normalisation &amp; Data Reduction</h1>
+        <div class="lesson-meta"><span>⏱️ 45 min</span><span>🎯 Put every feature on the same footing</span><span>📦 Week 19</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain why features on wildly different scales <em>break</em> distance-based models.</li>
+          <li>Apply <strong>min–max normalisation</strong> to squeeze any feature into the range [0, 1].</li>
+          <li>Apply <strong>z-score standardisation</strong> and connect it back to the mean &amp; standard deviation from Week 4.</li>
+          <li>Choose the right scaler and avoid the classic data-leakage trap.</li>
+          <li>Implement both by hand in NumPy and with scikit-learn's <code>MinMaxScaler</code> / <code>StandardScaler</code>.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">If one feature is measured in dollars (0–100,000) and another in years (0–80), which one secretly dominates your model — and how do we give them a fair fight?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. Data transformation: shaping data before it learns</h2>
+      <p>So far we've fed models raw columns and hoped for the best. But real datasets are messy: one column counts website visits (0 to millions), another holds a customer's age (0 to 100), a third is a rating from 1 to 5. <strong>Data transformation</strong> is the family of steps that reshape these raw numbers into a form a model can learn from cleanly — and the most important member of that family is <strong>feature scaling</strong>.</p>
+      <p>Transformation is not "cheating" or "changing the data." It's translation. The relationships between data points stay intact; we just re-express every feature in a common currency so no single one shouts over the others.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine a race where one runner's distance is measured in <em>millimetres</em> and another's in <em>kilometres</em>. Even if they run equally hard, the millimetre numbers look gigantic next to the kilometre numbers. To judge fairly, you first convert everyone to the same unit. Normalisation is exactly that: putting every feature in the same unit so the model judges them fairly.</p>
+      </div>
+
+      <h2>2. Why different scales hurt distance-based models</h2>
+      <p>Remember the <strong>norm</strong> and <strong>distance</strong> from Week 2? A model like k-Nearest Neighbours (Week 15) decides "are these two points similar?" by computing the Euclidean distance between their feature vectors:</p>
+      <p>\[ d(\mathbf{a},\mathbf{b}) = \sqrt{\sum_i (a_i - b_i)^2} \]</p>
+      <p>Suppose person A is <code>[salary=50000, age=30]</code> and person B is <code>[salary=50100, age=55]</code>. The salary differs by 100 and the age by 25. But inside that square root, the salary term contributes \(100^2 = 10000\) while the age term contributes only \(25^2 = 625\). The salary completely <strong>drowns out</strong> the age — purely because its numbers happen to be bigger, not because it's more important. The distance is essentially "salary distance," and age stops mattering.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 460 240" aria-label="Same data before and after scaling">
+          <text x="20" y="20" font-size="13" fill="#767c93">Before: salary axis dwarfs age axis</text>
+          <line x1="40" y1="200" x2="220" y2="200" stroke="#767c93" stroke-width="1.5"/>
+          <line x1="40" y1="200" x2="40" y2="50" stroke="#767c93" stroke-width="1.5"/>
+          <text x="95" y="218" font-size="11" fill="#767c93">salary →</text>
+          <circle cx="120" cy="190" r="5" fill="#4f46e5"/>
+          <circle cx="200" cy="185" r="5" fill="#f43f5e"/>
+          <text x="118" y="180" font-size="10" fill="#767c93">A</text>
+          <text x="198" y="175" font-size="10" fill="#767c93">B</text>
+          <text x="22" y="120" font-size="11" fill="#767c93" transform="rotate(-90 22 120)">age</text>
+          <text x="250" y="125" font-size="22" fill="#14b8a6">→</text>
+          <text x="290" y="20" font-size="13" fill="#767c93">After: both axes 0–1, fair fight</text>
+          <line x1="310" y1="200" x2="440" y2="200" stroke="#767c93" stroke-width="1.5"/>
+          <line x1="310" y1="200" x2="310" y2="60" stroke="#767c93" stroke-width="1.5"/>
+          <circle cx="350" cy="170" r="5" fill="#4f46e5"/>
+          <circle cx="400" cy="90" r="5" fill="#f43f5e"/>
+          <text x="348" y="160" font-size="10" fill="#767c93">A</text>
+          <text x="398" y="80" font-size="10" fill="#767c93">B</text>
+          <text x="360" y="218" font-size="11" fill="#767c93">salary (0–1) →</text>
+        </svg>
+        <figcaption>Left: raw scales make salary dominate distance. Right: after scaling, both features span the same range and contribute equally.</figcaption>
+      </figure>
+
+      <p>This isn't only a k-NN problem. Any algorithm that uses distances, dot products, or gradient steps in feature space is affected: <strong>SVMs</strong> (Week 18, whose margins live in distance-space), <strong>PCA</strong> (next week, which chases directions of maximum variance — and big-scale features fake big variance), and <strong>neural networks</strong> (Week 26, whose gradient descent converges far faster when inputs are scaled). Tree-based models (Week 21) are the notable exception — they split one feature at a time, so scale doesn't matter to them.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Common Pitfall</div>
+        <p style="margin-bottom:0">"Bigger numbers" is not the same as "more important." A model can't tell the difference between a feature that matters and a feature that merely has large units. Scaling removes that confusion so the model can discover real importance from the data.</p>
+      </div>
+
+      <h2>3. Min–max normalisation: squeeze into [0, 1]</h2>
+      <p>The simplest fix rescales each feature so its smallest value becomes 0 and its largest becomes 1, with everything else spread linearly in between:</p>
+      <p>\[ x' = \frac{x - x_{\min}}{x_{\max} - x_{\min}} \]</p>
+      <p>Subtract the minimum (shifts the smallest value to 0), then divide by the range (shrinks the largest value to 1). Want a different range, say \([a,b]\)? Just stretch: \(x'' = a + x'(b-a)\).</p>
+      <p>Min–max is intuitive and preserves the exact <em>shape</em> of the distribution — it only slides and stretches. Its weakness: it's <strong>sensitive to outliers</strong>. One wildly large value sets \(x_{\max}\) and crushes every other point into a tiny sliver near 0.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">📏</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Min–max is like grading an exam "on a curve to 0–100": the lowest score becomes 0%, the highest becomes 100%, everyone else lands proportionally between. But if one genius scores 10× everyone else, the whole class gets squashed near the bottom — that's the outlier sensitivity.</p>
+      </div>
+
+      <h2>4. Z-score standardisation: centre and scale by spread</h2>
+      <p>The other workhorse uses the <strong>mean</strong> \(\mu\) and <strong>standard deviation</strong> \(\sigma\) you met in Week 4. For each feature:</p>
+      <p>\[ z = \frac{x - \mu}{\sigma}, \qquad \mu = \frac{1}{n}\sum_i x_i, \qquad \sigma = \sqrt{\frac{1}{n}\sum_i (x_i - \mu)^2} \]</p>
+      <p>Subtract the mean (now the feature is <strong>centred</strong> at 0) and divide by the standard deviation (now its <strong>spread</strong> is exactly 1). The result, the <strong>z-score</strong>, literally answers: "how many standard deviations above or below average is this value?" A \(z=+2\) means "two standard deviations above the mean" — a rare, large value. A \(z=0\) means "exactly average."</p>
+      <p>Unlike min–max, z-scores aren't bounded to [0, 1] — they can be any real number. But they're far more <strong>robust to outliers</strong>, because \(\sigma\) summarises typical spread rather than depending on a single extreme. When a feature looks roughly bell-shaped (Gaussian, Week 4), standardisation is usually the right default — and it's what PCA expects next week.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
+        <p style="margin-bottom:0"><strong>Min–max</strong> answers "where does this value sit between the smallest and largest?" (bounded, outlier-sensitive). <strong>Z-score</strong> answers "how many standard deviations from average is this?" (unbounded, outlier-robust, ties directly to Week 4's \(\mu\) and \(\sigma\)).</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — both scalers by hand</span></div>
+<pre><code class="language-python">import numpy as np
+
+# Two features on very different scales: salary and age
+X = np.array([[50000., 30.],
+              [60000., 45.],
+              [80000., 22.],
+              [52000., 38.]])
+
+# --- Min-max normalisation: (x - min) / (max - min), column by column ---
+x_min = X.min(axis=0)          # smallest value in each column
+x_max = X.max(axis=0)          # largest value in each column
+X_minmax = (X - x_min) / (x_max - x_min)
+print(X_minmax.round(2))       # every column now lives in [0, 1]
+
+# --- Z-score standardisation: (x - mean) / std (the Week 4 formula) ---
+mu  = X.mean(axis=0)           # per-feature mean  (Week 4)
+sig = X.std(axis=0)            # per-feature standard deviation (Week 4)
+X_zscore = (X - mu) / sig
+print(X_zscore.round(2))       # each column now has mean 0, std 1
+print(X_zscore.mean(axis=0).round(6))  # -> [0. 0.]  (centred)
+print(X_zscore.std(axis=0).round(6))   # -> [1. 1.]  (unit spread)</code></pre>
+
+      <h2>5. The same thing with scikit-learn (and the leakage trap)</h2>
+      <p>You'll rarely hand-roll scalers in practice — scikit-learn gives you <code>MinMaxScaler</code> and <code>StandardScaler</code> with a <code>fit</code>/<code>transform</code> API that integrates with pipelines. The critical rule: <strong>fit the scaler on training data only</strong>, then apply the <em>same</em> learned \(\mu,\sigma\) (or min/max) to the test data. Fitting on the whole dataset leaks information about the test set into training and inflates your scores.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">scikit-learn — StandardScaler &amp; MinMaxScaler</span></div>
+<pre><code class="language-python">import numpy as np
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.model_selection import train_test_split
+
+X = np.array([[50000., 30.], [60000., 45.], [80000., 22.],
+              [52000., 38.], [70000., 50.], [48000., 27.]])
+
+# Always split BEFORE scaling to avoid data leakage
+X_train, X_test = train_test_split(X, test_size=0.33, random_state=0)
+
+scaler = StandardScaler()          # z-score: subtract mean, divide by std
+scaler.fit(X_train)                # learn mu and sigma from TRAIN ONLY
+X_train_z = scaler.transform(X_train)
+X_test_z  = scaler.transform(X_test)   # reuse the SAME mu, sigma on test
+print("learned means :", scaler.mean_.round(1))
+print("learned stds  :", scaler.scale_.round(1))
+
+mm = MinMaxScaler()                # min-max: rescale each column to [0, 1]
+X_train_mm = mm.fit_transform(X_train)   # fit + transform in one call
+print(X_train_mm.round(2))</code></pre>
+
+      <h2>6. Data reduction: the bigger picture</h2>
+      <p>Scaling is one half of preparing data; <strong>data reduction</strong> is the other. Real datasets can have hundreds or thousands of features, and more features is not always better — it brings the <em>curse of dimensionality</em> (data gets sparse, distances become meaningless, models overfit). Data reduction shrinks the dataset while keeping its signal. Three flavours:</p>
+      <ul>
+        <li><strong>Dimensionality reduction</strong> — fewer <em>features</em>, by combining correlated ones into new compact axes. This is exactly what <strong>PCA</strong> does next week.</li>
+        <li><strong>Feature selection</strong> — keep the most informative columns, drop the rest.</li>
+        <li><strong>Numerosity / sampling</strong> — fewer <em>rows</em>, by sampling or aggregating.</li>
+      </ul>
+      <p>Why bother? Fewer dimensions mean faster training, less overfitting, lower memory, and — crucially — the ability to <strong>plot</strong> high-dimensional data in 2D so humans can see structure. But every reduction technique relies on features being on comparable scales first. That's why normalisation comes <em>before</em> reduction, and why this lesson comes right before PCA.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Scaling rests on the <strong>distance/norm</strong> ideas from <strong>Week 2</strong> and the <strong>mean &amp; standard deviation</strong> from <strong>Week 4</strong>. It's the silent prerequisite for the distance-based models you've already met — <strong>k-NN (Week 15)</strong> and <strong>SVM (Week 18)</strong> — and the ones ahead: <strong>PCA (Week 20)</strong>, which we set up here, and the <strong>neural networks (Week 26)</strong> whose gradient descent converges far faster on scaled inputs. Next week we use this clean, scaled data to find the directions that matter most.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=sxEqtjLC0aM" target="_blank" rel="noopener">StatQuest: Normalization vs. Standardization, Clearly Explained</a><span class="r-src">Josh Starmer walks through exactly when to reach for min–max vs z-score, with simple pictures. The perfect companion to sections 3–4.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://scikit-learn.org/stable/modules/preprocessing.html" target="_blank" rel="noopener">scikit-learn: Preprocessing data</a><span class="r-src">The official guide to every scaler, including <code>StandardScaler</code>, <code>MinMaxScaler</code>, and robust variants for outlier-heavy data.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://scikit-learn.org/stable/auto_examples/preprocessing/plot_all_scaling.html" target="_blank" rel="noopener">Compare the effect of different scalers on data</a><span class="r-src">A visual gallery showing how each scaler reshapes a real dataset — great for building intuition about outliers.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">Why does a feature measured in the tens of thousands dominate Euclidean distance over a feature measured in tens?</div>
+        <button class="opt">Because larger numbers are always more important.</button>
+        <button class="opt">Because distance only ever looks at the first feature.</button>
+        <button class="opt">Because its squared differences are far larger, drowning out the small-scale feature inside the square root.</button>
+        <button class="opt">Because the model normalises automatically.</button>
+        <div class="explain">Distance squares each feature's difference and sums them. A difference of 100 contributes 10,000; a difference of 25 contributes 625. The big-scale feature dominates purely because of units — which is exactly what scaling fixes.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">A z-score of +2 for a data point means:</div>
+        <button class="opt">The value is 2% above average.</button>
+        <button class="opt">The value is 2 standard deviations above the mean.</button>
+        <button class="opt">The value is the 2nd largest in the dataset.</button>
+        <button class="opt">The value has been scaled into the range [0, 1].</button>
+        <div class="explain">Z-score = (x − μ) / σ, so +2 literally means "two standard deviations above the mean" — a fairly rare, large value. This ties straight back to the μ and σ from Week 4.</div>
+      </div>
+      <div class="quiz" data-answer="3">
+        <div class="q">Why must you fit a scaler on the training set only, not the whole dataset?</div>
+        <button class="opt">It runs faster that way.</button>
+        <button class="opt">Test data has no mean or standard deviation.</button>
+        <button class="opt">scikit-learn forbids fitting on all the data.</button>
+        <button class="opt">Otherwise test-set information leaks into training, inflating your scores.</button>
+        <div class="explain">Fitting on all the data lets the test set influence the learned μ/σ (or min/max), so the model has secretly "seen" the test distribution. Fit on train, then transform test with those same parameters.</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

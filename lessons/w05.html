@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 5 · SQL &amp; Databases — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-lesson="w05">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Lesson 5</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Part 2 · Data &amp; Python › Lesson 5</div>
+        <span class="eyebrow">🐍 Part 2 · Data &amp; Python</span>
+        <h1>SQL &amp; Databases: Where Data Lives</h1>
+        <div class="lesson-meta"><span>⏱️ 50 min</span><span>🎯 Storing &amp; querying data</span><span>📦 Week 5</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>By the end of this lesson you'll be able to…</h4>
+        <ul>
+          <li>Explain what a database is and why SQL is the universal language for asking it questions.</li>
+          <li>Read a relational schema — tables, rows, columns, primary &amp; foreign keys — and see how relations link data together.</li>
+          <li>Tell the difference between SQL (relational) and NoSQL stores, and pick the right one.</li>
+          <li>Name the five SQL command families (DDL, DML, DQL, TCL, DCL) and write real <code>SELECT</code>, <code>INSERT</code>, <code>UPDATE</code> and <code>DELETE</code> queries.</li>
+          <li>Understand transactions, ACID guarantees, and how databases scale with sharding.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">Every model you'll build in this course starts the same way: <em>"give me the data."</em> But where does that data actually live, and how do you ask for exactly the slice you need — out of millions of rows — in a single line?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>1. SQL fundamentals: asking a filing cabinet questions</h2>
+      <p>A <strong>database</strong> is a program whose only job is to store data safely and hand back exactly the part you ask for, fast — even when there are billions of records. <strong>SQL</strong> (Structured Query Language, say it "sequel" or "S-Q-L") is the language you use to talk to it. You describe <em>what</em> you want; the database figures out <em>how</em> to get it.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">A database is a super-organised filing cabinet. Every drawer is a <strong>table</strong> (say, "Customers"), every folder in the drawer is a <strong>row</strong> (one customer), and every label on the folder is a <strong>column</strong> (name, age, city). SQL is the polite way you ask the cabinet: "bring me every folder where the city says Mumbai." You don't open the drawers yourself — you just say what you want, and it appears.</p>
+      </div>
+
+      <p>SQL is <em>declarative</em>: you say "I want the names of customers in Mumbai," not "loop over every folder and check the city." That single idea — declare the result, let the engine plan the work — is why one short query can sift millions of rows in milliseconds.</p>
+
+      <h2>2. RDBMS: tables, rows, keys &amp; relations</h2>
+      <p>The most common kind of database is a <strong>relational database</strong> (RDBMS) — PostgreSQL, MySQL, SQLite, Oracle. Data lives in <strong>tables</strong>: a grid of rows (records) and columns (fields). Two ideas make tables powerful:</p>
+      <ul>
+        <li>A <strong>primary key</strong> — a column whose value is unique for every row (like <code>customer_id</code>). It's the folder's barcode: no two folders share it.</li>
+        <li>A <strong>foreign key</strong> — a column in one table that points at the primary key of another. This is the <em>relation</em> in "relational": it lets an <code>orders</code> table say "this order belongs to customer #42" without copying the customer's whole record.</li>
+      </ul>
+
+      <figure class="figure">
+        <svg viewBox="0 0 460 230" aria-label="Two tables linked by a foreign key">
+          <rect x="20" y="30" width="170" height="150" fill="#fff" stroke="#4f46e5" stroke-width="1.5" rx="4"/>
+          <text x="30" y="22" font-size="13" fill="#4f46e5" font-family="monospace">customers</text>
+          <line x1="20" y1="55" x2="190" y2="55" stroke="#e3e6f0"/>
+          <text x="30" y="48" font-size="11" fill="#767c93" font-family="monospace">id  name    city</text>
+          <text x="30" y="78" font-size="11" font-family="monospace" fill="#222">42  Asha    Mumbai</text>
+          <text x="30" y="100" font-size="11" font-family="monospace" fill="#222">43  Ravi    Delhi</text>
+          <circle cx="36" cy="74" r="9" fill="none" stroke="#f59e0b" stroke-width="1.5"/>
+          <text x="30" y="200" font-size="10" fill="#f59e0b">primary key (id)</text>
+
+          <rect x="270" y="30" width="170" height="150" fill="#fff" stroke="#14b8a6" stroke-width="1.5" rx="4"/>
+          <text x="280" y="22" font-size="13" fill="#14b8a6" font-family="monospace">orders</text>
+          <line x1="270" y1="55" x2="440" y2="55" stroke="#e3e6f0"/>
+          <text x="280" y="48" font-size="11" fill="#767c93" font-family="monospace">id  cust_id  total</text>
+          <text x="280" y="78" font-size="11" font-family="monospace" fill="#222">7   42       1200</text>
+          <text x="280" y="100" font-size="11" font-family="monospace" fill="#222">8   42       450</text>
+          <circle cx="312" cy="74" r="9" fill="none" stroke="#f43f5e" stroke-width="1.5"/>
+          <text x="280" y="200" font-size="10" fill="#f43f5e">foreign key (cust_id)</text>
+
+          <path d="M312,74 C340,74 250,150 100,140 95,135 90,130 36,80" fill="none" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="150" y="218" font-size="10" fill="#767c93">cust_id 42 → customers.id 42 (the relation)</text>
+        </svg>
+        <figcaption>The foreign key <code>orders.cust_id</code> points back at <code>customers.id</code>. That link is what lets you join the two tables.</figcaption>
+      </figure>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The one idea to keep</div>
+        <p style="margin-bottom:0">Don't repeat data — <strong>relate</strong> it. Store each customer once, then point every order at that one record by its key. This is called <em>normalisation</em>, and it's what keeps a database consistent: change Asha's city in one place and every order "sees" the update.</p>
+      </div>
+
+      <h2>3. NoSQL: when tables aren't the right shape</h2>
+      <p>Not all data fits neatly into rigid rows and columns. <strong>NoSQL</strong> ("not only SQL") databases relax the table model for flexibility and scale. The two you'll meet most:</p>
+      <ul>
+        <li><strong>Document stores</strong> (MongoDB, Firestore): each record is a self-contained JSON-like document. A product can have ten fields, the next product fifteen — no fixed schema. Great when the shape of your data varies or evolves fast.</li>
+        <li><strong>Key–value stores</strong> (Redis, DynamoDB): the simplest possible model — a giant dictionary mapping a key to a blob. Blisteringly fast for caches, sessions, and leaderboards.</li>
+      </ul>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🗄️</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">A relational database is a <strong>spreadsheet with strict rules</strong>: every row must have the same columns, and the accountant won't let you break them. A document store is a <strong>shoebox of index cards</strong> — each card can say whatever it needs to. The spreadsheet keeps you honest; the shoebox keeps you flexible. Pick based on whether your data is regular (use SQL) or wildly varied and fast-changing (consider NoSQL).</p>
+      </div>
+
+      <p><strong>When to use which?</strong> Reach for an RDBMS when relationships and consistency matter (banking, orders, anything you'd hate to get wrong). Reach for NoSQL when you need extreme scale, flexible schemas, or simple ultra-fast lookups, and you can tolerate slightly looser guarantees. Most real systems use both.</p>
+
+      <h2>4. Scaling &amp; sharding</h2>
+      <p>One machine can only hold and serve so much. There are two ways to grow:</p>
+      <ul>
+        <li><strong>Vertical scaling</strong> ("scale up"): buy a bigger machine — more CPU, RAM, disk. Simple, but there's a ceiling and it gets expensive fast.</li>
+        <li><strong>Horizontal scaling</strong> ("scale out"): add more machines and split the data across them. This is where <strong>sharding</strong> comes in — partitioning rows across servers (e.g. customers A–M on shard 1, N–Z on shard 2). Each shard handles a slice of the traffic.</li>
+      </ul>
+      <p><strong>Replication</strong> is the companion idea: keep copies of the data on several machines so reads are fast and a single failure doesn't lose anything. NoSQL systems were largely born to make horizontal scaling and replication easy; traditional RDBMSs can do it too, with more care.</p>
+
+      <h2>5. The five command families</h2>
+      <p>Every SQL statement belongs to one of five families. Learn the buckets and the whole language organises itself:</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 470 170" aria-label="The five SQL command families">
+          <rect x="10"  y="40" width="86" height="90" rx="6" fill="#eef0fb" stroke="#4f46e5"/>
+          <text x="53" y="62" font-size="13" text-anchor="middle" fill="#4f46e5" font-family="monospace">DDL</text>
+          <text x="53" y="84" font-size="9" text-anchor="middle" fill="#767c93">CREATE</text>
+          <text x="53" y="98" font-size="9" text-anchor="middle" fill="#767c93">ALTER, DROP</text>
+          <text x="53" y="120" font-size="9" text-anchor="middle" fill="#222">shape</text>
+
+          <rect x="104" y="40" width="86" height="90" rx="6" fill="#e7faf7" stroke="#14b8a6"/>
+          <text x="147" y="62" font-size="13" text-anchor="middle" fill="#14b8a6" font-family="monospace">DML</text>
+          <text x="147" y="84" font-size="9" text-anchor="middle" fill="#767c93">INSERT</text>
+          <text x="147" y="98" font-size="9" text-anchor="middle" fill="#767c93">UPDATE, DELETE</text>
+          <text x="147" y="120" font-size="9" text-anchor="middle" fill="#222">change</text>
+
+          <rect x="198" y="40" width="86" height="90" rx="6" fill="#fef6e7" stroke="#f59e0b"/>
+          <text x="241" y="62" font-size="13" text-anchor="middle" fill="#f59e0b" font-family="monospace">DQL</text>
+          <text x="241" y="84" font-size="9" text-anchor="middle" fill="#767c93">SELECT</text>
+          <text x="241" y="120" font-size="9" text-anchor="middle" fill="#222">read</text>
+
+          <rect x="292" y="40" width="86" height="90" rx="6" fill="#feeef1" stroke="#f43f5e"/>
+          <text x="335" y="62" font-size="13" text-anchor="middle" fill="#f43f5e" font-family="monospace">TCL</text>
+          <text x="335" y="84" font-size="9" text-anchor="middle" fill="#767c93">COMMIT</text>
+          <text x="335" y="98" font-size="9" text-anchor="middle" fill="#767c93">ROLLBACK</text>
+          <text x="335" y="120" font-size="9" text-anchor="middle" fill="#222">confirm</text>
+
+          <rect x="386" y="40" width="80" height="90" rx="6" fill="#f1f2f6" stroke="#767c93"/>
+          <text x="426" y="62" font-size="13" text-anchor="middle" fill="#767c93" font-family="monospace">DCL</text>
+          <text x="426" y="84" font-size="9" text-anchor="middle" fill="#767c93">GRANT</text>
+          <text x="426" y="98" font-size="9" text-anchor="middle" fill="#767c93">REVOKE</text>
+          <text x="426" y="120" font-size="9" text-anchor="middle" fill="#222">permit</text>
+
+          <text x="235" y="20" font-size="12" text-anchor="middle" fill="#222">Shape it · Change it · Read it · Confirm it · Permit it</text>
+        </svg>
+        <figcaption>DDL defines structure, DML changes data, DQL reads it, TCL wraps changes in transactions, DCL controls who's allowed.</figcaption>
+      </figure>
+
+      <p>We'll use this tiny schema for the rest of the lesson. <strong>DDL</strong> (Data Definition Language) builds the table itself:</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">SQL — DDL: define the structure</span></div>
+<pre><code class="language-sql">-- CREATE TABLE defines a new table and its columns + keys (DDL)
+CREATE TABLE customers (
+    id    INTEGER PRIMARY KEY,   -- unique barcode for each customer
+    name  TEXT    NOT NULL,      -- cannot be empty
+    city  TEXT,
+    spend REAL    DEFAULT 0      -- total amount spent, defaults to 0
+);
+
+-- ALTER changes an existing table's shape; DROP would delete it entirely
+ALTER TABLE customers ADD COLUMN signup_year INTEGER;</code></pre>
+
+      <h2>6. DML: changing the data</h2>
+      <p><strong>DML</strong> (Data Manipulation Language) puts rows in, edits them, and removes them. Three verbs do almost everything:</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">SQL — DML: INSERT / UPDATE / DELETE</span></div>
+<pre><code class="language-sql">-- INSERT adds new rows
+INSERT INTO customers (id, name, city, spend) VALUES
+    (42, 'Asha', 'Mumbai', 1650),
+    (43, 'Ravi', 'Delhi',   300),
+    (44, 'Meera','Mumbai',  2400);
+
+-- UPDATE edits existing rows. The WHERE clause says WHICH rows.
+UPDATE customers SET spend = spend + 100 WHERE id = 43;  -- Ravi spent 100 more
+
+-- DELETE removes rows. ALWAYS pair DELETE with WHERE...
+DELETE FROM customers WHERE id = 44;   -- remove just Meera</code></pre>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> The most expensive missing word in SQL</div>
+        <p style="margin-bottom:0"><code>DELETE FROM customers;</code> with <strong>no <code>WHERE</code></strong> deletes every single row. Same trap with <code>UPDATE</code>. Always write the <code>WHERE</code> first, then the verb. Professionals run a <code>SELECT</code> with the same <code>WHERE</code> first to see exactly which rows they're about to touch.</p>
+      </div>
+
+      <h2>7. DQL: SELECT — the query you'll write 1000 times</h2>
+      <p><strong>DQL</strong> (Data Query Language) is just one verb — <code>SELECT</code> — but it's the workhorse of data science. Its clauses run in a fixed logical order: pick the table (<code>FROM</code>), filter rows (<code>WHERE</code>), group them (<code>GROUP BY</code>), filter groups (<code>HAVING</code>), choose columns (<code>SELECT</code>), then sort (<code>ORDER BY</code>) and trim (<code>LIMIT</code>).</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">SQL — DQL: SELECT</span></div>
+<pre><code class="language-sql">-- The everyday query: which columns, from where, filtered, sorted
+SELECT name, spend
+FROM   customers
+WHERE  city = 'Mumbai'        -- keep only Mumbai customers
+ORDER BY spend DESC;          -- biggest spender first
+-- -> Meera 2400, Asha 1650
+
+-- Aggregation: one number per group. The heart of analytics.
+SELECT city,
+       COUNT(*)    AS n_customers,   -- how many per city
+       AVG(spend)  AS avg_spend      -- average spend per city
+FROM   customers
+GROUP BY city
+HAVING AVG(spend) > 500;     -- only keep cities averaging over 500
+
+-- JOIN: follow the foreign key to combine tables
+SELECT c.name, o.total
+FROM   customers c
+JOIN   orders    o ON o.cust_id = c.id;   -- relation made visible</code></pre>
+
+      <p>That <code>JOIN</code> is the relation from section 2 brought to life: it walks the foreign key and stitches the two tables into one result. <code>COUNT</code>, <code>AVG</code>, <code>SUM</code>, <code>MIN</code>, <code>MAX</code> are <em>aggregate functions</em> — they collapse many rows into a summary. You'll recognise <code>AVG</code> as the mean from Week 4; in Week 8 you'll pull exactly these summaries into Python for EDA.</p>
+
+      <h2>8. TCL &amp; DCL: transactions, ACID &amp; permissions</h2>
+      <p>Imagine moving ₹500 between two accounts: subtract from one, add to the other. If the power dies <em>between</em> those two steps, money vanishes. <strong>TCL</strong> (Transaction Control Language) prevents this by wrapping steps into an all-or-nothing <strong>transaction</strong>.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">SQL — TCL &amp; DCL</span></div>
+<pre><code class="language-sql">BEGIN;                                          -- start a transaction
+  UPDATE accounts SET bal = bal - 500 WHERE id = 1;
+  UPDATE accounts SET bal = bal + 500 WHERE id = 2;
+COMMIT;     -- both succeed together; or ROLLBACK to undo BOTH if anything fails
+
+-- DCL: who is allowed to do what
+GRANT SELECT ON customers TO analyst;   -- analyst can read, not change
+REVOKE SELECT ON customers FROM analyst;</code></pre>
+
+      <p>Transactions give you the four <strong>ACID</strong> guarantees, the reason banks trust SQL databases:</p>
+      <ul>
+        <li><strong>A</strong>tomicity — all steps happen, or none do (the money transfer above).</li>
+        <li><strong>C</strong>onsistency — the database moves from one valid state to another; rules (keys, constraints) are never broken.</li>
+        <li><strong>I</strong>solation — concurrent transactions don't trip over each other.</li>
+        <li><strong>D</strong>urability — once committed, it survives crashes and power loss.</li>
+      </ul>
+      <p>Finally, <strong>DCL</strong> (Data Control Language) — <code>GRANT</code> and <code>REVOKE</code> — decides who may read or write each table. The analyst reads; only the app writes. Security by least privilege.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Data must be <em>fetched</em> before any machine learning can happen. The <code>SELECT</code> you just learned is step zero of every project. In <strong>Week 6</strong> you'll load query results into Python lists and dicts; in <strong>Week 7</strong> pandas will read a whole table in one line (<code>pd.read_sql</code>); and in <strong>Week 8 (EDA)</strong> you'll run <code>describe()</code> on that data — which is really just the <code>COUNT</code>/<code>AVG</code>/<code>MIN</code>/<code>MAX</code> aggregates from section 7, dressed up. Everything downstream begins here, at "where the data lives."</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🎥 Watch &amp; Read</h2>
+      <ul class="refs">
+        <li><span class="r-ic">▶️</span><div><a href="https://www.youtube.com/watch?v=p3qvj9hO_Bo" target="_blank" rel="noopener">SQL Tutorial — Full Database Course for Beginners</a><span class="r-src">freeCodeCamp's 4-hour hands-on walkthrough. Watch the first hour to see CREATE, INSERT and SELECT run live, then come back to sections 5–8.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://www.sqlitetutorial.net/" target="_blank" rel="noopener">SQLite Tutorial</a><span class="r-src">SQLite ships with Python (no install). The cleanest place to actually run every query above yourself.</span></div></li>
+        <li><span class="r-ic">📖</span><div><a href="https://www.postgresql.org/docs/current/tutorial.html" target="_blank" rel="noopener">PostgreSQL Official Tutorial</a><span class="r-src">The reference RDBMS used in industry. Its tutorial covers joins, transactions and ACID with authority.</span></div></li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q">What is a <strong>foreign key</strong>?</div>
+        <button class="opt">A password that unlocks a table.</button>
+        <button class="opt">A column that must always be empty.</button>
+        <button class="opt">A column that points at the primary key of another table, creating a relation.</button>
+        <button class="opt">The first column of every table.</button>
+        <div class="explain">A foreign key stores the primary-key value of a row in another table — e.g. <code>orders.cust_id</code> = 42 links to <code>customers.id</code> = 42. That link is the "relation" in relational database, and it's what a <code>JOIN</code> follows.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">You run <code>DELETE FROM customers;</code> with no <code>WHERE</code> clause. What happens?</div>
+        <button class="opt">Nothing — SQL refuses without a WHERE.</button>
+        <button class="opt">Every row in the table is deleted.</button>
+        <button class="opt">Only the last row is deleted.</button>
+        <button class="opt">The table's structure is dropped but rows stay.</button>
+        <div class="explain">With no <code>WHERE</code>, the verb applies to <em>all</em> rows. <code>DELETE</code> wipes the whole table's data (the structure stays). Always write — and test — your <code>WHERE</code> clause first.</div>
+      </div>
+      <div class="quiz" data-answer="3">
+        <div class="q">The "A" in ACID guarantees that a transaction is <strong>atomic</strong>. That means:</div>
+        <button class="opt">It runs in under a second.</button>
+        <button class="opt">It can be read by anyone.</button>
+        <button class="opt">It uses the smallest possible table.</button>
+        <button class="opt">All its steps succeed together, or none of them apply at all.</button>
+        <div class="explain">Atomicity is the all-or-nothing property. In a money transfer, you never end up with the debit applied but the credit lost — either both happen (<code>COMMIT</code>) or neither does (<code>ROLLBACK</code>).</div>
+      </div>
+
+      <button class="mark-done" id="markDone"><span data-check>○</span> <span data-label>Mark this lesson complete</span></button>
+      <nav class="pager" id="pager"></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

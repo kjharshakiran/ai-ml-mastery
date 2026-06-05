@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 4 · Mini-GPT from Scratch — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-project="p4">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Project 4</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Capstone Projects › Project 4</div>
+        <span class="eyebrow">🏆 Capstone Project 4 · The Crown Jewel</span>
+        <h1>Mini-GPT — Build a Language Model from Scratch</h1>
+        <div class="lesson-meta"><span>🔴 Difficulty: Advanced</span><span>🎯 From a vector to a thinking machine</span><span>🧰 PyTorch · Embeddings · Self-Attention · Transformer</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>What you'll build</h4>
+        <ul>
+          <li>A complete <strong>character-level GPT</strong> in ~120 lines of PyTorch — every tensor by hand.</li>
+          <li>A tokeniser, an <strong>embedding table</strong>, and a <strong>positional encoding</strong>.</li>
+          <li><strong>Masked multi-head self-attention</strong> — the single idea behind ChatGPT — commented line by line.</li>
+          <li>Transformer blocks with residual connections and layer norm, plus a training loop on next-token cross-entropy.</li>
+          <li>A <strong>generate()</strong> function that samples new text one character at a time.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">How can a model that only ever learns to predict the <em>next character</em> end up writing coherent sentences, code, and poetry? And what is "attention," really, underneath the hype?</div>
+      </div>
+
+      <div class="prose">
+
+      <p>This is where the whole course converges. Way back in <strong>Week 2</strong> we said "everything becomes a vector." Now watch the full through-line snap into place: <strong>vectors (W2) → embeddings (W31) → attention (W32) → pre-training (W33) → generation (W34)</strong>. Each arrow is a section below, and each is just tensors and the gradient descent you already know.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">It's the world's best "guess the next letter" game. You show the model tons of text and it learns: after "to be or not to b", the next letter is almost certainly "e". Do that billions of times and to guess well it has to <em>understand</em> grammar, names, and ideas — there's no other way to keep winning. To write something new, it just guesses the next letter, adds it, and guesses again, over and over. "Attention" is how it decides which earlier words matter most for the next guess — like glancing back at the question while answering.</p>
+      </div>
+
+      <h2>The Mini-GPT forward pass</h2>
+
+      <figure class="figure">
+        <svg viewBox="0 0 760 250" aria-label="Mini-GPT forward pass from tokens to next-token probabilities">
+          <defs><marker id="ar4" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#767c93"/></marker></defs>
+          <g font-family="sans-serif" font-size="11" text-anchor="middle">
+            <rect x="20"  y="105" width="92" height="44" rx="7" fill="#eef0fb" stroke="#4f46e5"/><text x="66" y="125">Tokens</text><text x="66" y="140" fill="#767c93">"hell" → ids</text>
+            <rect x="140" y="80"  width="100" height="44" rx="7" fill="#eef0fb" stroke="#4f46e5"/><text x="190" y="100">Token emb</text><text x="190" y="115" fill="#767c93">lookup (W2/W31)</text>
+            <rect x="140" y="132" width="100" height="44" rx="7" fill="#eef0fb" stroke="#4f46e5"/><text x="190" y="152">Pos emb</text><text x="190" y="167" fill="#767c93">where am I (W33)</text>
+            <rect x="270" y="105" width="40" height="44" rx="7" fill="#f4f5fa" stroke="#767c93"/><text x="290" y="132" font-size="18">+</text>
+            <rect x="338" y="60"  width="150" height="130" rx="9" fill="#e7faf6" stroke="#14b8a6"/><text x="413" y="80">Transformer block ×N</text>
+            <rect x="352" y="92"  width="122" height="34" rx="6" fill="#fff" stroke="#14b8a6"/><text x="413" y="113" font-size="10.5">Masked self-attention (W32)</text>
+            <rect x="352" y="138" width="122" height="34" rx="6" fill="#fff" stroke="#14b8a6"/><text x="413" y="159" font-size="10.5">MLP + residual + LN</text>
+            <rect x="516" y="105" width="84" height="44" rx="7" fill="#fff4e0" stroke="#f59e0b"/><text x="558" y="125">Linear</text><text x="558" y="140" fill="#767c93">→ vocab</text>
+            <rect x="628" y="105" width="112" height="44" rx="7" fill="#fde8ee" stroke="#f43f5e"/><text x="684" y="125">Softmax (W34)</text><text x="684" y="140" fill="#767c93">P(next char)</text>
+          </g>
+          <g stroke="#767c93" stroke-width="1.5" marker-end="url(#ar4)">
+            <line x1="112" y1="118" x2="138" y2="102"/><line x1="112" y1="132" x2="138" y2="150"/>
+            <line x1="240" y1="102" x2="268" y2="120"/><line x1="240" y1="154" x2="268" y2="134"/>
+            <line x1="310" y1="127" x2="336" y2="127"/><line x1="488" y1="127" x2="514" y2="127"/><line x1="600" y1="127" x2="626" y2="127"/>
+          </g>
+        </svg>
+        <figcaption>Tokens become embeddings, get a positional signal added, flow through N transformer blocks (attention + MLP), then a linear head + softmax give a probability over the next character. The whole course in one diagram.</figcaption>
+      </figure>
+
+      <h2>Step 1 — Tokenise the text (vectors, W2)</h2>
+      <p>We work at the character level: every distinct character gets an integer id. That's the simplest possible tokeniser, and it makes the rest crystal clear.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step1_tokenise.py</span></div>
+<pre><code class="language-python">import torch
+
+# Any text works; a Shakespeare or tiny-stories .txt is the classic choice.
+text = open("input.txt").read()           # e.g. ~1MB of Shakespeare
+
+chars = sorted(set(text))                  # the vocabulary
+vocab_size = len(chars)
+stoi = {c: i for i, c in enumerate(chars)} # char -> id
+itos = {i: c for c, i in stoi.items()}     # id   -> char
+
+encode = lambda s: [stoi[c] for c in s]
+decode = lambda ids: "".join(itos[i] for i in ids)
+
+data = torch.tensor(encode(text), dtype=torch.long)
+n = int(0.9 * len(data))
+train_data, val_data = data[:n], data[n:]
+print(vocab_size, "unique chars;", len(data), "tokens total")
+</code></pre>
+
+      <h2>Step 2 — Embeddings + positional encoding (W31, W33)</h2>
+      <p>An integer id carries no meaning. An <strong>embedding table</strong> (Week 31) maps each id to a learnable dense vector — the model's evolving notion of what that token "means," exactly the idea from Project 2's upgrade. But attention (next step) is order-blind, so we also add a <strong>positional embedding</strong> (Week 33) so the model knows <em>where</em> each token sits.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> Two vectors, added</div>
+        <p style="margin-bottom:0">Each position in the input gets <strong>token embedding + position embedding</strong>. The token vector says "what word"; the position vector says "where in the sentence." Their sum is a single vector that encodes both — and that sum is what flows into the transformer. This is the literal handshake between Week 31 (embeddings) and Week 33 (positional encoding).</p>
+      </div>
+
+      <h2>Step 3 — Masked multi-head self-attention (W32)</h2>
+      <p>Here is the idea that changed AI. For each token, attention builds three vectors: a <strong>query</strong> ("what am I looking for?"), a <strong>key</strong> ("what do I offer?"), and a <strong>value</strong> ("what I'll pass on if chosen"). A token's new representation is a weighted average of all <em>values</em>, where the weights come from how well its query matches each key — a dot product (Week 2!):</p>
+      <p>\[ \text{Attention}(Q,K,V) = \text{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}} + M\right)V \]</p>
+      <p>The mask \(M\) sets future positions to \(-\infty\) so a token can only attend to itself and earlier tokens — that's what makes it a <em>causal</em> language model that can generate left-to-right.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🔦</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Picture a meeting where everyone needs context to speak. Each person raises a <em>query</em> ("I need info about the budget"). Everyone else holds up a <em>key</em> labelling what they know. You listen most to the people whose keys best match your query, and you absorb their <em>values</em> (what they actually say). Self-attention is every word in a sentence doing this simultaneously — and the masking means you can only listen to people who spoke <em>before</em> you.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step3_attention.py — heavily commented</span></div>
+<pre><code class="language-python">import torch.nn as nn
+import torch.nn.functional as F
+
+class MultiHeadAttention(nn.Module):
+    """Causal (masked) multi-head self-attention -- the engine of a GPT."""
+    def __init__(self, n_embd, n_head, block_size, dropout=0.1):
+        super().__init__()
+        assert n_embd % n_head == 0
+        self.n_head = n_head
+        self.head_dim = n_embd // n_head            # each head works in a subspace
+
+        # One big linear projects each token into Q, K, V at once (3*n_embd).
+        self.qkv = nn.Linear(n_embd, 3 * n_embd, bias=False)
+        self.proj = nn.Linear(n_embd, n_embd)       # mixes heads back together
+        self.drop = nn.Dropout(dropout)
+
+        # Lower-triangular mask: position t may attend to 0..t only (no peeking ahead).
+        mask = torch.tril(torch.ones(block_size, block_size))
+        self.register_buffer("mask", mask.view(1, 1, block_size, block_size))
+
+    def forward(self, x):
+        B, T, C = x.shape                           # batch, time(=seq len), channels
+
+        # Project to queries, keys, values and split into heads.
+        q, k, v = self.qkv(x).split(C, dim=2)       # each (B, T, C)
+        # reshape (B,T,C) -> (B, n_head, T, head_dim) so heads run in parallel
+        q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
+        k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
+        v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
+
+        # Attention scores = query . key  (how relevant is each token to each other)
+        att = (q @ k.transpose(-2, -1)) / (self.head_dim ** 0.5)   # (B,nh,T,T)
+
+        # CAUSAL MASK: forbid attending to the future by setting it to -inf,
+        # so after softmax those weights become exactly 0.
+        att = att.masked_fill(self.mask[:, :, :T, :T] == 0, float("-inf"))
+        att = F.softmax(att, dim=-1)                # weights sum to 1 over the past
+        att = self.drop(att)
+
+        # Weighted sum of VALUES -> each token's context-aware new vector.
+        out = att @ v                               # (B, nh, T, head_dim)
+        out = out.transpose(1, 2).contiguous().view(B, T, C)  # re-merge heads
+        return self.proj(out)                       # final linear mix
+</code></pre>
+
+      <h2>Step 4 — A transformer block</h2>
+      <p>One block = attention (tokens talk to each other) + an MLP (each token thinks on its own), each wrapped in a <strong>residual connection</strong> and <strong>layer norm</strong>. Residuals let gradients flow through deep stacks (the ResNet trick from Project 3); layer norm keeps activations well-scaled.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step4_block.py</span></div>
+<pre><code class="language-python">class Block(nn.Module):
+    def __init__(self, n_embd, n_head, block_size):
+        super().__init__()
+        self.ln1 = nn.LayerNorm(n_embd)
+        self.attn = MultiHeadAttention(n_embd, n_head, block_size)
+        self.ln2 = nn.LayerNorm(n_embd)
+        self.mlp = nn.Sequential(                   # per-token feed-forward
+            nn.Linear(n_embd, 4 * n_embd),
+            nn.GELU(),
+            nn.Linear(4 * n_embd, n_embd),
+            nn.Dropout(0.1),
+        )
+
+    def forward(self, x):
+        # Pre-norm residuals: x = x + sublayer(norm(x)). Add, never overwrite.
+        x = x + self.attn(self.ln1(x))              # tokens exchange information
+        x = x + self.mlp(self.ln2(x))               # each token processes alone
+        return x
+</code></pre>
+
+      <h2>Step 5 — Assemble the GPT (W31 → W34 in one class)</h2>
+      <p>Embeddings, a stack of blocks, a final norm, and a linear head that scores every vocabulary character. Feed in a length-T context, get back logits for the next character at each position.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step5_gpt.py</span></div>
+<pre><code class="language-python">class MiniGPT(nn.Module):
+    def __init__(self, vocab_size, n_embd=128, n_head=4, n_layer=4, block_size=128):
+        super().__init__()
+        self.block_size = block_size
+        self.tok_emb = nn.Embedding(vocab_size, n_embd)    # token meaning  (W31)
+        self.pos_emb = nn.Embedding(block_size, n_embd)    # position info  (W33)
+        self.blocks  = nn.Sequential(*[Block(n_embd, n_head, block_size)
+                                       for _ in range(n_layer)])
+        self.ln_f = nn.LayerNorm(n_embd)
+        self.head = nn.Linear(n_embd, vocab_size)          # -> score per char (W34)
+
+    def forward(self, idx, targets=None):
+        B, T = idx.shape
+        pos = torch.arange(T, device=idx.device)
+        x = self.tok_emb(idx) + self.pos_emb(pos)          # add the two embeddings
+        x = self.blocks(x)                                 # N transformer blocks
+        logits = self.head(self.ln_f(x))                   # (B, T, vocab_size)
+
+        loss = None
+        if targets is not None:
+            # Next-token prediction: each position predicts the FOLLOWING char.
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)),
+                                   targets.view(-1))
+        return logits, loss
+</code></pre>
+
+      <h2>Step 6 — Pre-train on next-token prediction (W33)</h2>
+      <p>"Pre-training" sounds grand but it's just our familiar loop (Weeks 25–26): grab a random chunk, ask the model to predict each next character, measure cross-entropy, backpropagate. That single self-supervised objective is how every LLM learns language — no labels, just the text predicting itself.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step6_pretrain.py</span></div>
+<pre><code class="language-python">device = "cuda" if torch.cuda.is_available() else "cpu"
+block_size, batch_size = 128, 32
+model = MiniGPT(vocab_size, block_size=block_size).to(device)
+opt = torch.optim.AdamW(model.parameters(), lr=3e-4)
+
+def get_batch(split):
+    d = train_data if split == "train" else val_data
+    ix = torch.randint(len(d) - block_size, (batch_size,))   # random start points
+    x = torch.stack([d[i:i+block_size]     for i in ix])     # context
+    y = torch.stack([d[i+1:i+block_size+1] for i in ix])     # context shifted by 1
+    return x.to(device), y.to(device)
+
+for step in range(3000):
+    xb, yb = get_batch("train")
+    _, loss = model(xb, yb)        # forward + loss
+    opt.zero_grad()
+    loss.backward()                # backprop through attention &amp; embeddings
+    opt.step()                     # AdamW update
+    if step % 500 == 0:
+        print(f"step {step:4d}  train loss {loss.item():.3f}")
+# Loss falls from ~4.2 (random over vocab) toward ~1.5 -- the model is
+# learning Shakespeare's character statistics from nothing but the text.
+</code></pre>
+
+      <h2>Step 7 — Generate by sampling (W34)</h2>
+      <p>Generation is the forward pass run in a loop: feed the context, softmax the final logits into a probability distribution over the next character, <strong>sample</strong> one, append it, repeat. Sampling (rather than always taking the argmax) is what gives the output variety and life.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">step7_generate.py</span></div>
+<pre><code class="language-python">@torch.no_grad()
+def generate(model, idx, max_new_tokens, temperature=1.0):
+    model.eval()
+    for _ in range(max_new_tokens):
+        idx_cond = idx[:, -model.block_size:]        # never exceed context window
+        logits, _ = model(idx_cond)
+        logits = logits[:, -1, :] / temperature      # take the LAST step's scores
+        probs = F.softmax(logits, dim=-1)            # -> distribution over vocab
+        next_id = torch.multinomial(probs, 1)        # SAMPLE the next char
+        idx = torch.cat([idx, next_id], dim=1)       # append &amp; continue
+    return idx
+
+start = torch.zeros((1, 1), dtype=torch.long, device=device)  # seed token
+out = generate(model, start, max_new_tokens=400)[0].tolist()
+print(decode(out))   # -> Shakespeare-flavoured text, invented one char at a time
+</code></pre>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots — the whole course in one model</div>
+        <p style="margin-bottom:0">Trace the through-line you just built: the dot products of <strong>Week 2</strong> became attention scores; the embeddings of <strong>Week 31</strong> gave tokens meaning; the self-attention of <strong>Week 32</strong> let them share context; the masked next-token objective of <strong>Week 33</strong> pre-trained the whole thing; and softmax sampling from <strong>Week 34</strong> turned it into a generator. Next, Project 5 takes a model like this, wraps it in an API, and bolts on retrieval (RAG) to ship it to the world.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🧰 Concepts you're reusing</h2>
+      <ul class="refs">
+        <li><span class="r-ic">📐</span><div><a href="../lessons/w02.html">Week 2 · Linear Algebra</a><span class="r-src">The dot products and softmax that <em>are</em> the attention scores.</span></div></li>
+        <li><span class="r-ic">🔤</span><div><a href="../lessons/w31.html">Week 31 · Word Embeddings</a><span class="r-src">The learnable embedding table that turns token ids into meaning vectors.</span></div></li>
+        <li><span class="r-ic">👁️</span><div><a href="../lessons/w32.html">Week 32 · Self-Attention</a><span class="r-src">Query/key/value multi-head attention — the heart of Step 3.</span></div></li>
+        <li><span class="r-ic">🏗️</span><div><a href="../lessons/w33.html">Week 33 · Positional Encoding &amp; Pre-training</a><span class="r-src">Position embeddings and the next-token pre-training objective of Step 6.</span></div></li>
+        <li><span class="r-ic">✨</span><div><a href="../lessons/w34.html">Week 34 · LLMs &amp; Generation</a><span class="r-src">Softmax sampling and the autoregressive generation loop of Step 7.</span></div></li>
+      </ul>
+
+      <h2>🚀 Make it your own</h2>
+      <ul>
+        <li><strong>Add temperature &amp; top-k.</strong> Lower temperature → safe, repetitive text; higher → wild. Top-k truncation keeps samples coherent.</li>
+        <li><strong>Scale it up.</strong> More layers, heads and a bigger <code>n_embd</code> on a GPU; watch the validation loss to avoid overfitting.</li>
+        <li><strong>Switch to BPE tokens.</strong> Replace the char tokeniser with <code>tiktoken</code> so the model learns sub-words like a real GPT.</li>
+        <li><strong>Visualise attention.</strong> Plot one head's attention matrix and literally see which earlier characters it looks back at.</li>
+        <li><strong>Fine-tune it.</strong> Pre-train on a large corpus, then fine-tune on your own text (your emails, a codebase) to give it a voice.</li>
+      </ul>
+
+      <nav class="pager"><a class="prev" href="../index.html">← Home</a><a class="next" href="p5.html">Project 5: Ship It →</a></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>
