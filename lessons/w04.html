@@ -45,6 +45,24 @@
 
       <div class="prose">
 
+      <h2>0. Why are we even doing this?</h2>
+      <p>Why does a course about building intelligent machines spend a week on dice and bell curves? Here's the honest reason.</p>
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🎯</span> The entire point, in one line</div>
+        <p style="margin-bottom:0">The real world is <strong>noisy and never certain</strong> — blurry photos, typo-ridden text, sensors that wobble. Probability is how we turn "I'm not sure" into <em>a number a machine can compute with</em>. Instead of a model blurting "it's a cat," it says "<strong>90% cat, 7% dog, 3% fox</strong>." That honesty about uncertainty is what lets a model learn from messy data, know when it's guessing, and improve.</p>
+      </div>
+      <p>Three concrete reasons it shows up everywhere downstream:</p>
+      <ul>
+        <li><strong>Predictions are probabilities.</strong> A classifier doesn't output a label, it outputs a <em>distribution</em> over labels (that's what the softmax in Week 24 produces). "How confident?" is a probability.</li>
+        <li><strong>Learning means maximising a probability.</strong> Training is often literally "tune the numbers so the correct answers become the <em>most probable</em>" — the <em>maximum likelihood</em> idea you'll meet in Week 16, and the loss functions of nearly every model.</li>
+        <li><strong>Real data is described by distributions.</strong> Heights, prices, noise — they cluster into shapes (above all the <strong>Gaussian</strong> bell curve, section 6). To model data you must speak the language of its spread.</li>
+      </ul>
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">A good weather forecaster never says "it <em>will</em> rain." They say "<strong>70% chance</strong> of rain," and that number is genuinely useful — you grab an umbrella. A smart machine works the same way: it gives its best guess <em>plus how sure it is</em>. Probability is just the math of saying how sure you are, honestly, as a number.</p>
+      </div>
+      <p>So as you read about random variables, expectation, and the Gaussian below, keep the purpose in mind: <strong>we're teaching the machine to reason with "how likely," not just "yes/no"</strong> — because the world only ever gives it clues, never certainties.</p>
+
       <h2>1. Probability is honest betting</h2>
       <p>Linear algebra gave us space, calculus gave us change. <strong>Probability</strong> gives us the third language machines think in: <em>uncertainty</em>. A probability is simply a number between 0 and 1 that says how strongly you'd bet on something. \(P=0\) means "never," \(P=1\) means "certain," \(P=0.5\) means "I'd take even odds either way."</p>
       <p>The rules are just bookkeeping for fair bets: every outcome's probability is between 0 and 1, and the probabilities of all possible outcomes must sum to exactly 1 (something has to happen).</p>

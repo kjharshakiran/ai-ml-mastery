@@ -45,6 +45,19 @@
 
       <div class="prose">
 
+      <h2>0. Why are we even doing this?</h2>
+      <p>Before the slopes and symbols, here's the point of all of calculus for us — and why a machine-learning course spends a week on it.</p>
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🎯</span> The entire point, in one line</div>
+        <p style="margin-bottom:0">A model learns by <strong>tweaking its numbers to make its mistakes smaller</strong>. Calculus is the tool that answers the only question that matters at each step: <em>"if I nudge this number up a little, does my error go up or down — and how fast?"</em> That answer is the <strong>derivative</strong>. Point every number in the direction that lowers the error, take a tiny step, repeat — and the model gets better on its own.</p>
+      </div>
+      <p>Picture the model's total error as a landscape of hills and valleys. A random, untrained model is standing somewhere up on a hillside. "Learning" just means <strong>walking downhill to the valley</strong> (low error). But the model is blindfolded — it can't see the valley. All it can feel is <em>the slope under its feet</em>: which way is down, and how steep. That slope is exactly what a derivative measures. Feeling the slope and stepping downhill is the entire training loop of every model in this course — it's called <strong>gradient descent</strong> (Week 26), and you can't understand it without the derivative.</p>
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">You're blindfolded on a hill and want to reach the bottom. You can't see anything, but you can feel which way your feet tilt. So you take a small step in the steepest-downhill direction, feel again, step again. Soon you're at the bottom. The "feel of the tilt" is the derivative; the walking-down is how a computer learns. Calculus is just the math of feeling the tilt.</p>
+      </div>
+      <p>So when the formulas below talk about slopes, gradients, and minima, remember they're all in service of one job: <strong>tell the model which way to nudge each of its numbers to be a little less wrong.</strong> Now the symbols have a purpose.</p>
+
       <h2>1. The derivative is just a slope</h2>
       <p>Last week vectors gave us the language of <em>space</em>. Calculus gives us the language of <em>change</em>. And the whole of single-variable calculus boils down to one honest question: <strong>if I nudge the input a tiny bit, how much does the output move?</strong></p>
       <p>Picture a function \(f(x)\) as a hilly road, with \(x\) the distance you've walked and \(f(x)\) your altitude. The <strong>derivative</strong> \(f'(x)\) is the <em>steepness</em> of the road right under your feet — positive when you're climbing, negative when you're descending, zero at the very top or bottom of a hill.</p>

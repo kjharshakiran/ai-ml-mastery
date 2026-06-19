@@ -45,6 +45,70 @@
 
       <div class="prose">
 
+      <h2>0. Why are we even doing this?</h2>
+      <p>Before a single formula, let's answer the question every honest learner asks: <em>why matrices, why these operations, what is the point?</em> Most courses skip this and you end up pushing symbols around without knowing why. Here's the whole motivation in one sentence:</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🎯</span> The entire point, in one line</div>
+        <p style="margin-bottom:0">A matrix is just <strong>how you do the same weighted-sum to a whole pile of data at once.</strong> Almost everything a model computes is: <em>take some input numbers, mix them into new numbers by scaling and adding.</em> "Scale and add," done in bulk, <strong>is</strong> matrix multiplication. That's it — the rest of this lesson is detail.</p>
+      </div>
+
+      <p>Let's watch matrices appear <em>on their own</em> from a problem you already understand: predicting a house price. One house is a vector of features, and your model has learned how much each feature is worth (the <strong>weights</strong>):</p>
+      <p>\[ \mathbf{x} = \underbrace{[\,3,\;2,\;1500\,]}_{\text{beds, baths, area}}, \qquad \mathbf{w} = \underbrace{[\,50,\;30,\;0.2\,]}_{\text{value of each, in }\$k} \]</p>
+      <p>The prediction is just "scale each feature by its weight and add them up":</p>
+      <p>\[ \text{price} = 3\cdot 50 + 2\cdot 30 + 1500\cdot 0.2 = 150 + 60 + 300 = 510 \]</p>
+      <p>That weighted sum <strong>is a dot product</strong> (section 3). So the dot product isn't an abstract exercise — it's literally "make one prediction." Now watch a matrix build itself in two steps:</p>
+      <ul>
+        <li><strong>"What about my other 1000 houses?"</strong> You don't want to write that dot product 1000 times. Stack the houses as <em>rows</em> of a grid \(X\) (1000 rows × 3 features) and write one thing: \(X\mathbf{w}\) → all 1000 prices at once. <strong>That grid is a matrix</strong> — it's literally your spreadsheet of data.</li>
+        <li><strong>"I want to predict price <em>and</em> rent <em>and</em> tax."</strong> Now you have three weight-vectors. Stand them up as three <em>columns</em> of a matrix \(W\). Then \(XW\) → 1000 houses × 3 predictions each. Nothing new happened — it's the same scale-and-add, just bookkept so you do <em>many items × many outputs</em> in one move.</li>
+      </ul>
+
+      <figure class="figure">
+        <svg viewBox="0 0 470 220" aria-label="A matrix of houses times a weight vector gives all predictions at once">
+          <!-- X matrix -->
+          <text x="60" y="24" font-size="12" fill="#767c93">houses × features</text>
+          <rect x="30" y="34" width="120" height="120" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
+          <text x="44" y="64" font-size="13" font-family="monospace" fill="#4338ca">3   2  1500</text>
+          <text x="44" y="92" font-size="13" font-family="monospace" fill="#4338ca">4   3  2100</text>
+          <text x="44" y="120" font-size="13" font-family="monospace" fill="#4338ca">2   1   950</text>
+          <text x="44" y="146" font-size="13" font-family="monospace" fill="#818cf8">… × 1000</text>
+          <text x="78" y="178" font-size="20" fill="#4f46e5" font-family="monospace">X</text>
+          <text x="165" y="100" font-size="22" fill="#767c93">×</text>
+          <!-- w vector -->
+          <text x="186" y="24" font-size="12" fill="#767c93">weights</text>
+          <rect x="190" y="34" width="48" height="120" rx="8" fill="#fff7ed" stroke="#fcd34d"/>
+          <text x="200" y="64" font-size="13" font-family="monospace" fill="#b45309">50</text>
+          <text x="200" y="92" font-size="13" font-family="monospace" fill="#b45309">30</text>
+          <text x="198" y="120" font-size="13" font-family="monospace" fill="#b45309">0.2</text>
+          <text x="206" y="178" font-size="20" fill="#b45309" font-family="monospace">w</text>
+          <text x="250" y="100" font-size="22" fill="#767c93">=</text>
+          <!-- result -->
+          <text x="300" y="24" font-size="12" fill="#767c93">predictions</text>
+          <rect x="282" y="34" width="70" height="120" rx="8" fill="#f0fdfa" stroke="#5eead4"/>
+          <text x="296" y="64" font-size="13" font-family="monospace" fill="#0f766e">510</text>
+          <text x="296" y="92" font-size="13" font-family="monospace" fill="#0f766e">620</text>
+          <text x="296" y="120" font-size="13" font-family="monospace" fill="#0f766e">290</text>
+          <text x="300" y="146" font-size="13" font-family="monospace" fill="#14b8a6">…</text>
+          <!-- annotation -->
+          <line x1="150" y1="56" x2="282" y2="56" stroke="#14b8a6" stroke-width="1.5" stroke-dasharray="4"/>
+          <text x="362" y="60" font-size="11" fill="#0f766e">one row · one dot</text>
+          <text x="362" y="74" font-size="11" fill="#0f766e">product · one price</text>
+        </svg>
+        <figcaption>A matrix multiply is just many dot products at once. Each <em>row</em> of the data matrix meets the weights in one dot product, producing one prediction — 1000 houses handled in a single operation.</figcaption>
+      </figure>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine a juice recipe: "2 oranges + 1 apple + 3 grapes." That's a <em>weighted sum</em> — a dot product. Now imagine a whole factory making 1000 juices from 1000 fruit-baskets using that <em>same</em> recipe. Instead of doing them one by one, you feed all the baskets through one machine and get all 1000 juices out the other end. The machine is the <strong>matrix</strong>. It does the same simple mixing to a huge pile of stuff in one go.</p>
+      </div>
+
+      <p><strong>So, why these operations?</strong> They're the only LEGO bricks you need, and there are really just two: <strong>scale</strong> a vector and <strong>add</strong> vectors. Together they make a <em>linear combination</em>, and <em>everything</em> a matrix does is linear combinations of your inputs. The dot product is one weighted sum (predict / compare / "how similar"). Matrix multiply is many dot products (transform the whole dataset at once). Eigenvectors and SVD (sections 6–8) then let you look at a transformation and find its skeleton — so you can simplify and compress it.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Why this is the whole course in miniature</div>
+        <p style="margin-bottom:0">Keep this mental model: <strong>data are vectors (points in space); a matrix is a verb that moves all those points at once; and "learning" = finding the right matrix of numbers</strong> so that after the move, the useful pattern lines up. A neural-network layer is literally <code>output = activation(W·x + b)</code> — a matrix multiply (Week 24). Deep learning is mostly <em>stacking</em> matrix multiplies. And in a transformer, "attention" is \(QK^\top\) — a grid of dot products asking <em>"how relevant is every word to every other word?"</em> all at once (Week 32). Same idea you just saw with houses, getting richer all the way up to ChatGPT.</p>
+      </div>
+
       <h2>1. A vector is two things at once</h2>
       <p>In Lesson 1 we said "everything becomes a vector." Now let's actually meet one. A vector like \(\mathbf{v} = \begin{bmatrix} 3 \\ 2 \end{bmatrix}\) has <strong>two equally true interpretations</strong>, and switching between them on demand is the single most useful skill in this course:</p>
       <ol>
@@ -158,7 +222,109 @@ print(np.linalg.norm(a - b))  # -> 2.0</code></pre>
 
       <p><strong>Eigendecomposition</strong> rebuilds the whole matrix from its eigen-skeleton: \(A = Q\Lambda Q^{-1}\), where \(Q\) holds the eigenvectors and \(\Lambda\) is a diagonal matrix of eigenvalues. This is exactly the engine of <strong>PCA</strong> (Week 20): the eigenvectors of a data set's covariance matrix point along the directions of greatest variation — the data's "natural axes."</p>
 
-      <h2>7. SVD: the master decomposition</h2>
+      <h2>7. Let's actually find them — a full worked example</h2>
+      <p>Formulas feel like magic spells until you turn the crank once by hand. So let's take a real matrix and find its eigenvalues and eigenvectors step by step. We'll use the <em>same</em> matrix the code below uses, so you can check our hand-work against NumPy:</p>
+      <p>\[ A = \begin{bmatrix} 2 & 1 \\ 1 & 2 \end{bmatrix} \]</p>
+
+      <h3>First, decode the symbols</h3>
+      <p>Three pieces of notation scare people off. Here's what each one <em>actually means</em>, in plain words:</p>
+      <ul>
+        <li><strong>\(I\) — the identity matrix</strong> \(\begin{bmatrix}1&0\\0&1\end{bmatrix}\). It's the "do-nothing" matrix: multiply any vector by \(I\) and the vector comes out unchanged (it's the number <strong>1</strong> of the matrix world). So \(\lambda I = \begin{bmatrix}\lambda&0\\0&\lambda\end{bmatrix}\) just means "the number \(\lambda\) on the diagonal."</li>
+        <li><strong>\(A - \lambda I\)</strong> — take \(A\) and subtract \(\lambda\) from each diagonal entry. That's it. \(A-\lambda I = \begin{bmatrix} 2-\lambda & 1 \\ 1 & 2-\lambda \end{bmatrix}\).</li>
+        <li><strong>\(\det(\,\cdot\,) = 0\) — the determinant equals zero.</strong> For a 2×2 matrix \(\begin{bmatrix}a&b\\c&d\end{bmatrix}\), the determinant is simply \(ad - bc\), one number. Geometrically the determinant is the <em>area-scaling factor</em> of the transformation. When it's <strong>0</strong>, the matrix squashes 2-D space flat onto a line — it collapses a whole dimension. And <em>that</em> collapse is the only way a non-zero vector \(\mathbf{v}\) can be sent all the way to the zero vector.</li>
+      </ul>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">We're hunting for special arrows that \(A\) only stretches. Rewrite \(A\mathbf{v}=\lambda\mathbf{v}\) as \(A\mathbf{v}-\lambda\mathbf{v}=\mathbf{0}\), i.e. \((A-\lambda I)\mathbf{v}=\mathbf{0}\). We want a <em>real</em> arrow \(\mathbf{v}\) (not the zero arrow) that this new matrix crushes down to nothing. A matrix can only crush a real arrow to zero if it "flattens" space — and the flatten-detector is the determinant being 0. So we first find the \(\lambda\) values that make \(\det(A-\lambda I)=0\). Those are the eigenvalues.</p>
+      </div>
+
+      <h3>Step 1 — Build the characteristic equation \(\det(A-\lambda I)=0\)</h3>
+      <p>Plug in and compute the determinant \(ad-bc\) with \(a=d=2-\lambda\) and \(b=c=1\):</p>
+      <p>\[ \det\!\begin{bmatrix} 2-\lambda & 1 \\ 1 & 2-\lambda \end{bmatrix} = (2-\lambda)(2-\lambda) - (1)(1) = (2-\lambda)^2 - 1 = 0 \]</p>
+
+      <h3>Step 2 — Solve it for \(\lambda\) (these are the eigenvalues)</h3>
+      <p>\[ (2-\lambda)^2 = 1 \;\Longrightarrow\; 2-\lambda = \pm 1 \;\Longrightarrow\; \boxed{\lambda_1 = 3,\quad \lambda_2 = 1} \]</p>
+      <p>Two eigenvalues: <strong>3</strong> and <strong>1</strong>. They tell us this transformation stretches along one special direction by ×3 and along another by ×1. Now we find <em>which</em> directions.</p>
+
+      <h3>Step 3 — For each \(\lambda\), find its eigenvector by solving \((A-\lambda I)\mathbf{v}=\mathbf{0}\)</h3>
+      <p><strong>For \(\lambda_1 = 3\):</strong> subtract 3 from the diagonal and ask which \(\mathbf{v}=\begin{bmatrix}x\\y\end{bmatrix}\) gets crushed to zero:</p>
+      <p>\[ (A-3I)\mathbf{v} = \begin{bmatrix} -1 & 1 \\ 1 & -1 \end{bmatrix}\begin{bmatrix}x\\y\end{bmatrix} = \begin{bmatrix}0\\0\end{bmatrix} \]</p>
+      <p>The top row reads \(-x + y = 0\), i.e. \(y = x\). (The bottom row says the same thing — that <em>redundancy</em> is the determinant being zero, showing up as promised.) So <em>any</em> arrow with \(y=x\) works. Pick the simplest, \(\mathbf{v}_1=\begin{bmatrix}1\\1\end{bmatrix}\), pointing diagonally up-right.</p>
+      <p><strong>For \(\lambda_2 = 1\):</strong> subtract 1 from the diagonal:</p>
+      <p>\[ (A-1I)\mathbf{v} = \begin{bmatrix} 1 & 1 \\ 1 & 1 \end{bmatrix}\begin{bmatrix}x\\y\end{bmatrix} = \begin{bmatrix}0\\0\end{bmatrix} \;\Rightarrow\; x+y=0 \;\Rightarrow\; y=-x \]</p>
+      <p>So \(\mathbf{v}_2=\begin{bmatrix}1\\-1\end{bmatrix}\), pointing diagonally down-right — exactly perpendicular to \(\mathbf{v}_1\).</p>
+
+      <h3>Step 4 — Normalise (make them length 1)</h3>
+      <p>Eigenvectors only care about <em>direction</em>, so we usually scale them to length 1 using the norm from section 4 (\(\lVert[1,1]\rVert=\sqrt{2}\)):</p>
+      <p>\[ \hat{\mathbf{v}}_1 = \tfrac{1}{\sqrt2}\begin{bmatrix}1\\1\end{bmatrix}\approx\begin{bmatrix}0.707\\0.707\end{bmatrix}, \qquad \hat{\mathbf{v}}_2 = \tfrac{1}{\sqrt2}\begin{bmatrix}1\\-1\end{bmatrix}\approx\begin{bmatrix}0.707\\-0.707\end{bmatrix} \]</p>
+      <p>And that's the whole recipe. Notice this matches the NumPy output in the code box below exactly: <code>eig</code> returns eigenvalues <code>[3, 1]</code> and those same two diagonal directions. <strong>You just did by hand what the library does.</strong></p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 460 240" aria-label="The matrix A stretching its two eigenvector directions">
+          <g stroke="#e3e6f0">
+            <line x1="30" y1="120" x2="200" y2="120"/><line x1="115" y1="35" x2="115" y2="205"/>
+          </g>
+          <!-- before: two unit eigen-directions -->
+          <line x1="115" y1="120" x2="165" y2="70" stroke="#4f46e5" stroke-width="3"/>
+          <line x1="115" y1="120" x2="165" y2="170" stroke="#f59e0b" stroke-width="3"/>
+          <text x="168" y="66" font-size="12" fill="#4f46e5">v₁</text>
+          <text x="168" y="182" font-size="12" fill="#f59e0b">v₂</text>
+          <text x="60" y="225" font-size="12" fill="#767c93">before A</text>
+          <text x="225" y="118" font-size="22" fill="#4f46e5">— A →</text>
+          <g stroke="#e3e6f0">
+            <line x1="300" y1="120" x2="445" y2="120"/><line x1="372" y1="35" x2="372" y2="205"/>
+          </g>
+          <!-- after: v1 stretched x3, v2 unchanged x1 -->
+          <line x1="372" y1="120" x2="447" y2="45" stroke="#4f46e5" stroke-width="3" stroke-dasharray="0"/>
+          <line x1="372" y1="120" x2="422" y2="170" stroke="#f59e0b" stroke-width="3"/>
+          <text x="430" y="42" font-size="12" fill="#4f46e5">3·v₁</text>
+          <text x="425" y="183" font-size="12" fill="#f59e0b">1·v₂</text>
+          <text x="312" y="225" font-size="12" fill="#767c93">after A: v₁ stretched ×3, v₂ ×1</text>
+        </svg>
+        <figcaption>The eigenvectors are the directions A leaves pointing the same way. Along v₁ it stretches by the eigenvalue 3; along v₂ by 1 (unchanged). Every other arrow is some mix of these two and gets tilted.</figcaption>
+      </figure>
+
+      <h3>Why the information lives in that direction</h3>
+      <p>Here's the payoff — and the reason this matters for the rest of AI. Suppose \(A\) isn't a random matrix but a <strong>covariance matrix</strong>: a little summary of how a cloud of data points spreads out. (You'll build covariance matrices properly in Week 4 and Week 20; for now just know each entry measures how two features vary together.) A symmetric matrix like our \(A\) is exactly the shape a covariance matrix takes.</p>
+      <p>For a covariance matrix, the eigenvalue <em>is the amount of variance</em> — the amount of <strong>spread</strong>, and therefore the amount of <strong>information</strong> — along its eigenvector's direction. Our data spreads <strong>3 units</strong> along \(\hat{\mathbf{v}}_1\) (the up-right diagonal) but only <strong>1 unit</strong> along \(\hat{\mathbf{v}}_2\). So the data is a stretched, tilted ellipse: long and informative along \(\hat{\mathbf{v}}_1\), thin and boring along \(\hat{\mathbf{v}}_2\).</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 420 260" aria-label="A data cloud elongated along the top eigenvector direction">
+          <defs><marker id="vh2" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4f46e5"/></marker></defs>
+          <g stroke="#e3e6f0"><line x1="30" y1="200" x2="390" y2="200"/><line x1="60" y1="30" x2="60" y2="220"/></g>
+          <!-- tilted ellipse along the up-right diagonal -->
+          <g transform="translate(210,120) rotate(-45)">
+            <ellipse cx="0" cy="0" rx="105" ry="34" fill="#eef2ff" stroke="#c7d2fe"/>
+          </g>
+          <!-- scattered points roughly on the diagonal -->
+          <g fill="#6366f1">
+            <circle cx="150" cy="170" r="3.2"/><circle cx="175" cy="150" r="3.2"/><circle cx="205" cy="122" r="3.2"/>
+            <circle cx="235" cy="96" r="3.2"/><circle cx="262" cy="74" r="3.2"/><circle cx="190" cy="140" r="3.2"/>
+            <circle cx="220" cy="108" r="3.2"/><circle cx="160" cy="158" r="3.2"/><circle cx="248" cy="88" r="3.2"/>
+            <circle cx="200" cy="128" r="3.2"/><circle cx="228" cy="104" r="3.2"/><circle cx="178" cy="146" r="3.2"/>
+          </g>
+          <!-- principal axis v1 (long) -->
+          <line x1="150" y1="172" x2="270" y2="68" stroke="#4f46e5" stroke-width="3" marker-end="url(#vh2)"/>
+          <text x="274" y="66" font-size="13" fill="#4f46e5">v̂₁ · λ=3 (most info)</text>
+          <!-- minor axis v2 (short) -->
+          <line x1="210" y1="120" x2="245" y2="150" stroke="#f59e0b" stroke-width="3" marker-end="url(#vh2)"/>
+          <text x="248" y="160" font-size="12" fill="#b45309">v̂₂ · λ=1</text>
+        </svg>
+        <figcaption>Real data rarely lines up with the x/y axes — it lies along its own natural axes, the eigenvectors. The biggest eigenvalue marks the direction of greatest spread, where the data carries the most information.</figcaption>
+      </figure>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The big "aha"</div>
+        <p style="margin-bottom:0">If you had to throw away one of the two directions to save space, you'd drop \(\hat{\mathbf{v}}_2\) (variance 1) and keep \(\hat{\mathbf{v}}_1\) (variance 3) — losing almost nothing. That single act — <em>keep the high-eigenvalue directions, discard the low ones</em> — <strong>is</strong> Principal Component Analysis (Week 20). Eigenvectors hand you the data's own natural axes; eigenvalues rank them by how much information each one holds. That's why "the information is in that direction."</p>
+      </div>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">📸</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Photographing a pencil, you instinctively turn so its <em>long</em> axis faces you — that view tells you the most about it; the end-on view (a tiny dot) tells you almost nothing. The long axis is the top eigenvector; "how long it looks" is the eigenvalue. PCA is a camera that automatically rotates to the most informative angle.</p>
+      </div>
+
+      <h2>8. SVD: the master decomposition</h2>
       <p>Singular Value Decomposition says <em>any</em> matrix \(M\) — even non-square — can be written as three simple steps: <strong>rotate, stretch, rotate</strong>:</p>
       <p>\[ M = U\,\Sigma\,V^\top \]</p>
       <p>\(V^\top\) rotates, \(\Sigma\) (diagonal "singular values") stretches each axis, \(U\) rotates again. The singular values tell you which directions carry the most information. Keep only the biggest few and you've <strong>compressed</strong> the matrix while losing almost nothing — this is the math behind image compression, noise removal, topic modelling, and recommendation systems (the famous Netflix prize was SVD on a users × movies matrix).</p>
