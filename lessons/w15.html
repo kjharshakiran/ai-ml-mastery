@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lesson 15 · Classification I: k-NN &amp; Evaluating Classifiers — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+<script src="../assets/js/interactive-widgets.js"></script>
 </head>
 <body data-lesson="w15">
 <div class="topbar">
@@ -100,6 +103,19 @@
         </svg>
         <figcaption>k-NN with k=5: the dashed circle holds the 5 nearest training points. Three are class A and two are class B, so the new point is labelled <strong>A</strong>. "Nearest" is measured with the Week 2 Euclidean norm.</figcaption>
       </figure>
+
+      <div class="interactive-widget" id="w15-knn-widget" data-widget="knn">
+        <div class="widget-title">🗳️ Interactive: k-NN Decision Boundary Explorer</div>
+        <p>Adjust k to see how the decision boundary changes. Small k = jagged, overfit boundary. Large k = smooth, underfit boundary.</p>
+        <input type="range" class="widget-slider" min="1" max="25" value="5" step="2">
+        <div class="widget-labels"><span>k=1 (overfit)</span><span>k=25 (underfit)</span></div>
+        <div class="widget-value">k = 5</div>
+        <canvas class="widget-canvas"></canvas>
+        <div class="widget-description">
+          <strong>Purple region</strong> = Class 0. <strong>Teal region</strong> = Class 1. The colored dots are the training data.
+          With k=1, every point is its own island. With k=25, the boundary becomes a straight line through the center.
+        </div>
+      </div>
 
       <div class="callout analogy">
         <div class="c-title"><span class="c-emoji">🏘️</span> Real-World Analogy</div>
@@ -226,5 +242,6 @@ print(classification_report(y_te, pred, digits=2))
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

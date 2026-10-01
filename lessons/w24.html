@@ -6,7 +6,8 @@
 <title>Lesson 24 · Neurons &amp; Activation Functions — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
 </head>
 <body data-lesson="w24">
@@ -176,6 +177,17 @@
       <p>\[ \text{softmax}(z)_k = \frac{e^{z_k}}{\sum_{j=1}^{K} e^{z_j}} \]</p>
       <p>It exponentiates each score (making all values positive and amplifying the leader), then divides by the total so the outputs form a probability distribution. The biggest logit becomes the most confident class. Softmax is the standard final layer for every multi-class classifier you'll build — including, eventually, the next-word predictor inside a language model.</p>
 
+      <h3>Softmax on three logits, by hand</h3>
+      <p>The formula is a two-step recipe — exponentiate, then normalise — and three real numbers make it concrete. Take logits \(z=[2.0,\,1.0,\,0.1]\).</p>
+      <p><strong>Step 1 — exponentiate.</strong> Raise \(e\) to each logit (this is why a bigger logit pulls so far ahead — \(e^x\) grows fast):</p>
+      <p>\[ e^{2.0}\approx 7.39, \qquad e^{1.0}\approx 2.72, \qquad e^{0.1}\approx 1.11, \qquad \text{sum} \approx 11.21 \]</p>
+      <p><strong>Step 2 — divide by the total.</strong> Each exponential over the sum gives the probabilities \([0.659,\,0.242,\,0.099]\) — all positive and <strong>summing to 1</strong>. The largest logit (2.0) walks away with 66% of the probability mass.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Shift first to avoid overflow</div>
+        <p style="margin-bottom:0">Softmax is <strong>shift-invariant</strong>: subtracting the same constant from every logit leaves the output unchanged, because \(e^{z_k-c}/\sum_j e^{z_j-c}\) cancels the \(e^{-c}\) top and bottom. So before exponentiating we subtract \(\max(z)\) — large logits like \(e^{1000}\) would otherwise overflow to <code>inf</code>. That is exactly the <code>z = z - z.max()</code> line you'll see in the lesson's code.</p>
+      </div>
+
       <h2>24.8 Stacking neurons: the multilayer perceptron</h2>
       <p>Wire many neurons side-by-side into a <strong>layer</strong>, then feed that layer's outputs into another layer. The middle layers, hidden from the outside world, are <strong>hidden layers</strong>. With just one hidden layer of two ReLU neurons, a network can finally solve XOR: the hidden layer bends the input space so the two "on" corners line up on one side of the output neuron's cut.</p>
 
@@ -293,5 +305,6 @@ print("probs:", np.round(softmax(logits), 3))  # -> [0.659 0.242 0.099], sums to
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

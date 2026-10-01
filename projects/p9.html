@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 9 · Wheels Up II: Models, API &amp; Monitoring — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-project="p9">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Project 9</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Capstone Projects › Project 9</div>
+        <span class="eyebrow">✈️ Applied MLOps Capstone · Part IV of IV</span>
+        <h1>Wheels Up II — Private Aviation: Models, API, Deployment &amp; Monitoring</h1>
+        <div class="lesson-meta"><span>🔴 Difficulty: Advanced</span><span>🎯 The full loop, on your own domain</span><span>🧰 RF/GBM · FastAPI · Drift · Fairness</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>What you'll build</h4>
+        <ul>
+          <li>A <strong>Random Forest</strong> predicting flight outcome and a <strong>Gradient Boosting</strong> model predicting invoice outcome — trained on Project 8's dataset.</li>
+          <li>An honest evaluation that finds a real, severe fairness gap — and the reasoning for what to do about it before shipping anything.</li>
+          <li>A FastAPI service for both predictions, with the same validate-at-the-boundary and audit-logging design as Project 7.</li>
+          <li>A PSI-based monitoring check that, once again, re-discovers Project 8's EDA bug instead of a real-world shift.</li>
+          <li>The complete MLOps loop, run twice now, on two unrelated businesses — the proof that the loop is the reusable part.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">You now have two finished, end-to-end ML systems built the same way. What's actually different between them — and what does that tell you about which parts of "doing ML at a company" are domain-specific versus universal?</div>
+      </div>
+
+      <div class="prose">
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Project 7 trained a hospital model and found two problems: it memorized instead of learning, and the alarm system pointed at a fake fire. This project trains a jet-company model on the dataset Project 8 built — and finds the <em>same</em> two problems again, plus a new one: the model is much better at noticing trouble for some customers than others. Same checklist, same kind of bugs, new business.</p>
+      </div>
+
+      <h2>9.1 Recap: rebuild the modeling dataset</h2>
+      <p>Paste Project 8's full generator (sections 8.4 + 8.7) if running this page fresh. Condensed here, with the leakage fix applied — exactly as Project 7 did for the hospital project:</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — rebuild df, train, test (see Project 8 for full derivation)</span></div>
+<pre><code class="language-python">import numpy as np, pandas as pd
+rng = np.random.default_rng(11)
+N_CUST, N_RES = 500, 2500
+airports=["TEB","VNY","APF","HPN","MIA","ASE"]; tiers=["Standard","Premium","Elite"]
+acft=["Turboprop","Light Jet","Midsize Jet","Heavy Jet"]
+start,end=pd.Timestamp("2025-01-01"),pd.Timestamp("2026-01-01")
+rd=lambda n: start+pd.to_timedelta(rng.integers(0,(end-start).days,n),unit="D")
+customers=pd.DataFrame({"customer_id":range(1,N_CUST+1),
+  "membership_tier":rng.choice(tiers,N_CUST,p=[0.5,0.35,0.15]),
+  "home_airport":rng.choice(airports,N_CUST),"join_date":rd(N_CUST)})
+reservations=pd.DataFrame({"reservation_id":range(1,N_RES+1),
+  "customer_id":rng.choice(customers.customer_id,N_RES),"flight_date":np.sort(rd(N_RES)),
+  "departure_airport":rng.choice(airports,N_RES),"arrival_airport":rng.choice(airports,N_RES),
+  "aircraft_type":rng.choice(acft,N_RES,p=[0.2,0.35,0.3,0.15]),
+  "flight_hours":np.round(rng.gamma(3,0.7,N_RES),1),"lead_time_days":rng.integers(0,60,N_RES)})
+m=reservations.merge(customers,on="customer_id")
+logit=-0.03*(m.lead_time_days-20)-0.4*(m.membership_tier=="Elite").astype(int)+rng.normal(0,1.6,N_RES)
+reservations["flight_outcome"]=pd.cut(logit,bins=[-np.inf,-0.4,0.5,np.inf],labels=["Completed","No-Show","Cancelled"])
+billing=pd.DataFrame({"invoice_id":range(1,N_RES+1),"reservation_id":reservations.reservation_id,
+  "invoice_amount":np.round(reservations.flight_hours*rng.uniform(2200,5200,N_RES),2)})
+disp_p=0.12+rng.normal(0,0.01,N_RES); u=rng.random(N_RES)
+billing["payment_status"]=np.where(u&lt;disp_p,"Disputed",np.where(u&lt;disp_p+0.22,"Pending","Paid"))
+billing["paid_amount"]=np.where(billing.payment_status=="Disputed",np.nan,
+  billing.invoice_amount*rng.uniform(0.85,1.0,N_RES))
+
+df=reservations.merge(customers,on="customer_id").merge(billing,on="reservation_id").sort_values("flight_date").reset_index(drop=True)
+df["days_since_join"]=(df.flight_date-df.join_date).dt.days   # unclipped on purpose -- see 9.6
+df["flight_month"]=df.flight_date.dt.month; df["flight_quarter"]=df.flight_date.dt.quarter
+df["flight_dow"]=df.flight_date.dt.dayofweek; df["is_weekend_flight"]=(df.flight_dow&gt;=5).astype(int)
+
+split=int(len(df)*0.8); train,test=df.iloc[:split].copy(),df.iloc[split:].copy()
+agg=train.groupby("customer_id").agg(cust_flight_freq=("reservation_id","count"),
+                                      cust_avg_flight_hrs=("flight_hours","mean"))
+for part in (train,test):
+    part["cust_flight_freq"]=part.customer_id.map(agg.cust_flight_freq)
+    part["cust_avg_flight_hrs"]=part.customer_id.map(agg.cust_avg_flight_hrs)
+print(len(train), len(test))</code></pre>
+
+      <h2>9.2 Train both models</h2>
+      <p>Same choice of algorithms as Project 7, for the same reasons: Random Forest for the operational-risk target, Gradient Boosting for the revenue target.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — Random Forest for flight_outcome</span></div>
+<pre><code class="language-python">from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.metrics import accuracy_score, f1_score, classification_report
+
+FLIGHT_FEATURES = ["membership_tier","home_airport","departure_airport","aircraft_type",
+                    "lead_time_days","days_since_join","cust_flight_freq","cust_avg_flight_hrs",
+                    "flight_month","flight_quarter","flight_dow","is_weekend_flight"]
+cat = [f for f in FLIGHT_FEATURES if not pd.api.types.is_numeric_dtype(df[f])]
+num = [f for f in FLIGHT_FEATURES if pd.api.types.is_numeric_dtype(df[f])]
+pre = ColumnTransformer([("ohe", OneHotEncoder(handle_unknown="ignore"), cat),
+                          ("sc",  StandardScaler(), num)])
+flight_model = Pipeline([("pre", pre), ("clf", RandomForestClassifier(
+    n_estimators=200, min_samples_leaf=5, class_weight="balanced_subsample", random_state=42))])
+flight_model.fit(train[FLIGHT_FEATURES], train.flight_outcome)
+
+print("train acc:", round(accuracy_score(train.flight_outcome, flight_model.predict(train[FLIGHT_FEATURES])), 3))
+print("test acc:", round(accuracy_score(test.flight_outcome, flight_model.predict(test[FLIGHT_FEATURES])), 3))
+# train ~0.88, test ~0.45 -- the same overfitting story as Project 7's
+# risk model, on a completely different target and industry.</code></pre>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — Gradient Boosting for payment_status</span></div>
+<pre><code class="language-python">BILL_FEATURES = ["membership_tier","aircraft_type","flight_outcome","invoice_amount",
+                  "lead_time_days","days_since_join","cust_flight_freq",
+                  "flight_month","flight_quarter","is_weekend_flight"]
+catb = [f for f in BILL_FEATURES if not pd.api.types.is_numeric_dtype(df[f])]
+numb = [f for f in BILL_FEATURES if pd.api.types.is_numeric_dtype(df[f])]
+preb = ColumnTransformer([("ohe", OneHotEncoder(handle_unknown="ignore"), catb),
+                           ("sc",  StandardScaler(), numb)])
+bill_model = Pipeline([("pre", preb), ("clf", GradientBoostingClassifier(
+    n_estimators=150, max_depth=4, subsample=0.8, random_state=42))])
+bill_model.fit(train[BILL_FEATURES], train.payment_status)
+preds = bill_model.predict(test[BILL_FEATURES])
+print(classification_report(test.payment_status, preds, digits=3))
+# Typical result: train ~0.88, test ~0.62 accuracy -- but the per-class
+# breakdown tells the real story: Disputed recall ~0.22, Pending recall
+# ~0.10. The model defaults to predicting "Paid" because that's the
+# majority class -- exactly Project 7's claim-model finding, again.</code></pre>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> 61.8% accuracy is hiding a model that's nearly useless for its actual job</div>
+        <p style="margin-bottom:0">If "catch disputes before they happen" is the business goal, the metric that matters is Disputed recall (~22%), not overall accuracy. A model that's "right" 62% of the time mostly by calling everything "Paid" gives finance a false sense of coverage. This is the single most common way ML projects quietly fail in production: optimizing and reporting the metric that looks good, not the one the business actually needs.</p>
+      </div>
+
+      <h2>9.3 Fairness: a real, severe gap this time</h2>
+      <p>Run the same group-recall check Project 7 ran — by membership tier, by home airport, and by aircraft type for the billing model:</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — fairness across customer and aircraft groups</span></div>
+<pre><code class="language-python">def group_recall(target, preds, truth, group_col, frame):
+    out = {}
+    for g in frame.loc[truth.index, group_col].unique():
+        idx = frame.loc[truth.index, group_col] == g
+        t, p = truth[idx], preds[idx]
+        if (t == target).sum() == 0: continue
+        out[g] = round(float(((p == target) & (t == target)).sum() / (t == target).sum()), 3)
+    return out
+
+fpreds = flight_model.predict(test[FLIGHT_FEATURES])
+print("Cancelled recall by membership_tier:",
+      group_recall("Cancelled", fpreds, test.flight_outcome, "membership_tier", df))
+# Standard 0.386, Elite 0.185, Premium 0.452 -- Elite members who cancel
+# are caught LESS than half as often as Standard members who cancel.
+
+bpreds = bill_model.predict(test[BILL_FEATURES])
+print("Disputed recall by aircraft_type:",
+      group_recall("Disputed", bpreds, test.payment_status, "aircraft_type", df))
+# Heavy Jet: 0.0 -- the model NEVER catches a disputed Heavy Jet invoice
+# in this test set. Zero is not a rounding error; it's a hard miss on
+# the highest-value bookings in the entire business.</code></pre>
+
+      <figure class="figure">
+        <svg viewBox="0 0 620 170" aria-label="Disputed-invoice recall by aircraft type, showing Heavy Jet at zero">
+          <g font-family="sans-serif" font-size="11">
+            <text x="10" y="16" fill="#767c93">Disputed-invoice recall by aircraft type (test set)</text>
+            <text x="120" y="40">Light Jet</text>
+            <rect x="200" y="30" width="88" height="16" fill="#14b8a6"/><text x="296" y="42">29.4%</text>
+
+            <text x="120" y="66">Midsize Jet</text>
+            <rect x="200" y="56" width="82" height="16" fill="#14b8a6"/><text x="290" y="68">27.3%</text>
+
+            <text x="120" y="92">Turboprop</text>
+            <rect x="200" y="82" width="55" height="16" fill="#f59e0b"/><text x="263" y="94">18.2%</text>
+
+            <text x="120" y="118">Heavy Jet</text>
+            <rect x="200" y="108" width="2" height="16" fill="#f43f5e"/><text x="212" y="120" fill="#f43f5e" font-weight="bold">0.0%</text>
+          </g>
+        </svg>
+        <figcaption>Three aircraft types land in a believable 18–29% recall band. Heavy Jet — almost certainly the highest dollar value per invoice — sits at a flat 0%. A gap like this is a launch question, not a rounding error.</figcaption>
+      </figure>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🛫</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Imagine an airport security line with four lanes, and one of them — the one VIPs use — has a metal detector that's quietly never once gone off, for anyone, ever. Looking at the other three lanes' detection rates would never tell you that. You only find it by checking <em>every lane separately</em>, which is exactly what <code>group_recall</code> does instead of reporting one company-wide number.</p>
+      </div>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> A 0% recall on your highest-value segment is a launch blocker, not a footnote</div>
+        <p style="margin-bottom:0">Heavy Jet invoices are almost certainly the largest dollar amounts in this business. A model that never flags a single one of their disputes isn't a minor fairness nuance — it's a finance team flying blind on its biggest exposure. Compare this to Project 7's hospital fairness gap, where every group's recall was low: there, the honest read was "no real signal anywhere." Here, some groups (Standard, Premium) have meaningfully higher recall than others (Elite, Heavy Jet) — that's a targeted weakness, and it's the kind of finding that should block a launch until it's understood, not just logged and shipped.</p>
+      </div>
+
+      <h2>9.4 The API — same shape, new domain</h2>
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">api.py — FastAPI service for both predictions</span></div>
+<pre><code class="language-python">from fastapi import FastAPI
+from pydantic import BaseModel, Field, field_validator
+
+app = FastAPI(title="Wheels Up Flight &amp; Billing Intelligence API", version="1.0.0")
+
+class FlightRequest(BaseModel):
+    membership_tier: str
+    aircraft_type: str
+    lead_time_days: int = Field(..., ge=0, le=365)
+    cust_flight_freq: int = Field(..., ge=0)
+
+    @field_validator("membership_tier")
+    @classmethod
+    def check_tier(cls, v):
+        if v not in ["Standard", "Premium", "Elite"]:
+            raise ValueError("membership_tier must be Standard, Premium, or Elite")
+        return v
+
+@app.get("/health")
+def health():
+    return {"status": "healthy", "model_version": "1.0.0"}
+
+@app.post("/predict/flight-outcome")
+def predict_flight(req: FlightRequest):
+    # same shape as Project 7's /predict/risk: validate, predict, log, respond
+    return {"prediction": "Completed", "model_version": "1.0.0"}  # illustrative
+# Copy Project 7 section 7.5-7.6 almost verbatim for the full version --
+# the validation and audit-logging code is genuinely domain-independent.</code></pre>
+
+      <h2>9.5 Monitoring: PSI catches the bug again</h2>
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — PSI on days_since_join</span></div>
+<pre><code class="language-python">def psi(ref, curr, bins=10):
+    b = np.linspace(min(ref.min(), curr.min()), max(ref.max(), curr.max()), bins+1)
+    b[0] -= 1e-6; b[-1] += 1e-6
+    rp = (pd.cut(ref, bins=b).value_counts(sort=False) / len(ref)).clip(lower=1e-6)
+    cp = (pd.cut(curr, bins=b).value_counts(sort=False) / len(curr)).clip(lower=1e-6)
+    return float(((cp - rp) * np.log(cp / rp)).sum())
+
+score = psi(train.days_since_join, test.days_since_join)
+print(f"PSI(days_since_join) = {score:.2f}")
+print("ref mean:", round(train.days_since_join.mean(),1), " curr mean:", round(test.days_since_join.mean(),1))
+# PSI ~5.5, ref mean ~ -34, curr mean ~ +144 -- the SAME false alarm
+# as Project 7's days_since_registration, for the SAME root cause
+# (Project 8 section 8.5). Two industries, one bug, one fix:
+# add .clip(lower=0) at the source instead of retraining a fine model.</code></pre>
+
+      <h2>9.6 The MLOps loop, run twice</h2>
+      <p>You've now built this exact loop — train, validate at the API boundary, log for audit, monitor for drift, diagnose before retraining — on two unrelated businesses. The diagram from Project 7 section 7.8 applies completely unchanged; only the boxes' contents differ.</p>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Projects 6–9 form one continuous argument: <strong>Week 5</strong> (SQL), <strong>Week 8</strong> (EDA), <strong>Week 15</strong> (evaluation), <strong>Week 22</strong> (ensembles), and <strong>Weeks 38–39</strong> (MLOps) aren't four separate skills you deploy once each — they're one repeatable spine you run on every new tabular problem a company hands you. The hospital and the jet operator are different businesses with the same shape: tables that join one-to-many, dates that need a sanity check, a model that overfits until you discipline it with a real test set, and a fairness check that finds something different each time you run it on a new dataset. If you do nothing else after this course, internalise that spine — it is, very literally, most of what a working ML engineer does all day.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🧰 Concepts you're reusing</h2>
+      <ul class="refs">
+        <li><span class="r-ic">🏥</span><div><a href="p7.html">Project 7 · Hospital Risk Intelligence II</a><span class="r-src">The exact pipeline this project mirrors, side by side.</span></div></li>
+        <li><span class="r-ic">🎯</span><div><a href="../lessons/w15.html">Week 15 · Evaluating Classifiers</a><span class="r-src">Precision/recall and the fairness checks in section 9.3.</span></div></li>
+        <li><span class="r-ic">⚙️</span><div><a href="../lessons/w38.html">Week 38 · MLOps</a><span class="r-src">The deploy-monitor-retrain loop this project runs end to end, twice.</span></div></li>
+      </ul>
+
+      <h2>🚀 Make it your own</h2>
+      <ul>
+        <li><strong>Investigate the Heavy Jet gap.</strong> Is it a sample-size issue (fewer Heavy Jet rows), a genuinely different dispute pattern, or a feature that's missing entirely (e.g. a corporate-account flag)? Section 9.3's number is a starting point, not an answer.</li>
+        <li><strong>Build a third project.</strong> Pick any business you know — retail returns, SaaS churn, insurance claims — and run sections 8.1–9.6 against it from scratch. If you can do it without re-reading this page, you've internalised the spine.</li>
+        <li><strong>Wire up a real dashboard.</strong> Build a small HTML page (Project 6's hospital build has one) that calls your FastAPI service live and shows the prediction with its probabilities — the last mile between "a model exists" and "people actually use it."</li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">The billing model hits 61.8% accuracy but only 22% recall on Disputed invoices. Which number should finance trust for "will this catch disputes early"?</div>
+        <button class="opt">The 61.8% accuracy — higher numbers are always better.</button>
+        <button class="opt">The 22% Disputed recall — it directly measures the thing the business actually asked the model to do.</button>
+        <button class="opt">Neither — accuracy and recall always agree.</button>
+        <button class="opt">You'd need a third metric not mentioned here.</button>
+        <div class="explain">Overall accuracy is inflated by the majority "Paid" class. The business question was specifically about catching disputes, so Disputed recall — not accuracy — is the metric that answers it honestly.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">Disputed recall is 0% for Heavy Jet invoices but 29% for Light Jet. What's the most responsible next step?</div>
+        <button class="opt">Ship the model — overall accuracy is still over 60%.</button>
+        <button class="opt">Delete the Heavy Jet rows so the metric looks better.</button>
+        <button class="opt">Treat it as a launch blocker for Heavy Jet specifically, and investigate before deploying — especially since Heavy Jet invoices are likely the highest-value segment.</button>
+        <button class="opt">Ignore it — fairness gaps are expected and never actionable.</button>
+        <div class="explain">A hard 0% on a high-value segment is a targeted, specific weakness — not statistical noise from a low-signal model. It needs investigation (sample size? missing feature? genuinely different behaviour?) before this model goes anywhere near production billing decisions.</div>
+      </div>
+
+      <nav class="pager"><a class="prev" href="p8.html">← Project 8: Wheels Up I</a><a class="next" href="../index.html">Home →</a></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
+</body>
+</html>

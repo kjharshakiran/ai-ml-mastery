@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lesson 18 · SVM II: Margins, Kernels &amp; the Kernel Trick — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+<script src="../assets/js/interactive-widgets.js"></script>
 </head>
 <body data-lesson="w18">
 <div class="topbar">
@@ -126,6 +129,18 @@
         <figcaption>Points not separable on a 1D line become separable once lifted by φ(x) = (x, x²) into 2D — a straight line splits them. The kernel trick does this lift without ever building the new coordinates.</figcaption>
       </figure>
 
+      <div class="interactive-widget" id="w18-svm-widget" data-widget="svm">
+        <div class="widget-title">🎯 Interactive: SVM Soft Margin Explorer</div>
+        <p>Drag C to see how the margin width and misclassification penalty trade off. Small C = wide margin, more slack. Large C = narrow margin, fewer errors.</p>
+        <input type="range" class="widget-slider" min="0.01" max="2.0" value="0.5" step="0.01">
+        <div class="widget-labels"><span>Small C (wide margin)</span><span>Large C (strict)</span></div>
+        <div class="widget-value">C = 0.50</div>
+        <canvas class="widget-canvas"></canvas>
+        <div class="widget-description">
+          <strong>Blue line</strong> = decision boundary. <strong>Dashed teal</strong> = margin gutters. C controls the penalty for points crossing the gutter.
+        </div>
+      </div>
+
       <h2>5. The kernel trick: the lift without the climb</h2>
       <p>Here is the magic. The SVM only ever touches the data through <strong>dot products</strong> \(\mathbf{x}_i\cdot\mathbf{x}_j\). So in the lifted space it only needs \(\phi(\mathbf{x}_i)\cdot\phi(\mathbf{x}_j)\). A <strong>kernel</strong> \(K\) is a function that computes that high-dimensional dot product <em>directly from the original points</em>, without ever constructing \(\phi(\mathbf{x})\):</p>
       <p>\[ K(\mathbf{x}_i,\mathbf{x}_j) = \phi(\mathbf{x}_i)\cdot\phi(\mathbf{x}_j) \]</p>
@@ -135,6 +150,26 @@
         <li><strong>RBF / Gaussian:</strong> \(K(\mathbf{x},\mathbf{z}) = \exp(-\gamma\lVert\mathbf{x}-\mathbf{z}\rVert^2)\) — effectively an <em>infinite</em>-dimensional lift, the go-to default.</li>
       </ul>
       <p>This is the famous <strong>kernel trick</strong>: we reap the power of an enormous (even infinite) feature space while only ever doing cheap computations on the original points.</p>
+
+      <h3>The kernel trick in numbers</h3>
+      <p>"Same dot product, no \(\phi\)" sounds like sleight of hand — so let's compute it both ways and check the answers match. Take two points and the degree-2 polynomial kernel \(K(\mathbf{x},\mathbf{z})=(\mathbf{x}\cdot\mathbf{z}+1)^2\).</p>
+      <table>
+        <thead><tr><th>Vector</th><th>Coordinates</th></tr></thead>
+        <tbody>
+          <tr><td>\(\mathbf{x}\)</td><td>\((2,3)\)</td></tr>
+          <tr><td>\(\mathbf{z}\)</td><td>\((1,4)\)</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Step 1 — the cheap way (kernel).</strong> One dot product in the original 2D space: \(\mathbf{x}\cdot\mathbf{z} = 2\cdot 1 + 3\cdot 4 = 14\). Then</p>
+      <p>\[ K(\mathbf{x},\mathbf{z}) = (14+1)^2 = 225 \]</p>
+      <p><strong>Step 2 — the expensive way (build \(\phi\)).</strong> The matching feature map is \(\phi(a,b)=(a^2,\,b^2,\,\sqrt{2}\,ab,\,\sqrt{2}\,a,\,\sqrt{2}\,b,\,1)\), a lift into 6D. So \(\phi(\mathbf{x})=(4,9,8.485,2.828,4.243,1)\) and \(\phi(\mathbf{z})=(1,16,5.657,1.414,5.657,1)\). Their dot product:</p>
+      <p>\[ \phi(\mathbf{x})\cdot\phi(\mathbf{z}) = 4 + 144 + 48 + 4 + 24 + 1 = 225 \]</p>
+      <p><strong>Identical — \(225\) either way</strong>, but the kernel reached it with a single 2D dot product instead of building and multiplying six coordinates. The RBF kernel does the same for an <em>infinite</em>-dimensional \(\phi\): for \(\mathbf{x}=(1,0)\), \(\mathbf{z}=(0,1)\), \(\gamma=0.5\), we get \(\lVert\mathbf{x}-\mathbf{z}\rVert^2=2\) so \(K=e^{-0.5\cdot 2}=e^{-1}\approx 0.368\) (and identical points give \(K=e^0=1\)).</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The kernel <em>is</em> the lifted dot product</div>
+        <p style="margin-bottom:0">A kernel isn't an approximation or a shortcut that loses something — \(K(\mathbf{x},\mathbf{z})\) returns the <em>exact</em> dot product \(\phi(\mathbf{x})\cdot\phi(\mathbf{z})\) in the high-dimensional space, paid for at original-space cost. That's why an RBF SVM can work in infinite dimensions without ever storing a single lifted coordinate.</p>
+      </div>
 
       <div class="callout analogy">
         <div class="c-title"><span class="c-emoji">📄</span> Real-World Analogy</div>
@@ -222,5 +257,6 @@ print("num support vectors:", rbf.n_support_)   # one count per class</code></pr
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

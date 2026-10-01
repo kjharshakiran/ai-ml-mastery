@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lesson 35 · GANs I — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+<script src="../assets/js/interactive-widgets.js"></script>
 </head>
 <body data-lesson="w35">
 <div class="topbar">
@@ -64,6 +67,24 @@
       <p>\[ \min_{G}\;\max_{D}\;\; \mathbb{E}_{\mathbf{x}\sim p_{\text{data}}}\big[\log D(\mathbf{x})\big] \;+\; \mathbb{E}_{\mathbf{z}\sim p_{\mathbf{z}}}\big[\log\big(1 - D(G(\mathbf{z}))\big)\big] \]</p>
       <p>Read it in plain English. The first term rewards \(D\) for confidently calling <em>real</em> images real (\(D(\mathbf{x})\to1\)). The second rewards \(D\) for calling <em>fakes</em> fake (\(D(G(\mathbf{z}))\to0\)). The generator \(G\) appears only in that second term and wants the opposite: to push \(D(G(\mathbf{z}))\) up toward 1. At the theoretical optimum, \(G\) reproduces the true data distribution exactly and \(D\) is reduced to flipping a coin: \(D(\mathbf{x})=\tfrac12\) everywhere.</p>
 
+      <h3>The minimax game in numbers</h3>
+      <p>The formula is abstract until you push two images through it. Take a mini-batch of one real photo and one fake, and score \(D\)'s objective.</p>
+      <table>
+        <thead><tr><th>Image</th><th>Nature</th><th>\(D\) output</th><th>Contributes</th></tr></thead>
+        <tbody>
+          <tr><td>photo A</td><td>real</td><td>\(D(x)=0.9\)</td><td>\(\ln(0.9)=-0.105\)</td></tr>
+          <tr><td>\(G(z)\)</td><td>fake</td><td>\(D(G(z))=0.3\)</td><td>\(\ln(1-0.3)=\ln(0.7)=-0.357\)</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Step 1 — score the discriminator.</strong> Add the two terms: \(-0.105 + (-0.357) = -0.462\). \(D\) wants this number <em>higher</em> — it does that by pushing \(D(\text{real})\to1\) and \(D(\text{fake})\to0\).</p>
+      <p>\[ \text{real }0.9,\ \text{fake }0.3 \;\Rightarrow\; \ln(0.9) + \ln(0.7) = -0.462 \]</p>
+      <p><strong>Step 2 — a near-perfect \(D\).</strong> If \(D\) called the real image \(0.99\) and the fake \(0.01\), the score climbs to \(\ln(0.99)+\ln(0.99)\approx -0.020\) — almost zero, the best \(D\) can reach. <strong>At equilibrium the generator has won: \(D=0.5\) on everything, giving \(\ln(0.5)+\ln(0.5)=-1.386\)</strong> — \(D\) can only coin-flip.</p>
+      <p><strong>Step 3 — why the generator's loss is swapped.</strong> Suppose the generator is losing badly: \(D(G(z))=0.1\). Its <em>original</em> loss \(\ln(1-0.1)=\ln(0.9)=-0.105\) is nearly flat, so the gradient is almost zero — no signal. The <em>non-saturating</em> trick instead maximises \(\ln D(G(z))=\ln(0.1)=-2.30\), which is steep exactly when the generator is being caught.</p>
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> Why the non-saturating loss exists</div>
+        <p style="margin-bottom:0">The original generator loss \(\ln(1-D(G(z)))\) <em>saturates</em> (flattens to a near-zero gradient) precisely when \(D\) is winning — the moment the generator most needs a strong push. Maximising \(\ln D(G(z))\) instead gives a steep gradient when the fakes are losing, which is why every practical GAN uses it.</p>
+      </div>
+
       <figure class="figure">
         <svg viewBox="0 0 520 260" aria-label="The generator and discriminator training loop">
           <!-- noise -->
@@ -102,6 +123,75 @@
           </defs>
         </svg>
         <figcaption>The adversarial loop. The generator turns noise <code>z</code> into a fake; the discriminator judges fakes (amber) against real samples (teal). The discriminator's verdict flows back as a gradient that nudges the generator to fool it better next time.</figcaption>
+      </figure>
+
+      <figure class="figure">
+        <div style="max-width: 600px; margin: 0 auto;">
+          <svg viewBox="0 0 600 200" aria-label="GAN training progression: images improving over epochs">
+            <style>
+              .gan-frame { opacity: 0; animation: gan-fade-in 0.5s ease-out forwards; }
+              .gan-frame:nth-child(1) { animation-delay: 0s; }
+              .gan-frame:nth-child(2) { animation-delay: 0.5s; }
+              .gan-frame:nth-child(3) { animation-delay: 1s; }
+              .gan-frame:nth-child(4) { animation-delay: 1.5s; }
+              .gan-frame:nth-child(5) { animation-delay: 2s; }
+              @keyframes gan-fade-in {
+                from { opacity: 0; transform: scale(0.9); }
+                to   { opacity: 1; transform: scale(1); }
+              }
+            </style>
+            <!-- Epoch 1: noise -->
+            <g class="gan-frame" transform="translate(30, 30)">
+              <rect width="80" height="80" fill="#f0f0f5" rx="8"/>
+              <circle cx="40" cy="40" r="25" fill="#e3e6f0"/>
+              <text x="40" y="105" font-size="11" fill="#767c93" text-anchor="middle">Epoch 1</text>
+              <text x="40" y="120" font-size="9" fill="#f43f5e" text-anchor="middle">pure noise</text>
+            </g>
+            <!-- Epoch 10: blobs -->
+            <g class="gan-frame" transform="translate(140, 30)">
+              <rect width="80" height="80" fill="#f0f0f5" rx="8"/>
+              <ellipse cx="35" cy="45" rx="20" ry="15" fill="#d1d5db"/>
+              <ellipse cx="55" cy="35" rx="12" ry="10" fill="#9ca3af"/>
+              <text x="40" y="105" font-size="11" fill="#767c93" text-anchor="middle">Epoch 10</text>
+              <text x="40" y="120" font-size="9" fill="#f59e0b" text-anchor="middle">blobs</text>
+            </g>
+            <!-- Epoch 50: structure -->
+            <g class="gan-frame" transform="translate(250, 30)">
+              <rect width="80" height="80" fill="#f0f0f5" rx="8"/>
+              <ellipse cx="40" cy="40" rx="28" ry="22" fill="#e3e6f0"/>
+              <ellipse cx="35" cy="35" rx="8" ry="6" fill="#9ca3af" opacity="0.6"/>
+              <ellipse cx="50" cy="38" rx="8" ry="6" fill="#9ca3af" opacity="0.6"/>
+              <path d="M30 55 Q40 60 50 55" stroke="#9ca3af" stroke-width="2" fill="none"/>
+              <text x="40" y="105" font-size="11" fill="#767c93" text-anchor="middle">Epoch 50</text>
+              <text x="40" y="120" font-size="9" fill="#f59e0b" text-anchor="middle">structure</text>
+            </g>
+            <!-- Epoch 100: details -->
+            <g class="gan-frame" transform="translate(360, 30)">
+              <rect width="80" height="80" fill="#f0f0f5" rx="8"/>
+              <ellipse cx="40" cy="40" rx="30" ry="24" fill="#e3e6f0"/>
+              <ellipse cx="34" cy="36" rx="7" ry="5" fill="#767c93"/>
+              <ellipse cx="48" cy="36" rx="7" ry="5" fill="#767c93"/>
+              <path d="M30 55 Q40 62 50 55" stroke="#767c93" stroke-width="2" fill="none"/>
+              <ellipse cx="40" cy="48" rx="4" ry="3" fill="#f43f5e"/>
+              <text x="40" y="105" font-size="11" fill="#767c93" text-anchor="middle">Epoch 100</text>
+              <text x="40" y="120" font-size="9" fill="#14b8a6" text-anchor="middle">details</text>
+            </g>
+            <!-- Epoch 200: realistic -->
+            <g class="gan-frame" transform="translate(470, 30)">
+              <rect width="80" height="80" fill="#f0f0f5" rx="8"/>
+              <ellipse cx="40" cy="40" rx="32" ry="26" fill="#e3e6f0"/>
+              <ellipse cx="33" cy="35" rx="7" ry="5" fill="#4f46e5"/>
+              <ellipse cx="47" cy="35" rx="7" ry="5" fill="#4f46e5"/>
+              <circle cx="33" cy="35" r="2" fill="#fff"/>
+              <circle cx="47" cy="35" r="2" fill="#fff"/>
+              <path d="M30 55 Q40 64 50 55" stroke="#4f46e5" stroke-width="2.5" fill="none"/>
+              <ellipse cx="40" cy="48" rx="5" ry="3" fill="#f43f5e"/>
+              <text x="40" y="105" font-size="11" fill="#767c93" text-anchor="middle">Epoch 200</text>
+              <text x="40" y="120" font-size="9" fill="#14b8a6" text-anchor="middle">realistic</text>
+            </g>
+          </svg>
+        </div>
+        <figcaption><strong>GAN training progression:</strong> The generator starts with random noise and gradually learns to produce realistic faces. Each epoch, the forger gets a little better at fooling the detective. Watch the frames appear one by one.</figcaption>
       </figure>
 
       <div class="callout analogy">
@@ -217,5 +307,6 @@ for real in dataloader:                  # real: a batch of genuine images
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

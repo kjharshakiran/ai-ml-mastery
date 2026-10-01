@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 7 · Hospital Risk Intelligence II: Models to Production — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-project="p7">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Project 7</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Capstone Projects › Project 7</div>
+        <span class="eyebrow">🏥 Applied MLOps Capstone · Part II of IV</span>
+        <h1>Hospital Risk Intelligence II — Models, API, Deployment &amp; Monitoring</h1>
+        <div class="lesson-meta"><span>🔴 Difficulty: Advanced</span><span>🎯 What happens after the notebook works</span><span>🧰 RF/GBM · FastAPI · Drift · Governance</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>What you'll build</h4>
+        <ul>
+          <li>Two trained models — a <strong>Random Forest</strong> for visit risk, a <strong>Gradient Boosting</strong> classifier for claim outcome — and the reasoning for choosing each.</li>
+          <li>An honest <strong>evaluation</strong>: train-vs-test gaps, per-class recall on the classes that actually matter to the business, and a fairness check across patient groups.</li>
+          <li>A real <strong>FastAPI service</strong> with request/response schema validation and an audit-ready prediction log.</li>
+          <li>A <strong>drift-monitoring loop</strong> using the Population Stability Index — and a live demonstration of it catching the exact bug Project 6's EDA flagged.</li>
+          <li>The full <strong>MLOps lifecycle</strong>: train → deploy → monitor → retrain, as a loop, not a one-time event.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A model that scores 98% accuracy in your notebook can be quietly useless three weeks after it ships. What has to exist around a model — not inside it — for a company to trust it with real decisions?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>7.1 Recap: rebuild the modeling dataset</h2>
+      <p>Picking up exactly where Project 6 left off. Paste Project 6's generator if you're running this page fresh — here's the condensed version, with one upgrade: the provider-rejection-rate feature is now fit on <code>train</code> only, closing the leakage gap Project 6 flagged.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — rebuild df, train, test (see Project 6 for full derivation)</span></div>
+<pre><code class="language-python">import numpy as np, pandas as pd
+rng = np.random.default_rng(7)
+N_PAT, N_VIS = 600, 3000
+cities=["Hyderabad","Pune","Bangalore","Mumbai","Delhi","Chennai"]
+insurers=["MediCareX","CareOne","HealthPlus","SecureLife"]
+depts=["General","ER","Neurology","Orthopedics","Cardiology","ICU"]; vtypes=["ER","OPD","ICU"]
+start,end=pd.Timestamp("2025-01-01"),pd.Timestamp("2026-01-01")
+rd=lambda n: start+pd.to_timedelta(rng.integers(0,(end-start).days,n),unit="D")
+patients=pd.DataFrame({"patient_id":range(1,N_PAT+1),"age":rng.integers(1,90,N_PAT),
+  "gender":rng.choice(["M","F"],N_PAT),"city":rng.choice(cities,N_PAT),
+  "insurance_provider":rng.choice(insurers,N_PAT),"chronic_flag":rng.integers(0,2,N_PAT),
+  "registration_date":rd(N_PAT)})
+visits=pd.DataFrame({"visit_id":range(1,N_VIS+1),"patient_id":rng.choice(patients.patient_id,N_VIS),
+  "visit_date":np.sort(rd(N_VIS)),"department":rng.choice(depts,N_VIS),
+  "visit_type":rng.choice(vtypes,N_VIS),
+  "length_of_stay_hours":np.round(rng.gamma(4,5,N_VIS),1),"doctor_id":rng.integers(1,40,N_VIS)})
+j=visits.merge(patients,on="patient_id")
+risk_logit=0.01*(j.age-45)+0.3*j.chronic_flag+rng.normal(0,1.5,N_VIS)
+visits["risk_score"]=pd.cut(risk_logit,bins=[-np.inf,-0.3,0.6,np.inf],labels=["Low","Medium","High"])
+billing=pd.DataFrame({"bill_id":range(1,N_VIS+1),"visit_id":visits.visit_id,
+  "billed_amount":np.round(rng.gamma(6,3500,N_VIS),2)})
+rej_p=0.15+rng.normal(0,0.01,N_VIS); u=rng.random(N_VIS)
+billing["claim_status"]=np.where(u&lt;rej_p,"Rejected",np.where(u&lt;rej_p+0.25,"Pending","Paid"))
+billing["approved_amount"]=np.where(billing.claim_status=="Rejected",np.nan,
+  billing.billed_amount*rng.uniform(0.7,1.0,N_VIS))
+billing["payment_days"]=np.where(billing.claim_status=="Paid",rng.integers(3,30,N_VIS).astype(float),np.nan)
+
+df=visits.merge(patients,on="patient_id").merge(billing,on="visit_id").sort_values("visit_date").reset_index(drop=True)
+df["los_winsorized"]=df.length_of_stay_hours.clip(upper=df.length_of_stay_hours.quantile(0.99))
+df["days_since_registration"]=(df.visit_date-df.registration_date).dt.days   # left UNCLIPPED on purpose -- see 7.6
+df["visit_month"]=df.visit_date.dt.month; df["visit_quarter"]=df.visit_date.dt.quarter
+df["visit_dayofweek"]=df.visit_date.dt.dayofweek; df["is_weekend_visit"]=(df.visit_dayofweek&gt;=5).astype(int)
+
+split=int(len(df)*0.8); train,test=df.iloc[:split].copy(),df.iloc[split:].copy()
+
+# Patient + provider aggregates fit on TRAIN ONLY, then mapped onto test --
+# this is the leakage fix Project 6 section 6.7 promised.
+agg=train.groupby("patient_id").agg(patient_visit_freq=("visit_id","count"),
+                                     patient_avg_los=("length_of_stay_hours","mean"))
+rej=train.groupby("insurance_provider").claim_status.apply(lambda x:(x=="Rejected").mean()).rename("provider_rejection_rate")
+for part in (train,test):
+    part[["patient_visit_freq","patient_avg_los"]]=part.patient_id.map(agg.patient_visit_freq).to_frame().assign(
+        patient_avg_los=part.patient_id.map(agg.patient_avg_los))
+    part["provider_rejection_rate"]=part.insurance_provider.map(rej)
+print(len(train), len(test))</code></pre>
+
+      <h2>7.2 Choosing a model: the bias-variance conversation</h2>
+      <p>Three contenders, same conversation a production ML team has every time:</p>
+      <ul>
+        <li><strong>Logistic Regression</strong> (Week 13/25) — a straight-line decision boundary per class. Fast, interpretable, the baseline you compare everything else against.</li>
+        <li><strong>Random Forest</strong> (Week 22) — a committee of decision trees, each trained on a different random slice of rows and columns, voting together. Captures non-linear interactions a linear model can't.</li>
+        <li><strong>Gradient Boosting</strong> (Week 22) — trees built <em>sequentially</em>, each one fixing the previous tree's mistakes. Usually the strongest off-the-shelf tabular performer, at the cost of being slower to train and easier to overfit if left unchecked.</li>
+      </ul>
+      <p>We'll use Random Forest for <code>risk_score</code> and Gradient Boosting for <code>claim_status</code> — not because one is universally better, but because this is exactly what the real production system did, and comparing their two different failure modes is the whole point of section 7.4.</p>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🌳</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">Random Forest is a room of independent doctors who each only saw part of the patient's chart, voting on a diagnosis — their independence cancels out individual blind spots. Gradient Boosting is one resident who keeps re-examining the patient, each pass specifically hunting for what the last pass got wrong. Both can be excellent; they fail differently, which is why section 7.4 evaluates them differently too.</p>
+      </div>
+
+      <h2>7.3 Train both models</h2>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — Random Forest for risk_score</span></div>
+<pre><code class="language-python">from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, f1_score, classification_report
+
+RISK_FEATURES = ["age","gender","city","insurance_provider","chronic_flag",
+                  "days_since_registration","patient_visit_freq","patient_avg_los",
+                  "department","visit_type","visit_month","visit_quarter",
+                  "visit_dayofweek","is_weekend_visit"]
+
+cat = [f for f in RISK_FEATURES if not pd.api.types.is_numeric_dtype(df[f])]
+num = [f for f in RISK_FEATURES if pd.api.types.is_numeric_dtype(df[f])]
+pre = ColumnTransformer([("ohe", OneHotEncoder(handle_unknown="ignore"), cat),
+                          ("sc",  StandardScaler(), num)])
+risk_model = Pipeline([("pre", pre), ("clf", RandomForestClassifier(
+    n_estimators=200, min_samples_leaf=5, class_weight="balanced_subsample",
+    random_state=42))])
+risk_model.fit(train[RISK_FEATURES], train.risk_score)
+
+train_acc = accuracy_score(train.risk_score, risk_model.predict(train[RISK_FEATURES]))
+test_acc  = accuracy_score(test.risk_score,  risk_model.predict(test[RISK_FEATURES]))
+print(f"train accuracy: {train_acc:.3f}   test accuracy: {test_acc:.3f}")
+# At this 3,000-row demo scale: train ~0.89, test ~0.44.
+# At the real project's 25,000-row production scale, the SAME model
+# architecture scored train 0.985, test 0.394 -- an even bigger gap.
+# Either way: textbook overfitting. Keep reading -- this is the point.</code></pre>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> 98.5% train accuracy is not good news</div>
+        <p style="margin-bottom:0">A model that nails the training set but falls apart on data it hasn't seen has <strong>memorized</strong>, not learned. In the real production run, High-Risk recall on the test set was just <strong>8.8%</strong> — the model missed 91% of the genuinely high-risk visits. A flashy training-accuracy number with no test-set discipline is how unsafe models ship. Always report both, always be suspicious of a huge gap between them.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — Gradient Boosting for claim_status</span></div>
+<pre><code class="language-python">from sklearn.ensemble import GradientBoostingClassifier
+
+CLAIM_FEATURES = ["age","gender","city","insurance_provider","chronic_flag",
+                   "department","visit_type","los_winsorized","risk_score",
+                   "visit_month","visit_quarter","is_weekend_visit","billed_amount",
+                   "provider_rejection_rate","patient_visit_freq","days_since_registration"]
+catc = [f for f in CLAIM_FEATURES if not pd.api.types.is_numeric_dtype(df[f])]
+numc = [f for f in CLAIM_FEATURES if pd.api.types.is_numeric_dtype(df[f])]
+prec = ColumnTransformer([("ohe", OneHotEncoder(handle_unknown="ignore"), catc),
+                           ("sc",  StandardScaler(), numc)])
+claim_model = Pipeline([("pre", prec), ("clf", GradientBoostingClassifier(
+    n_estimators=150, max_depth=4, subsample=0.8, random_state=42))])
+claim_model.fit(train[CLAIM_FEATURES], train.claim_status)
+preds = claim_model.predict(test[CLAIM_FEATURES])
+print(classification_report(test.claim_status, preds, digits=3))
+# The model leans hard on "Paid" (high recall there) and is weak on
+# Pending/Rejected -- the two classes a revenue team actually needs
+# flagged. In the real project, Rejected recall was 15.0%.</code></pre>
+
+      <h2>7.4 Evaluate honestly: the business metric, not just accuracy</h2>
+      <p>"Accuracy" treats every mistake equally. A hospital does not: missing a genuinely High-Risk visit is a different kind of mistake than mislabeling a Low as Medium. So the real evaluation report leads with <strong>per-class recall on the class that matters</strong>, not the headline accuracy number:</p>
+      <p>\[ \text{recall(High)} = \frac{\text{visits correctly flagged High}}{\text{all visits that were actually High}} \]</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — the recall numbers that actually matter</span></div>
+<pre><code class="language-python">rep = classification_report(test.risk_score, risk_model.predict(test[RISK_FEATURES]), output_dict=True)
+print("High-Risk recall:", round(rep["High"]["recall"], 3))
+
+# Fairness: is recall even across patient groups, or does the model
+# quietly work better for some groups than others?
+def group_recall(target, preds, truth, group_col, frame):
+    out = {}
+    for g in frame.loc[truth.index, group_col].unique():
+        idx = frame.loc[truth.index, group_col] == g
+        t, p = truth[idx], preds[idx]
+        if (t == target).sum() == 0: continue
+        out[g] = round(float(((p == target) & (t == target)).sum() / (t == target).sum()), 3)
+    return out
+
+preds = risk_model.predict(test[RISK_FEATURES])
+print("High-Risk recall by city:", group_recall("High", preds, test.risk_score, "city", df))
+# Real production result: city recall ranged from 3.0% (Mumbai) to
+# 14.1% (Pune) -- a &gt;10-point spread the team flagged for review.
+# Given every group's recall was already low, this read as "the model
+# isn't finding real signal anywhere" rather than "biased toward one city" --
+# but you only know that because you checked.</code></pre>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> A fairness gap needs a second opinion before you act on it</div>
+        <p style="margin-bottom:0">A wide spread across groups is always worth flagging — but the right response depends on context. If every group's recall is reasonably high except one, that's a targeted bias to fix. If <em>every</em> group's recall is poor (as here), the honest read is "this model isn't predictive enough to deploy," not "rebalance the training data." Don't skip straight to a fix without first asking which story the numbers are actually telling.</p>
+      </div>
+
+      <h2>7.5 Building the API: validate at the boundary</h2>
+      <p>A model is not a product. A product is something a hospital's other systems can call, with guarantees. <strong>FastAPI</strong> + <strong>Pydantic</strong> give you those guarantees for free: every request is checked against a schema <em>before</em> it ever reaches the model.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">api.py — request schema with hard guarantees</span></div>
+<pre><code class="language-python">from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field, field_validator
+
+app = FastAPI(title="Hospital Risk Intelligence API", version="1.0.0")
+
+class RiskRequest(BaseModel):
+    age: int = Field(..., ge=1, le=120)          # reject impossible ages outright
+    gender: str
+    visit_type: str
+    days_since_registration: int = Field(..., ge=0)
+    patient_avg_los: float = Field(..., ge=0)
+    # ... remaining RISK_FEATURES fields, same pattern
+
+    @field_validator("visit_type")
+    @classmethod
+    def check_visit_type(cls, v):
+        if v not in ["OPD", "ER", "ICU"]:
+            raise ValueError("visit_type must be OPD, ER, or ICU")
+        return v
+
+@app.get("/health")
+def health():
+    return {"status": "healthy", "model_version": "1.0.0"}
+
+@app.post("/predict/risk")
+def predict_risk(req: RiskRequest):
+    data = req.model_dump()
+    pred = risk_model.predict([list(data.values())])[0]   # simplified for illustration
+    return {"prediction": pred, "model_version": "1.0.0"}
+# A request with age=-5 or visit_type="Surgery" never reaches risk_model
+# at all -- it's rejected with HTTP 422 and a field-by-field error list,
+# before a single line of model code runs. That boundary is the whole job.</code></pre>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Think of the API schema as a bouncer at a club door with a checklist: "Are you over 1 and under 120 years old? Is your visit type one of the three we allow?" Anyone who fails the checklist never gets inside to bother the model. The model only ever sees clean, sane requests — which is exactly why it can keep being simple on the inside.</p>
+      </div>
+
+      <h2>7.6 Logging every prediction — without logging the patient</h2>
+      <p>When something goes wrong three weeks from now, you need to answer "what did we predict, when, with which model version, for what input?" — without storing anything that identifies the patient. The trick: hash the input instead of storing it.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — audit logging via a feature hash, not raw data</span></div>
+<pre><code class="language-python">import hashlib, json
+from datetime import datetime
+
+def log_prediction(payload: dict, prediction: str, model_version: str):
+    feature_hash = hashlib.md5(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    record = {
+        "prediction_id": feature_hash[:8],
+        "input_feature_hash": feature_hash,     # reproducible, but not reversible to PII
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "model_version": model_version,
+        "prediction": prediction,
+    }
+    print(record)   # in production: append as one JSON line to a log file/stream
+    return record
+
+log_prediction({"age": 58, "visit_type": "ER"}, "Low", "1.0.0")</code></pre>
+
+      <h2>7.7 Monitoring in production: did the world change under the model?</h2>
+      <p>A model trained on January's patients can quietly stop being valid by June, even with zero code changes — the input <em>distribution</em> shifted. The <strong>Population Stability Index (PSI)</strong> measures exactly that, by comparing how a feature's values are distributed now versus when the model was trained:</p>
+      <p>\[ \text{PSI} = \sum_i (\text{curr}_i - \text{ref}_i) \times \ln\!\left(\frac{\text{curr}_i}{\text{ref}_i}\right) \]</p>
+      <p>where \(i\) ranges over value bins. PSI &lt; 0.10 is stable, 0.10–0.20 deserves a closer look, &gt; 0.20 typically triggers a retrain.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — PSI drift check, reusing train vs test as reference vs current</span></div>
+<pre><code class="language-python">def psi(ref, curr, bins=10):
+    b = np.linspace(min(ref.min(), curr.min()), max(ref.max(), curr.max()), bins+1)
+    b[0] -= 1e-6; b[-1] += 1e-6
+    rp = (pd.cut(ref, bins=b).value_counts(sort=False) / len(ref)).clip(lower=1e-6)
+    cp = (pd.cut(curr, bins=b).value_counts(sort=False) / len(curr)).clip(lower=1e-6)
+    return float(((cp - rp) * np.log(cp / rp)).sum())
+
+score = psi(train.days_since_registration, test.days_since_registration)
+print(f"PSI(days_since_registration) = {score:.2f}")
+print("ref mean:", round(train.days_since_registration.mean(),1),
+      " curr mean:", round(test.days_since_registration.mean(),1))
+# At demo scale: PSI ~5.5, ref mean ~ -36, curr mean ~ +144.
+# In the real project: PSI 4.38, ref mean -33.2, curr mean +147.7.
+# Both numbers are enormous -- and BOTH are the same false alarm.</code></pre>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> The monitor just re-found Project 6's bug — read the alert, don't just act on it</div>
+        <p style="margin-bottom:0">A negative mean for "days since registration" is impossible in reality — exactly the registration-date bug Project 6 section 6.5 flagged, because <code>days_since_registration</code> was deliberately left unclipped. The chronological split makes it worse: early rows draw a registration date from the <em>whole</em> year (often after the visit, pushing the mean negative); late rows draw from a range now mostly <em>before</em> the visit (pushing the mean positive). A naive on-call engineer sees PSI 4+ and triggers an expensive retrain. The right response — proven by tracing it back to section 6.5 — is to <code>.clip(lower=0)</code> the feature and re-check, not to retrain a model that was never the problem. <strong>This is why monitoring and EDA have to talk to each other.</strong></p>
+      </div>
+
+      <h2>7.8 The MLOps lifecycle: a loop, not a launch</h2>
+      <p>Everything in this project chains into a cycle that never really ends. This is what Week 38–39 call MLOps, made concrete:</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 700 220" aria-label="MLOps lifecycle loop: train, deploy, monitor, retrain">
+          <defs><marker id="ar3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#767c93"/></marker></defs>
+          <g font-family="sans-serif" font-size="11" text-anchor="middle">
+            <circle cx="120" cy="60"  r="55" fill="#eef0fb" stroke="#4f46e5"/><text x="120" y="56">Train &amp;</text><text x="120" y="70">Evaluate</text>
+            <circle cx="350" cy="60"  r="55" fill="#e7faf6" stroke="#14b8a6"/><text x="350" y="56">Deploy</text><text x="350" y="70">(API + Docker)</text>
+            <circle cx="580" cy="60"  r="55" fill="#fff4e0" stroke="#f59e0b"/><text x="580" y="56">Monitor</text><text x="580" y="70">(PSI + logs)</text>
+            <circle cx="350" cy="180" r="55" fill="#fde8ee" stroke="#f43f5e"/><text x="350" y="176">Diagnose &amp;</text><text x="350" y="190">Retrain</text>
+          </g>
+          <g stroke="#767c93" stroke-width="1.5" fill="none" marker-end="url(#ar3)">
+            <path d="M175,60 H295"/>
+            <path d="M405,60 H525"/>
+            <path d="M555,105 C480,160 430,170 405,175"/>
+            <path d="M295,180 C220,170 160,140 140,115"/>
+          </g>
+        </svg>
+        <figcaption>The loop this project actually runs: train, ship behind a validated API, monitor drift and recall in production, diagnose <em>before</em> retraining (per the warning above), then go again.</figcaption>
+      </figure>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This project chained <strong>Week 15</strong> (precision/recall/confusion matrices), <strong>Week 22</strong> (Random Forest and Gradient Boosting, the ensembles you trained in 7.3), and <strong>Weeks 38–39</strong> (MLOps and deployment) onto the exact dataset Project 6 built — including reusing its very bug as the centrepiece of section 7.7. <strong>Projects 8–9</strong> now hand you the controls: the same SQL → EDA → features → models → API → monitoring spine, pointed at a completely different business — private aviation reservations and billing at a company like Wheels Up — built by you, from a blank page, with this project as your reference.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🧰 Concepts you're reusing</h2>
+      <ul class="refs">
+        <li><span class="r-ic">🎯</span><div><a href="../lessons/w15.html">Week 15 · Evaluating Classifiers</a><span class="r-src">Precision, recall, and the confusion matrix behind every number in section 7.4.</span></div></li>
+        <li><span class="r-ic">🌳</span><div><a href="../lessons/w22.html">Week 22 · Ensemble Methods</a><span class="r-src">Random Forest and Gradient Boosting — the two models trained in section 7.3.</span></div></li>
+        <li><span class="r-ic">⚙️</span><div><a href="../lessons/w38.html">Week 38 · MLOps</a><span class="r-src">The deploy → monitor → retrain loop this project implements end to end.</span></div></li>
+        <li><span class="r-ic">☁️</span><div><a href="../lessons/w39.html">Week 39 · Cloud Deployment</a><span class="r-src">Containers and serverless — where <code>api.py</code> actually runs in production.</span></div></li>
+      </ul>
+
+      <h2>🚀 Make it your own</h2>
+      <ul>
+        <li><strong>Fix the bug.</strong> Add <code>.clip(lower=0)</code> to <code>days_since_registration</code> in section 7.1, re-run section 7.7, and confirm PSI drops back toward a sane number.</li>
+        <li><strong>Try SMOTE.</strong> Oversample the minority classes (High, Rejected) on <code>train</code> only and see whether recall improves without wrecking precision.</li>
+        <li><strong>Containerise it.</strong> Write a 10-line <code>Dockerfile</code> (Week 39) that installs FastAPI + scikit-learn and runs <code>uvicorn api:app</code> — that's the entire deployment step in most companies.</li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="1">
+        <div class="q">Train accuracy 98.5%, test accuracy 39.4%. What's the right read?</div>
+        <button class="opt">Ship it — 98.5% is an excellent score.</button>
+        <button class="opt">The model has overfit (memorized training data); the test score is the one that predicts real-world performance, and it's barely above chance for 3 classes.</button>
+        <button class="opt">Test accuracy is always lower, this is normal and fine.</button>
+        <button class="opt">More training epochs will fix it.</button>
+        <div class="explain">A ~60-point gap between train and test accuracy is the signature of overfitting. The model is not learning a generalizable pattern — it memorized training noise. Test performance, not train, is what production will actually see.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">A drift monitor flags PSI = 4.38 on a feature whose reference-period mean is negative, which is logically impossible. What should you do first?</div>
+        <button class="opt">Immediately trigger a full model retrain.</button>
+        <button class="opt">Ignore the alert — high PSI always means nothing.</button>
+        <button class="opt">Investigate the feature itself before retraining — an impossible mean points at a feature-engineering bug, not real-world drift.</button>
+        <button class="opt">Delete the feature from the dataset.</button>
+        <div class="explain">PSI tells you a distribution changed, not why. A logically impossible value (negative tenure) is a strong clue the "drift" is an artifact of how the feature was built, not a real shift in the world — exactly what section 7.7 traces back to Project 6's EDA finding.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">Why does the API log an <code>input_feature_hash</code> instead of the raw request?</div>
+        <button class="opt">It lets you detect duplicate/replayed requests and trace any prediction back to its exact inputs for an audit, without storing identifiable patient data.</button>
+        <button class="opt">Hashing makes the model run faster.</button>
+        <button class="opt">It's required by every programming language.</button>
+        <button class="opt">It compresses the file size of the log.</button>
+        <div class="explain">A hash is reproducible (the same input always hashes the same way) but not reversible (you can't recover the input from the hash) — exactly the property you want for an audit trail that respects privacy.</div>
+      </div>
+
+      <nav class="pager"><a class="prev" href="p6.html">← Project 6: Hospital Risk Intelligence I</a><a class="next" href="p8.html">Project 8: Wheels Up I →</a></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
+</body>
+</html>

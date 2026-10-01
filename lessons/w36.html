@@ -6,7 +6,8 @@
 <title>Lesson 36 · GANs II — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
 </head>
 <body data-lesson="w36">
@@ -152,6 +153,23 @@
       <p>\[ \mathcal{L}_{\text{cyc}} = \mathbb{E}\big[\lVert F(G(a)) - a \rVert_1\big] \;+\; \mathbb{E}\big[\lVert G(F(b)) - b \rVert_1\big] \]</p>
       <p>This round-trip constraint stops the generators from inventing arbitrary content — the only way to translate <em>and</em> reverse losslessly is to change just the domain-specific details (stripes) while preserving the structure (pose, background).</p>
 
+      <h3>Cycle-consistency in numbers</h3>
+      <p>The \(L_1\) round-trip loss is easiest to feel on a tiny summary vector. Represent a horse by three features — pose, background, texture — as \(a=[0.8,\,0.2,\,0.5]\), send it \(G\to\) zebra and \(F\to\) back to get \(\hat a\).</p>
+      <table>
+        <thead><tr><th>Round-trip</th><th>\(\hat a = F(G(a))\)</th><th>\(\lVert a-\hat a\rVert_1\)</th></tr></thead>
+        <tbody>
+          <tr><td>faithful \(G\)</td><td>\([0.8,\,0.2,\,0.55]\)</td><td>\(0.05\)</td></tr>
+          <tr><td>lazy \(G\) (drops pose)</td><td>\([0.1,\,0.2,\,0.5]\)</td><td>\(0.70\)</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Step 1 — the faithful translator.</strong> It changed only the texture (\(0.5\to0.55\), the stripes), so the cycle loss is \(|0.8-0.8|+|0.2-0.2|+|0.5-0.55| = 0.05\) — a tiny penalty.</p>
+      <p>\[ \lVert a-\hat a\rVert_1 = 0 + 0 + 0.05 = 0.05 \]</p>
+      <p><strong>Step 2 — the lazy translator.</strong> If \(G\) mangled the pose (\(0.8\to0.1\)), the round trip can't recover it: \(|0.8-0.1| = 0.70\). <strong>The cycle loss is 14× larger</strong>, so backprop punishes exactly the behaviour we want to forbid.</p>
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> What the round trip buys you</div>
+        <p style="margin-bottom:0">A low cycle loss is only achievable if \(G\) edits the domain-specific detail (stripes) while leaving pose and background untouched — which is precisely "change the horse to a zebra and nothing else." That constraint is what lets CycleGAN learn from <em>unpaired</em> data, with no matched horse/zebra photos at all.</p>
+      </div>
+
       <div class="callout key">
         <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
         <p style="margin-bottom:0">A <strong>condition</strong> turns a GAN from a slot machine into a steering wheel. The condition can be a class label (cGAN), an input image (pix2pix, paired), a domain you want to reach (CycleGAN, unpaired via cycle-consistency), or a direction in latent space. The recipe is always the same: feed the side-information to <em>both</em> the generator and the discriminator.</p>
@@ -271,5 +289,6 @@ print(fake.shape, score.shape)                 # torch.Size([4, 1, 28, 28]) torc
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

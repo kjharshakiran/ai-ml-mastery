@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lesson 20 · PCA &amp; Fisher LDA — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+  <script src="../assets/js/interactive-widgets.js"></script>
 </head>
 <body data-lesson="w20">
 <div class="topbar">
@@ -68,6 +71,29 @@
       <p>The eigenvector with the <em>largest</em> eigenvalue \(\lambda_1\) points along the direction of greatest spread — that's <strong>Principal Component 1</strong>. The next-largest, orthogonal to it, is PC2, and so on. Because \(C\) is symmetric, its eigenvectors are guaranteed orthogonal — a perfectly clean new coordinate system.</p>
 
       <p><strong>Step 4 — Keep the top \(k\).</strong> Sort eigenvectors by eigenvalue, keep the top \(k\), and project the data onto them. You've gone from \(d\) dimensions to \(k\) while throwing away only the low-variance "noise" directions.</p>
+
+      <h3>PCA on five points, by hand</h3>
+      <p>The four-step recipe is easy to nod along to and surprisingly satisfying to actually run, so let's grind one all the way through. Here are five already-centred 2D points (their mean is the origin):</p>
+      <table>
+        <thead><tr><th>Point</th><th>\(x_1\)</th><th>\(x_2\)</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>\(2\)</td><td>\(2\)</td></tr>
+          <tr><td>2</td><td>\(-2\)</td><td>\(-2\)</td></tr>
+          <tr><td>3</td><td>\(1\)</td><td>\(-1\)</td></tr>
+          <tr><td>4</td><td>\(-1\)</td><td>\(1\)</td></tr>
+          <tr><td>5</td><td>\(0\)</td><td>\(0\)</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Step 1 — covariance matrix.</strong> Dividing by \(n-1=4\): \(\operatorname{Var}(x_1)=\tfrac{2^2+2^2+1^2+1^2+0}{4}=\tfrac{10}{4}=2.5\), and by symmetry \(\operatorname{Var}(x_2)=2.5\). The covariance is \(\operatorname{Cov}=\tfrac{(2)(2)+(-2)(-2)+(1)(-1)+(-1)(1)+0}{4}=\tfrac{6}{4}=1.5\). So</p>
+      <p>\[ C = \begin{bmatrix} 2.5 & 1.5 \\ 1.5 & 2.5 \end{bmatrix} \]</p>
+      <p><strong>Step 2 — eigenvalues.</strong> Solve \(\det(C-\lambda I)=0\): \((2.5-\lambda)^2 - 1.5^2 = 0\), which gives \(2.5-\lambda = \pm 1.5\), so \(\lambda_1=4\) and \(\lambda_2=1\).</p>
+      <p><strong>Step 3 — eigenvectors.</strong> For \(\lambda_1=4\), the equation \((2.5-4)v_1 + 1.5\,v_2 = 0\) forces \(v_1=v_2\): PC1 points along the \(45^\circ\) diagonal, \(\mathbf{v}_1\approx(0.707,0.707)\). PC2 is orthogonal to it, \(\mathbf{v}_2\approx(0.707,-0.707)\).</p>
+      <p><strong>Step 4 — explained variance.</strong> The ratios are \(\tfrac{\lambda_1}{\lambda_1+\lambda_2}=\tfrac{4}{5}\) and \(\tfrac{1}{5}\). <strong>PC1 carries 80% of the variance, PC2 the remaining 20%</strong> — so projecting onto the single diagonal axis keeps four-fifths of the information.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Centre (and scale) first, or the covariance lies</div>
+        <p style="margin-bottom:0">These points were already centred — that's why the variance formulas dropped the \(-\mu\) term. On raw data you <em>must</em> subtract each feature's mean first, or the covariance matrix is measuring distance-from-origin instead of true spread and every eigenvector comes out wrong. And per Week 19, scale the features first too, so a big-unit feature can't fake large variance and hijack PC1.</p>
+      </div>
 
       <figure class="figure">
         <svg viewBox="0 0 360 260" aria-label="A 2D data cloud with its two principal axes">
@@ -227,5 +253,6 @@ print("LDA projection shape:", X_proj.shape)   # -> (n_train, 9)</code></pre>
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

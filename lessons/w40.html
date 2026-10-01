@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lesson 40 · Reinforcement Learning — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+  <script src="../assets/js/interactive-widgets.js"></script>
 </head>
 <body data-lesson="w40">
 <div class="topbar">
@@ -91,7 +94,8 @@
       <h2>40.3 Markov Decision Processes</h2>
       <p>To do mathematics on this loop we formalise it as a <strong>Markov Decision Process (MDP)</strong>, the bedrock of all RL. An MDP is five things:</p>
       <ul>
-        <li>A set of <strong>states</strong> \(S\) and a set of <strong>actions</strong> \(A\).</li>
+        <li>A set of <strong>states</strong> \(S\).</li>
+        <li>A set of <strong>actions</strong> \(A\).</li>
         <li><strong>Transition probabilities</strong> \(P(s' \mid s, a)\) — the chance of landing in \(s'\) after taking action \(a\) in state \(s\). The world can be stochastic.</li>
         <li>A <strong>reward function</strong> \(R(s, a)\) — the reward for that move.</li>
         <li>A <strong>discount factor</strong> \(\gamma \in [0, 1)\) — how much we value future reward versus immediate reward.</li>
@@ -189,6 +193,25 @@ print("Best policy:", " ".join(arrows))      # -> -> -> -> G  (always head right
 
       <h2>40.5 Beyond value iteration: Q-learning &amp; RLHF</h2>
       <p>Value iteration needs to <em>know</em> the environment's transition probabilities \(P(s'\mid s,a)\). Often we don't — so the agent must learn purely from experience. <strong>Q-learning</strong> does exactly that: instead of state values \(V(s)\), it learns <em>action</em>-values \(Q(s,a)\) (how good is taking action \(a\) in state \(s\)?) directly from sampled transitions, with no model of the world. Pair Q-learning with a neural network to approximate \(Q\) and you get <em>Deep Q-Networks</em> — the method that learned to play Atari from raw pixels.</p>
+
+      <h3>One Q-learning update, by hand</h3>
+      <p>Let's reuse the §40.4 corridor (states 0,1,2, goal 3) but learn it without the transition model. The update rule is</p>
+      <p>\[ Q(s,a) \leftarrow Q(s,a) + \alpha\Big[\, r + \gamma\max_{a'}Q(s',a') - Q(s,a)\,\Big], \]</p>
+      <p>with learning rate \(\alpha=0.5\), discount \(\gamma=0.9\), and every \(Q\) starting at \(0\).</p>
+      <table>
+        <thead><tr><th>Transition</th><th>\(r\)</th><th>Update</th><th>New \(Q\)</th></tr></thead>
+        <tbody>
+          <tr><td>state 2 → goal</td><td>\(0\)</td><td>\(0 + 0.5[\,0 + 0.9(0) - 0\,]\)</td><td>\(0\)</td></tr>
+          <tr><td>state 1 → state 2</td><td>\(-1\)</td><td>\(-1 + 0.5[\,-1 + 0.9(0) - (-1)\,]\)</td><td>\(-1\)</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Step 1 — the terminal step.</strong> Moving right from state 2 reaches the goal (terminal, \(r=0\)), and the goal's \(Q\) is \(0\), so \(Q(2,\text{right}) \leftarrow 0 + 0.5[\,0 + 0.9(0) - 0\,] = 0\).</p>
+      <p><strong>Step 2 — one step back.</strong> From state 1 moving right costs \(r=-1\). With \(Q(1,\text{right})=-1\) already and \(Q(2,\cdot)=0\), the bracket is \([-1 + 0 - (-1)] = 0\), so \(Q(1,\text{right}) \leftarrow -1 + 0.5(0) = -1\) — it has settled.</p>
+      <p>Repeated sweeps push \(Q(1,\text{right})\to -1\) and \(Q(0,\text{right})\to -1.9\) — <strong>exactly the values value iteration found in §40.4</strong>, but learned from sampled \((s,a,r,s')\) experience rather than computed from a known model.</p>
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> Model-free learning</div>
+        <p style="margin-bottom:0">Q-learning never touches the transition probabilities \(P(s'\mid s,a)\) — it learns purely from sampled \((s,a,r,s')\) transitions the agent actually experienced. That is why it reaches the same answer as value iteration <em>without</em> ever being told how the world works.</p>
+      </div>
       <p>And here the whole course comes full circle. Remember <strong>RLHF</strong> — Reinforcement Learning from Human Feedback — from <strong>Week 34</strong>? That's RL in this exact framework: the <em>agent</em> is the language model, an <em>action</em> is generating a response, and the <em>reward</em> comes from a model trained on human preferences. The same Bellman-flavoured optimisation that solves a toy corridor is what nudges a giant LLM toward helpful, honest answers.</p>
 
       <div class="callout connect">
@@ -242,5 +265,6 @@ print("Best policy:", " ".join(arrows))      # -> -> -> -> G  (always head right
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

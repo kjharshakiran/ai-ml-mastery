@@ -6,7 +6,8 @@
 <title>Lesson 22 · Random Forests &amp; Boosting — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
 </head>
 <body data-lesson="w22">
@@ -111,6 +112,26 @@
       </ol>
       <p>Each learner is barely better than guessing, but chained together — each cleaning up the last one's errors — they form a strong classifier. Because boosting keeps attacking the errors the model still makes, its job is to <strong>reduce bias</strong> (turn underfitting weak learners into a sharp one).</p>
 
+      <h3>One AdaBoost round, by hand</h3>
+      <p>"Up-weight the mistakes" is easy to say, so let's run the actual reweighting once and watch the hard points get heavier. Start with 10 points at equal weight \(w_i=0.1\); the first stump misclassifies 3 of them.</p>
+      <p><strong>Step 1 — weighted error and learner weight.</strong> The error is the weight on the wrong points, \(\varepsilon = 3\times 0.1 = 0.3\). The learner's say-so is</p>
+      <p>\[ \alpha = \tfrac{1}{2}\ln\!\frac{1-\varepsilon}{\varepsilon} = \tfrac{1}{2}\ln\frac{0.7}{0.3} = \tfrac{1}{2}\ln 2.333 \approx 0.424 \]</p>
+      <p>It's positive, which just confirms the stump beats a coin flip and earns a real vote.</p>
+      <p><strong>Step 2 — reweight.</strong> Multiply wrong points by \(e^{\alpha}\approx 1.53\) and correct points by \(e^{-\alpha}\approx 0.655\). Unnormalised, each wrong point becomes \(0.1\times 1.53 = 0.153\) and each correct one \(0.1\times 0.655 = 0.0655\). The normaliser is \(Z = 3(0.153) + 7(0.0655) \approx 0.918\), giving new weights:</p>
+      <table>
+        <thead><tr><th>Point type</th><th>Before</th><th>After</th></tr></thead>
+        <tbody>
+          <tr><td>Wrong (×3)</td><td>0.100</td><td>0.167</td></tr>
+          <tr><td>Correct (×7)</td><td>0.100</td><td>0.0714</td></tr>
+        </tbody>
+      </table>
+      <p><strong>The 3 hard points now hold \(3\times 0.167 = 0.50\) of the total weight</strong> — up from \(0.30\). The next stump will spend half its attention on exactly the points round one fumbled.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> More rounds isn't always better</div>
+        <p style="margin-bottom:0">Each round concentrates weight harder onto the still-misclassified points — great for fixing bias, but if some of those points are just <em>noise</em>, too many rounds chase them and the ensemble overfits. Unlike a random forest, you can't blindly crank up the number of estimators; tune the count (and learning rate) with cross-validation.</p>
+      </div>
+
       <div class="callout key">
         <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
         <p style="margin-bottom:0"><strong>Bagging (random forest)</strong> trains many strong trees <em>in parallel</em> and averages them to <strong>reduce variance</strong>. <strong>Boosting (AdaBoost, gradient boosting)</strong> trains weak learners <em>in sequence</em>, each fixing the last's mistakes, to <strong>reduce bias</strong>. Parallel-and-average vs sequential-and-correct.</p>
@@ -200,5 +221,6 @@ for name, model in models.items():
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

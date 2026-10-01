@@ -6,7 +6,8 @@
 <title>Lesson 17 · SVM I: Discriminant Functions &amp; the Perceptron — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
 </head>
 <body data-lesson="w17">
@@ -102,6 +103,27 @@
       <p>\[ \mathbf{w} \leftarrow \mathbf{w} + \eta\,(y - \hat{y})\,\mathbf{x}, \qquad b \leftarrow b + \eta\,(y - \hat{y}) \]</p>
       <p>Here \(\eta\) is the learning rate and \(y\in\{-1,+1\}\) is the true label. The term \((y-\hat{y})\) is zero on correct points and \(\pm 2\) on mistakes, so the weights only move when needed — rotating the boundary to fix the error. The <strong>perceptron convergence theorem</strong> promises that if the data is linearly separable, this loop is guaranteed to find a separating line in a finite number of steps.</p>
 
+      <h3>One perceptron update, by hand</h3>
+      <p>The rule is short enough to trace with real numbers, so let's push four points through it and watch the boundary snap into place. Take \(\eta=1\), start from \(\mathbf{w}=[0,0]\), \(b=0\), and use the convention \(\operatorname{sign}(0)=-1\).</p>
+      <table>
+        <thead><tr><th>Point \(\mathbf{x}\)</th><th>Label \(y\)</th></tr></thead>
+        <tbody>
+          <tr><td>\([1,2]\)</td><td>\(+1\)</td></tr>
+          <tr><td>\([2,1]\)</td><td>\(+1\)</td></tr>
+          <tr><td>\([-1,-1]\)</td><td>\(-1\)</td></tr>
+          <tr><td>\([-2,-1]\)</td><td>\(-1\)</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Step 1 — first point, a mistake.</strong> The score is \(\mathbf{w}\cdot\mathbf{x}+b = 0\), so \(\hat{y}=\operatorname{sign}(0)=-1\) while \(y=+1\) — wrong. Here \((y-\hat{y})=+2\), so we update:</p>
+      <p>\[ \mathbf{w} \leftarrow [0,0] + 1\cdot 2\cdot[1,2] = [2,4], \qquad b \leftarrow 0 + 1\cdot 2 = 2 \]</p>
+      <p><strong>Step 2 — the rest of epoch 1, all correct.</strong> With \(\mathbf{w}=[2,4]\), \(b=2\): point \([2,1]\) scores \(2\cdot 2+4\cdot 1+2 = 10>0\) ✓; \([-1,-1]\) scores \(-2-4+2 = -4<0\) ✓; \([-2,-1]\) scores \(-4-4+2 = -6<0\) ✓. Each is correct, so \((y-\hat{y})=0\) and the weights don't budge.</p>
+      <p><strong>Step 3 — epoch 2, a full clean pass.</strong> Re-running gives scores \(12, 10, -4, -6\) — all on the right side. <strong>Zero mistakes, so the perceptron has converged with \(\mathbf{w}=[2,4]\), \(b=2\).</strong> The boundary moved exactly once: on the single point it got wrong.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> The update vanishes on correct points</div>
+        <p style="margin-bottom:0">It's tempting to think every point nudges the weights, but on a correctly classified point \(\hat{y}=y\), so \((y-\hat{y})=0\) and the update term is exactly zero — nothing changes. Only mistakes move the line. Watch the \(\operatorname{sign}(0)=-1\) convention too: that first point scored exactly \(0\), and treating \(0\) as \(+1\) instead would have skipped the only update and left the model untrained.</p>
+      </div>
+
       <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — a perceptron from scratch</span></div>
 <pre><code class="language-python">import numpy as np
 
@@ -192,5 +214,6 @@ print("all correct:", np.all(np.sign(X @ w + b) == y))   # -> True</code></pre>
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

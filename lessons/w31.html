@@ -6,7 +6,8 @@
 <title>Lesson 31 · RNNs II: Seq2Seq &amp; Word Embeddings — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
 </head>
 <body data-lesson="w31">
@@ -106,6 +107,7 @@
       <p>The two classic methods learn exactly this. <strong>word2vec</strong> (Mikolov, 2013) trains a tiny network to predict a word from its neighbours (or vice-versa); its hidden weights <em>become</em> the embeddings. <strong>GloVe</strong> (Stanford) instead factorises a giant word-co-occurrence count matrix. Both yield the same magic.</p>
       <p>And the magic is that <strong>directions in this space carry meaning</strong>. The vector offset from "man" to "woman" turns out to be roughly the same as from "king" to "queen" — a "gender" direction. So semantic relationships become arithmetic:</p>
       <p>\[ \text{vec}(\text{king}) - \text{vec}(\text{man}) + \text{vec}(\text{woman}) \;\approx\; \text{vec}(\text{queen}) \]</p>
+      <p>With the toy vectors below this is literal arithmetic: \(\text{king}-\text{man}+\text{woman} = [0.9,0.9,0.1] - [0.1,0.9,0.1] + [0.1,0.1,0.9] = [0.9,0.1,0.9]\), which is <strong>exactly</strong> queen's vector — so their cosine similarity is \(1.0\), a perfect match.</p>
       <p>We measure "nearby" with cosine similarity from Week 2:</p>
       <p>\[ \cos(\theta) \;=\; \frac{\mathbf{a}\cdot\mathbf{b}}{\lVert\mathbf{a}\rVert\,\lVert\mathbf{b}\rVert} \]</p>
 
@@ -177,7 +179,7 @@ print("king - man + woman is closest to:", best_word)   # -> queen
 </code></pre>
 
       <h2>31.4 Evaluation: perplexity and BLEU</h2>
-      <p>How do we score these models? For a <strong>language model</strong> (which predicts the next word) we use <strong>perplexity</strong> — roughly, "how surprised is the model by the real next word, on average?" It's the exponential of the average cross-entropy loss (Week 25); lower is better, and a perplexity of \(k\) means the model is as confused as if it were choosing uniformly among \(k\) words. For <strong>translation</strong>, where many outputs are valid, we use <strong>BLEU</strong>, which checks how many short word-sequences (n-grams) in the machine's output also appear in human reference translations. BLEU ranges 0–1 (often shown ×100); higher means closer to human translations. Neither metric is perfect — BLEU misses meaning-preserving paraphrases — but they let us compare models objectively.</p>
+      <p>How do we score these models? For a <strong>language model</strong> (which predicts the next word) we use <strong>perplexity</strong> — roughly, "how surprised is the model by the real next word, on average?" It's the exponential of the average cross-entropy loss (Week 25); lower is better, and a perplexity of \(k\) means the model is as confused as if it were choosing uniformly among \(k\) words. Concretely, a model that assigns probability \(\tfrac{1}{10}\) on average to the true next word has perplexity \(10\). For <strong>translation</strong>, where many outputs are valid, we use <strong>BLEU</strong>, which checks how many short word-sequences (n-grams) in the machine's output also appear in human reference translations. BLEU ranges 0–1 (often shown ×100); higher means closer to human translations. Neither metric is perfect — BLEU misses meaning-preserving paraphrases — but they let us compare models objectively.</p>
 
       <div class="callout key">
         <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
@@ -236,5 +238,6 @@ print("king - man + woman is closest to:", best_word)   # -> queen
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

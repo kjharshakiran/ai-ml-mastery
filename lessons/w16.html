@@ -6,7 +6,8 @@
 <title>Lesson 16 · Classification II: Bayes, Naïve Bayes &amp; GMM — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
 </head>
 <body data-lesson="w16">
@@ -99,6 +100,41 @@
       <div class="callout analogy">
         <div class="c-title"><span class="c-emoji">🕵️</span> Real-World Analogy</div>
         <p style="margin-bottom:0">Naïve Bayes is a detective who treats every clue as if it were unrelated to the others. "Muddy boots? Slightly points to the gardener. A grudge? Slightly points to the gardener. Was near the scene? Same." It pretends the clues don't overlap and just stacks up the votes. Sloppy logic — but pile up enough independent-ish clues and the verdict is usually right.</p>
+      </div>
+
+      <h3>Naïve Bayes by hand: a spam filter in numbers</h3>
+      <p>The formula above feels abstract until you push real numbers through it. Let's build a tiny spam filter from scratch. Suppose we've already read <strong>10 training emails</strong> — 5 labelled <span style="color:var(--rose-700);font-weight:700">spam</span>, 5 labelled <span style="color:var(--teal-700);font-weight:700">ham</span> (not spam) — and we only ever look at three words. Here is every time each word appeared:</p>
+
+      <table>
+        <thead>
+          <tr><th>Word</th><th>Count in spam</th><th>Count in ham</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>free</strong></td><td>4</td><td>1</td></tr>
+          <tr><td><strong>money</strong></td><td>3</td><td>1</td></tr>
+          <tr><td><strong>meeting</strong></td><td>1</td><td>6</td></tr>
+          <tr><td><em>total words</em></td><td><em>8</em></td><td><em>8</em></td></tr>
+        </tbody>
+      </table>
+
+      <p><strong>Step 1 — the prior.</strong> Half the training emails were spam, so before reading a single word: \(P(\text{spam}) = \tfrac{5}{10} = 0.5\) and \(P(\text{ham}) = 0.5\).</p>
+
+      <p><strong>Step 2 — the per-word likelihoods.</strong> For each word we just divide its count by the total words in that class — that's the MLE from section 2, applied to word frequencies:</p>
+      <p>\[ P(\text{free}\mid\text{spam}) = \tfrac{4}{8} = 0.50, \qquad P(\text{money}\mid\text{spam}) = \tfrac{3}{8} = 0.375 \]</p>
+      <p>\[ P(\text{free}\mid\text{ham}) = \tfrac{1}{8} = 0.125, \qquad P(\text{money}\mid\text{ham}) = \tfrac{1}{8} = 0.125 \]</p>
+
+      <p><strong>Step 3 — a new email arrives: <span style="font-style:italic">"free money"</span>.</strong> The "naïve" step is right here: we assume the two words are independent given the class, so we just <em>multiply</em> their likelihoods together with the prior (the product \(\prod_i P(x_i\mid C)\) from the formula above):</p>
+      <p>\[ \text{score}_{\text{spam}} = \underbrace{0.5}_{\text{prior}} \times \underbrace{0.50}_{\text{free}} \times \underbrace{0.375}_{\text{money}} = 0.09375 \]</p>
+      <p>\[ \text{score}_{\text{ham}} = \underbrace{0.5}_{\text{prior}} \times \underbrace{0.125}_{\text{free}} \times \underbrace{0.125}_{\text{money}} = 0.0078125 \]</p>
+
+      <p><strong>Step 4 — pick the winner and read off the probability.</strong> Spam scores about <strong>12× higher</strong>, so we classify the email as spam. To turn the two scores into an actual posterior probability, just normalise them so they sum to 1 (this is the \(P(\mathbf{x})\) denominator we'd been ignoring):</p>
+      <p>\[ P(\text{spam}\mid\text{"free money"}) = \frac{0.09375}{0.09375 + 0.0078125} \approx 0.92 \]</p>
+      <p>So the filter is <strong>92% sure</strong> this email is spam — computed with nothing but counting and multiplying. That is the entire algorithm.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> The zero-frequency trap (and its one-line fix)</div>
+        <p>Now an email says <em>"free lottery"</em>, but the word "lottery" never appeared in any <em>ham</em> email. Then \(P(\text{lottery}\mid\text{ham}) = \tfrac{0}{8} = 0\), and because we <em>multiply</em>, that single zero annihilates the whole ham score — one unseen word vetoes everything else. Real text always has unseen words, so this happens constantly.</p>
+        <p style="margin-bottom:0">The fix is <strong>Laplace (add-one) smoothing</strong>: pretend you saw every word one extra time. Add 1 to every count and add the vocabulary size \(V\) to each denominator, so \(P(w\mid C) = \frac{\text{count}+1}{\text{total}+V}\). No probability is ever exactly zero, and scikit-learn's <code>GaussianNB</code>/<code>MultinomialNB</code> do this for you by default.</p>
       </div>
 
       <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">scikit-learn — GaussianNB</span></div>
@@ -201,5 +237,6 @@ print(np.round(nb.predict_proba(X_te[:3]), 3))</code></pre>
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

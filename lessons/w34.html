@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lesson 34 · LLMs, Multimodal &amp; RAG — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+<script src="../assets/js/interactive-widgets.js"></script>
 </head>
 <body data-lesson="w34">
 <div class="topbar">
@@ -111,6 +114,18 @@
         <li><strong>RLHF</strong> (Reinforcement Learning from Human Feedback). Humans rank several model answers from best to worst; we train a <em>reward model</em> on those rankings, then use reinforcement learning to nudge the LLM toward answers humans prefer. This is the trial-and-error, reward-driven learning you'll study properly in <strong>Week 40</strong> — applied to make a model honest, harmless, and helpful.</li>
       </ul>
 
+      <div class="interactive-widget" id="w34-temperature-widget" data-widget="temperature">
+        <div class="widget-title">🌡️ Interactive: Temperature Sampling Explorer</div>
+        <p>Adjust temperature to see how it changes the probability distribution over next tokens. Low = deterministic. High = random.</p>
+        <input type="range" class="widget-slider" min="0.1" max="2.0" value="1.0" step="0.1">
+        <div class="widget-labels"><span>Low T (deterministic)</span><span>High T (random)</span></div>
+        <div class="widget-value">Temperature: 1.0</div>
+        <canvas class="widget-canvas"></canvas>
+        <div class="widget-description">
+          At T=0.1, the model almost always picks the same top word. At T=2.0, every word is nearly equally likely. T=1.0 is the "natural" distribution from the model.
+        </div>
+      </div>
+
       <h2>34.6 Retrieval-Augmented Generation (RAG)</h2>
       <p>An LLM only knows what was in its training data, frozen at training time. It can't cite your company's private documents and it will happily <em>hallucinate</em> facts it never learned. <strong>RAG</strong> fixes this by giving the model an open-book exam instead of a closed-book one. The idea reuses tools you've had since the very start of the course:</p>
       <ol>
@@ -150,6 +165,26 @@
 
       <h2>34.7 Sampling the next token in NumPy</h2>
       <p>Let's demystify step 5 of the loop. Given a vector of logits over the vocabulary, the code below applies a <strong>temperature</strong>, runs softmax, and samples a token. Temperature controls creativity: low temperature makes the model nearly always pick the top word (focused, repetitive); high temperature flattens the distribution (diverse, riskier).</p>
+
+      <h3>Temperature, by hand</h3>
+      <p>Let's push three logits through the temperature formula so the slider in the widget above stops feeling magic. Say the model produced logits cat \(=2.0\), dog \(=1.0\), mat \(=0.0\). Temperature divides those <em>logits</em> before softmax; here is the result at three settings:</p>
+      <table>
+        <thead><tr><th>token</th><th>\(T=1.0\)</th><th>\(T=0.5\) (sharper)</th><th>\(T=2.0\) (flatter)</th></tr></thead>
+        <tbody>
+          <tr><td>cat</td><td>0.665</td><td>0.867</td><td>0.506</td></tr>
+          <tr><td>dog</td><td>0.245</td><td>0.117</td><td>0.307</td></tr>
+          <tr><td>mat</td><td>0.090</td><td>0.016</td><td>0.186</td></tr>
+        </tbody>
+      </table>
+      <p><strong>\(T = 1.0\).</strong> Softmax of \([2,1,0]\) gives \([0.665, 0.245, 0.090]\) — the model's "natural" distribution.</p>
+      <p><strong>\(T = 0.5\).</strong> Dividing the logits gives \([4, 2, 0]\); \(\exp([4,2,0]) = [54.60, 7.39, 1.00]\), sum \(62.99\), so the probabilities sharpen to \([0.867, 0.117, 0.016]\) — cat climbs, the tail collapses.</p>
+      <p>\[ \text{softmax}\!\left(\tfrac{[2,1,0]}{0.5}\right) = \text{softmax}([4,2,0]) = [0.867,\; 0.117,\; 0.016] \]</p>
+      <p><strong>\(T = 2.0\).</strong> Now the logits become \([1, 0.5, 0]\); \(\exp = [2.718, 1.649, 1.000]\), sum \(5.367\), flattening to \([0.506, 0.307, 0.186]\) — mat more than doubles its chance.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Temperature divides the logits, not the probabilities</div>
+        <p style="margin-bottom:0">A common slip is to scale the final probabilities — but temperature acts on the <em>logits</em>, before softmax, which is why the effect is non-linear. The limit \(T \to 0\) makes the distribution infinitely peaky: it becomes <em>greedy argmax</em> (always pick cat). That limit isn't literally computable (you'd divide by zero), so samplers special-case it as "just take the top token."</p>
+      </div>
 
       <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — sample the next token with temperature</span></div>
 <pre><code class="language-python">import numpy as np
@@ -246,5 +281,6 @@ print("generated:", " ".join(tokens))</code></pre>
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

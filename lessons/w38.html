@@ -6,7 +6,8 @@
 <title>Lesson 38 · MLOps — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
 </head>
 <body data-lesson="w38">
@@ -168,6 +169,24 @@ with mlflow.start_run():
       <p>\[ \text{PSI} = \sum_{i} \left( p_i^{\text{live}} - p_i^{\text{ref}} \right) \ln\!\frac{p_i^{\text{live}}}{p_i^{\text{ref}}} \]</p>
       <p>A PSI above ~0.2 is a loud alarm that the inputs have moved. The fix is <strong>monitoring</strong>: log live predictions and (when ground truth eventually arrives) live accuracy, alert on drops, and trigger a <em>retrain</em> — which closes the loop back to "Data" in our diagram.</p>
 
+      <h3>Population Stability Index, by hand</h3>
+      <p>The sum is abstract until you bucket a real feature. Say a feature falls into low/med/high bins. At training time the split was 50/30/20%; live traffic now reads 30/30/40%. Compute each term \((p^{\text{live}} - p^{\text{ref}})\ln\frac{p^{\text{live}}}{p^{\text{ref}}}\).</p>
+      <table>
+        <thead><tr><th>Bucket</th><th>ref</th><th>live</th><th>\((p^{\text{live}}-p^{\text{ref}})\ln\frac{p^{\text{live}}}{p^{\text{ref}}}\)</th></tr></thead>
+        <tbody>
+          <tr><td>low</td><td>0.50</td><td>0.30</td><td>\((-0.2)\ln(0.6) = +0.102\)</td></tr>
+          <tr><td>med</td><td>0.30</td><td>0.30</td><td>\(0 \times \ln(1) = 0\)</td></tr>
+          <tr><td>high</td><td>0.20</td><td>0.40</td><td>\((+0.2)\ln(2.0) = +0.139\)</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Step 1 — sum the buckets.</strong> Add the three terms: \(0.102 + 0 + 0.139 = 0.24\).</p>
+      <p>\[ \text{PSI} = 0.102 + 0 + 0.139 = 0.24 \]</p>
+      <p><strong>Step 2 — read the verdict.</strong> \(0.24\) sits <em>above</em> the \(\sim0.2\) alarm line, so <strong>this feature has drifted enough to justify a retrain</strong>. Had the live distribution exactly matched the reference, every \(\ln(1)=0\) and the PSI would be \(0\).</p>
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> PSI only ever grows</div>
+        <p style="margin-bottom:0">Each term \((p^{\text{live}}-p^{\text{ref}})\ln\frac{p^{\text{live}}}{p^{\text{ref}}}\) is \(\ge 0\) — when a bucket grows, both factors are positive; when it shrinks, both are negative; the product is positive either way. So PSI rises monotonically as distributions diverge: \(\sim0.1\) is a minor shift to watch, \(\sim0.2\) is a signal to act.</p>
+      </div>
+
       <div class="callout warn">
         <div class="c-title"><span class="c-emoji">⚠️</span> The silent failure</div>
         <p style="margin-bottom:0">Training–serving skew throws <em>no error</em>. Accuracy just quietly sags. The classic culprit: you log-transform a feature in your training notebook but forget to apply the exact same transform in the serving API. The cure is to share a <em>single</em> preprocessing function (or pipeline) between training and serving — never two copies that can drift apart.</p>
@@ -239,5 +258,6 @@ with mlflow.start_run():
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

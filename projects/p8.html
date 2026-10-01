@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 8 · Wheels Up I: Private Aviation Data Foundations — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-project="p8">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Project 8</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Capstone Projects › Project 8</div>
+        <span class="eyebrow">✈️ Applied MLOps Capstone · Part III of IV</span>
+        <h1>Wheels Up I — Private Aviation: From Raw Tables to a Modeling Dataset</h1>
+        <div class="lesson-meta"><span>🔴 Difficulty: Advanced</span><span>🎯 The same spine, a different business</span><span>🧰 SQL · EDA · Feature Engineering</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>What you'll build</h4>
+        <ul>
+          <li>A <strong>customers / reservations / billing</strong> schema for a private-jet membership business — Project 6's pattern, applied from scratch.</li>
+          <li>SQL that answers an aviation operator's real questions: which aircraft type disputes the most invoices, which customers fly (and spend) the most.</li>
+          <li>An EDA pass that finds the <em>same class</em> of bug Project 6 found — proof that "check whether your dates make a sensible timeline" generalises across every domain.</li>
+          <li>Engineered features — customer flight frequency, lead time, time-of-flight — built with the same reasoning discipline as Project 6.</li>
+          <li>A modeling dataset, time-split and leakage-checked, ready for Project 9's models and API.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">Swap "hospital" for "private jet operator," "claim rejection" for "invoice dispute," and "patient risk" for "flight cancellation risk." How much of Project 6's actual work has to change — and how much was never really about hospitals at all?</div>
+      </div>
+
+      <div class="prose">
+
+      <p>This is <strong>Project 2 of the applied series</strong> (Projects 8–9), and it's deliberately built the same way as Projects 6–7 were — same steps, same reasoning, same kind of bugs — but on a private aviation membership business, the kind that operates customers, charter/membership reservations, and post-flight invoices. If you work in this industry, this is the project to actually extend with your own data later; everything here is built to be swapped out, not just read.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">A private jet club keeps three notebooks too: who their members are, which flights each member booked, and what each flight cost and whether it got paid. It's the exact same "staple the right pages together" problem as the hospital — just with jets instead of hospital beds, and "did the invoice get disputed" instead of "did the claim get rejected."</p>
+      </div>
+
+      <h2>8.1 The brief</h2>
+      <p>A private aviation operator wants two predictions made the moment a reservation is booked and billed:</p>
+      <ul>
+        <li><strong>Flight outcome risk</strong> (<code>flight_outcome</code>: Completed / No-Show / Cancelled) — so operations can right-size crew and fuel planning, and flag high-cancellation bookings for a confirmation call.</li>
+        <li><strong>Invoice outcome</strong> (<code>payment_status</code>: Paid / Pending / Disputed) — so finance can chase the invoices most likely to be disputed, before the dispute happens.</li>
+      </ul>
+      <p>Notice this is structurally identical to Project 6's brief. That's not a coincidence — it's the point. The vast majority of "build me a model" requests inside any company reduce to this same shape: predict an operational outcome, predict a revenue outcome, from a handful of related tables.</p>
+
+      <h2>8.2 The data model</h2>
+      <figure class="figure">
+        <svg viewBox="0 0 720 220" aria-label="Entity relationship diagram of customers, reservations and billing tables">
+          <g font-family="sans-serif" font-size="11">
+            <rect x="20" y="30" width="190" height="120" rx="8" fill="#eef0fb" stroke="#4f46e5"/>
+            <text x="115" y="50" text-anchor="middle" font-weight="bold" fill="#4f46e5">customers</text>
+            <text x="34" y="70">🔑 customer_id</text>
+            <text x="34" y="88" fill="#767c93">membership_tier</text>
+            <text x="34" y="104" fill="#767c93">home_airport</text>
+            <text x="34" y="120" fill="#767c93">join_date</text>
+
+            <rect x="270" y="10" width="190" height="160" rx="8" fill="#e7faf6" stroke="#14b8a6"/>
+            <text x="365" y="30" text-anchor="middle" font-weight="bold" fill="#14b8a6">reservations</text>
+            <text x="284" y="50">🔑 reservation_id</text>
+            <text x="284" y="66" fill="#767c93">↳ customer_id (FK)</text>
+            <text x="284" y="82" fill="#767c93">flight_date, route</text>
+            <text x="284" y="98" fill="#767c93">aircraft_type</text>
+            <text x="284" y="114" fill="#767c93">flight_hours, lead_time</text>
+            <text x="284" y="130" fill="#767c93">flight_outcome ← TARGET A</text>
+
+            <rect x="520" y="30" width="190" height="120" rx="8" fill="#fff4e0" stroke="#f59e0b"/>
+            <text x="615" y="50" text-anchor="middle" font-weight="bold" fill="#f59e0b">billing</text>
+            <text x="534" y="70">🔑 invoice_id</text>
+            <text x="534" y="86" fill="#767c93">↳ reservation_id (FK)</text>
+            <text x="534" y="102" fill="#767c93">invoice_amount, paid_amount</text>
+            <text x="534" y="118" fill="#767c93">payment_status ← TARGET B</text>
+          </g>
+          <g stroke="#767c93" stroke-width="1.5" fill="none">
+            <path d="M210,90 H270" marker-end="url(#ar4)"/>
+            <path d="M460,90 H520" marker-end="url(#ar4)"/>
+          </g>
+          <text x="240" y="84" font-size="10" fill="#767c93" text-anchor="middle">1 : many</text>
+          <text x="490" y="84" font-size="10" fill="#767c93" text-anchor="middle">1 : 1</text>
+          <defs><marker id="ar4" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#767c93"/></marker></defs>
+        </svg>
+        <figcaption>Line up against Project 6's diagram: <code>patients→customers</code>, <code>visits→reservations</code>, <code>billing→billing</code>. The relationships didn't change — only the vocabulary did.</figcaption>
+      </figure>
+
+      <h2>8.3 SQL first</h2>
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — load tables into SQL, then ask the business questions</span></div>
+<pre><code class="language-python">import sqlite3, pandas as pd
+conn = sqlite3.connect(":memory:")
+customers.to_sql("customers", conn, index=False)        # built in section 8.4 below
+reservations.to_sql("reservations", conn, index=False)
+billing.to_sql("billing", conn, index=False)
+
+# Q1: which aircraft type flies most, and what's the average invoice?
+print(pd.read_sql("""
+SELECT aircraft_type, COUNT(*) AS n_flights, ROUND(AVG(b.invoice_amount),2) AS avg_invoice
+FROM reservations r JOIN billing b ON r.reservation_id=b.reservation_id
+GROUP BY aircraft_type ORDER BY n_flights DESC;
+""", conn))
+
+# Q2: which aircraft type disputes the most invoices?
+print(pd.read_sql("""
+SELECT aircraft_type,
+  ROUND(100.0*SUM(CASE WHEN payment_status='Disputed' THEN 1 ELSE 0 END)/COUNT(*),1) AS disputed_pct
+FROM reservations r JOIN billing b ON r.reservation_id=b.reservation_id
+GROUP BY aircraft_type ORDER BY disputed_pct DESC;
+"""))
+# Typical output: dispute rate ranges roughly 10-15% across aircraft
+# types -- close enough that "aircraft type alone" won't be a strong
+# predictor by itself, same conclusion Project 6 reached for insurers.</code></pre>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The pattern transfers, the numbers don't have to</div>
+        <p style="margin-bottom:0">Project 6 found insurers reject within a few points of each other (~15% each). Here, aircraft types dispute within a few points of each other too (~10-15%). The specific percentages are coincidental to how we seeded the simulation — the <em>reasoning move</em> ("check if the group-level rates are actually different before trusting a categorical feature to carry the signal") is what transfers, and it transfers to literally any domain with a categorical breakdown and an outcome rate.</p>
+      </div>
+
+      <p><strong>Top customers and the monthly revenue trend</strong> — the same <code>JOIN</code> + <code>GROUP BY</code> + date-bucket pattern as Project 6 section 6.3:</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">sql — top customers by spend, revenue by month</span></div>
+<pre><code class="language-python">print(pd.read_sql("""
+SELECT c.customer_id, COUNT(*) AS n_flights, ROUND(SUM(b.invoice_amount),2) AS total_spend
+FROM reservations r JOIN billing b ON r.reservation_id=b.reservation_id
+              JOIN customers c ON r.customer_id=c.customer_id
+GROUP BY c.customer_id ORDER BY total_spend DESC LIMIT 5;
+""", conn))
+
+print(pd.read_sql("""
+SELECT strftime('%Y-%m', flight_date) AS month, COUNT(*) AS n_flights,
+       ROUND(SUM(b.invoice_amount),2) AS revenue
+FROM reservations r JOIN billing b ON r.reservation_id=b.reservation_id
+GROUP BY month ORDER BY month LIMIT 6;
+""", conn))</code></pre>
+
+      <h2>8.4 Generate a working dataset</h2>
+      <p>Same discipline as Project 6: a seeded synthetic generator, so the whole project is runnable and reproducible without any real customer data.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — synthetic private-aviation data generator</span></div>
+<pre><code class="language-python">import numpy as np, pandas as pd
+rng = np.random.default_rng(11)
+N_CUST, N_RES = 500, 2500
+
+airports = ["TEB","VNY","APF","HPN","MIA","ASE"]   # private-aviation FBO codes
+tiers    = ["Standard","Premium","Elite"]
+acft     = ["Turboprop","Light Jet","Midsize Jet","Heavy Jet"]
+
+start, end = pd.Timestamp("2025-01-01"), pd.Timestamp("2026-01-01")
+def rand_dates(n):
+    return start + pd.to_timedelta(rng.integers(0, (end-start).days, n), unit="D")
+
+customers = pd.DataFrame({
+    "customer_id": range(1, N_CUST+1),
+    "membership_tier": rng.choice(tiers, N_CUST, p=[0.5, 0.35, 0.15]),
+    "home_airport": rng.choice(airports, N_CUST),
+    "join_date": rand_dates(N_CUST),
+})
+
+reservations = pd.DataFrame({
+    "reservation_id": range(1, N_RES+1),
+    "customer_id": rng.choice(customers.customer_id, N_RES),
+    "flight_date": np.sort(rand_dates(N_RES)),
+    "departure_airport": rng.choice(airports, N_RES),
+    "arrival_airport": rng.choice(airports, N_RES),
+    "aircraft_type": rng.choice(acft, N_RES, p=[0.2, 0.35, 0.3, 0.15]),
+    "flight_hours": np.round(rng.gamma(3, 0.7, N_RES), 1),
+    "lead_time_days": rng.integers(0, 60, N_RES),
+})
+m = reservations.merge(customers, on="customer_id")
+# Hypothesis: very last-minute bookings cancel/no-show more; Elite members,
+# who book through a concierge, follow through more reliably.
+logit = (-0.03*(m.lead_time_days - 20) - 0.4*(m.membership_tier == "Elite").astype(int)
+         + rng.normal(0, 1.6, N_RES))
+reservations["flight_outcome"] = pd.cut(logit, bins=[-np.inf,-0.4,0.5,np.inf],
+                                         labels=["Completed","No-Show","Cancelled"])
+
+billing = pd.DataFrame({"invoice_id": range(1, N_RES+1), "reservation_id": reservations.reservation_id,
+                         "invoice_amount": np.round(reservations.flight_hours * rng.uniform(2200, 5200, N_RES), 2)})
+disp_p = 0.12 + rng.normal(0, 0.01, N_RES); u = rng.random(N_RES)
+billing["payment_status"] = np.where(u &lt; disp_p, "Disputed",
+                              np.where(u &lt; disp_p+0.22, "Pending", "Paid"))
+billing["paid_amount"]   = np.where(billing.payment_status == "Disputed", np.nan,
+                                     billing.invoice_amount * rng.uniform(0.85, 1.0, N_RES))
+billing["payment_days"]  = np.where(billing.payment_status == "Paid",
+                                     rng.integers(2, 25, N_RES).astype(float), np.nan)
+print(customers.shape, reservations.shape, billing.shape)</code></pre>
+
+      <h2>8.5 EDA: the same bug, a different table</h2>
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — merge, audit missingness, and check the timeline</span></div>
+<pre><code class="language-python">df = (reservations.merge(customers, on="customer_id")
+                  .merge(billing, on="reservation_id")
+                  .sort_values("flight_date").reset_index(drop=True))
+print(df.shape)
+
+print(df.groupby("payment_status")["paid_amount"].apply(lambda x: x.isna().sum()))
+print(df.groupby("payment_status")["payment_days"].apply(lambda x: x.isna().sum()))
+# paid_amount null ONLY for Disputed -- MNAR, same reasoning as Project 6:
+# a disputed invoice was never paid, so null secretly means 0.
+
+impossible = (df.flight_date &lt; df.join_date).mean()
+print(f"flights before the customer joined: {impossible:.1%}")
+# ~49% here -- the exact same class of bug as Project 6's registration
+# date issue, because join_date was generated independently of flight_date.
+# Different industry, identical root cause: two dates that SHOULD have a
+# one-directional relationship, generated without enforcing it.</code></pre>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> This is the most transferable lesson in the whole course</div>
+        <p style="margin-bottom:0">Any dataset with a "when did the relationship start" date (registration, sign-up, join, onboarding) and a "when did this event happen" date (visit, flight, order, claim) is at risk of this exact bug. The check is always the same one line: <code>(event_date &lt; relationship_start_date).mean()</code>. Run it on every dataset you're handed, in any industry, before you trust a single date-derived feature.</p>
+      </div>
+
+      <h2>8.6 Outlier detection</h2>
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — IQR outliers on invoice_amount, flight_hours, payment_days</span></div>
+<pre><code class="language-python">for col in ["invoice_amount", "flight_hours", "payment_days"]:
+    q1, q3 = df[col].quantile([0.25, 0.75])
+    iqr = q3 - q1
+    lo, hi = q1 - 1.5*iqr, q3 + 1.5*iqr
+    n_out = ((df[col] &lt; lo) | (df[col] &gt; hi)).sum()
+    print(f"{col}: {n_out} outliers, bounds=[{lo:.1f}, {hi:.1f}]")
+# Every flag is high-side again -- a long heavy-jet repositioning flight
+# or a slow-paying corporate account isn't an error, it's the tail of a
+# real-world process. Investigate before deleting, exactly as in Project 6.</code></pre>
+
+      <h2>8.7 Feature engineering, with reasoning</h2>
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — build the feature set</span></div>
+<pre><code class="language-python"># Hypothesis: a customer's own flight history predicts how their NEXT
+# flight will go -- frequent flyers behave differently from one-time bookers.
+agg = df.groupby("customer_id").agg(cust_flight_freq=("reservation_id","count"),
+                                     cust_avg_flight_hrs=("flight_hours","mean"))
+df = df.merge(agg, on="customer_id")
+
+# Hypothesis: time-of-flight matters (weekend leisure trips vs weekday
+# business trips behave differently).
+df["flight_month"]   = df.flight_date.dt.month
+df["flight_quarter"] = df.flight_date.dt.quarter
+df["flight_dow"]      = df.flight_date.dt.dayofweek
+df["is_weekend_flight"] = (df.flight_dow &gt;= 5).astype(int)
+
+# Hypothesis: tenure changes behaviour. Left UNCLIPPED on purpose --
+# Project 9 section 9.6 shows exactly what this costs in monitoring.
+df["days_since_join"] = (df.flight_date - df.join_date).dt.days
+
+print(df[["cust_flight_freq","cust_avg_flight_hrs","flight_month",
+          "is_weekend_flight","days_since_join"]].describe().round(1))</code></pre>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">✈️</span> Real-World Analogy</div>
+        <p style="margin-bottom:0"><code>lead_time_days</code> here plays the same role <code>days_since_registration</code> played for the hospital — a single number standing in for "how much is known about this booking in advance." A 2-day-notice charter and a 45-day-planned trip are different events wearing the same row shape; the feature is what lets a model tell them apart without you hand-writing a rule for every possible lead time.</p>
+      </div>
+
+      <h2>8.8 The time-based split</h2>
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — split by time, exactly as in Project 6</span></div>
+<pre><code class="language-python">df = df.sort_values("flight_date").reset_index(drop=True)
+split = int(len(df) * 0.8)
+train, test = df.iloc[:split], df.iloc[split:]
+print(f"train: {len(train)} rows, {train.flight_date.min().date()} -&gt; {train.flight_date.max().date()}")
+print(f"test:  {len(test)} rows,  {test.flight_date.min().date()} -&gt; {test.flight_date.max().date()}")</code></pre>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">Notice how little actually changed from Project 6: the same SQL patterns (<strong>Week 5</strong>), the same EDA discipline (<strong>Week 8</strong>) — including rediscovering the exact same <em>class</em> of timeline bug — and the same time-based split reasoning (<strong>Week 13</strong>). That repetition is the lesson: once you've internalised this spine on one business problem, applying it to a brand-new domain is mostly vocabulary work. <strong>Project 9</strong> now takes this <code>train</code>/<code>test</code> dataset to two trained models, a FastAPI service, and a monitoring loop — mirroring Project 7 step for step.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🧰 Concepts you're reusing</h2>
+      <ul class="refs">
+        <li><span class="r-ic">🏥</span><div><a href="p6.html">Project 6 · Hospital Risk Intelligence I</a><span class="r-src">The exact pattern this project mirrors — read it side by side with this one.</span></div></li>
+        <li><span class="r-ic">🗄️</span><div><a href="../lessons/w05.html">Week 5 · SQL &amp; Databases</a><span class="r-src">Joins and aggregation, reused verbatim against a new schema.</span></div></li>
+        <li><span class="r-ic">📊</span><div><a href="../lessons/w08.html">Week 8 · Exploratory Data Analysis</a><span class="r-src">The missing-value and timeline checks that found the bug in 8.5.</span></div></li>
+      </ul>
+
+      <h2>🚀 Make it your own</h2>
+      <ul>
+        <li><strong>Use your real schema.</strong> If you work with customer/reservation/billing-shaped data, swap the column names in section 8.4 for your real ones and re-run sections 8.5–8.8 unchanged.</li>
+        <li><strong>Add a route-level feature.</strong> Engineer <code>route_avg_invoice</code> (departure→arrival pair) and <code>invoice_to_route_ratio</code> — the aviation analogue of Project 6's <code>dept_avg_bill</code>.</li>
+        <li><strong>Stress-test the bug check.</strong> Regenerate with a different seed and confirm the "flights before join" percentage changes in magnitude but never disappears — it's structural, not a fluke of one draw.</li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="0">
+        <div class="q">Both Project 6 and Project 8 find a timeline bug affecting roughly half the rows. What does that tell you?</div>
+        <button class="opt">The bug is a structural property of how two independently-generated dates interact with a chronological split — not a coincidence specific to hospitals.</button>
+        <button class="opt">Both datasets were corrupted by the same person.</button>
+        <button class="opt">It's a sign the simulation is broken and unusable.</button>
+        <button class="opt">Aviation and healthcare data are always this messy in real life.</button>
+        <div class="explain">The same generative pattern (a relationship-start date drawn independently of an event date) produces the same kind of bug regardless of industry — which is exactly why the one-line timeline check in 8.5 is worth running on every dataset you ever touch.</div>
+      </div>
+      <div class="quiz" data-answer="2">
+        <div class="q">Why engineer <code>cust_flight_freq</code> before training a model, instead of letting the model see raw individual reservation rows only?</div>
+        <button class="opt">It's required by scikit-learn.</button>
+        <button class="opt">It makes the dataset smaller.</button>
+        <button class="opt">A single reservation row can't express "this customer flies often" — that pattern only exists at the customer level, so it has to be computed and joined back in as its own column.</button>
+        <button class="opt">It removes the need for a train/test split.</button>
+        <div class="explain">Row-level data can't carry group-level patterns on its own. Aggregating to the customer level and merging the result back onto every row is how you give a row-based model access to history it otherwise can't see.</div>
+      </div>
+
+      <nav class="pager"><a class="prev" href="p7.html">← Project 7: Hospital Risk Intelligence II</a><a class="next" href="p9.html">Project 9: Wheels Up II →</a></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
+</body>
+</html>

@@ -6,7 +6,8 @@
 <title>Lesson 37 · Applications of Generative AI — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
 </head>
 <body data-lesson="w37">
@@ -72,6 +73,24 @@
       <p>where the small \(\beta_t\) is the amount of noise added at step \(t\). This direction needs no training — it's just destruction by Gaussian noise.</p>
       <p><strong>Reverse process (this is what we learn).</strong> Train a neural network — typically a U-Net (Week 29) — to look at a noisy \(\mathbf{x}_t\) and predict the noise that was added, so we can subtract it and step back toward \(\mathbf{x}_{t-1}\). Do this \(T\) times starting from pure static and a clean image emerges. The training loss is simply: predict the noise.</p>
       <p>\[ \mathcal{L} = \mathbb{E}_{\mathbf{x}_0,\,t,\,\boldsymbol{\epsilon}}\Big[\big\lVert \boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)\big\rVert^2\Big]. \]</p>
+
+      <h3>One diffusion step on one pixel, by hand</h3>
+      <p>Let's run the forward equation on a single bright pixel \(x_0=1.0\) with a fixed \(\beta=0.04\), so \(\sqrt{1-\beta}=0.980\) and \(\sqrt{\beta}=0.200\).</p>
+      <table>
+        <thead><tr><th>Step</th><th>noise \(\epsilon\)</th><th>\(x_t = 0.980\,x_{t-1} + 0.200\,\epsilon\)</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>\(+0.5\)</td><td>\(0.980(1.0) + 0.200(0.5) = 1.08\)</td></tr>
+          <tr><td>2</td><td>\(-1.2\)</td><td>\(0.980(1.08) + 0.200(-1.2) = 1.058 - 0.240 = 0.82\)</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Step 1 — shrink then jostle.</strong> Each step keeps only \(0.980\) of the previous value and adds a dab of noise. Two steps in, our pixel has drifted from \(1.0\) to \(0.82\) — still recognisable, but wandering.</p>
+      <p><strong>Step 2 — the signal fades.</strong> Applying many steps, the surviving fraction of the original pixel is \(\sqrt{\bar\alpha_t}\) with \(\bar\alpha_t=(1-\beta)^t\). After 5 steps that is \(\sqrt{0.96^5}\approx 0.903\); after 50 steps it is \(\sqrt{0.96^{50}}\approx 0.36\) and still shrinking — the original pixel is mostly washed out, leaving almost pure noise.</p>
+      <p>\[ \sqrt{\bar\alpha_5}\approx 0.903, \qquad \sqrt{\bar\alpha_{50}}\approx 0.36 \]</p>
+      <p><strong>Step 3 — the loss the network minimises.</strong> Training just asks the network to name the noise it sees. If the true noise was \(\epsilon=0.5\) and the network predicts \(0.4\), that sample's loss is \((0.5-0.4)^2 = 0.01\).</p>
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> The signal really does vanish</div>
+        <p style="margin-bottom:0">Each step multiplies the signal by \(0.98\) and adds noise; compounded over \(T\) steps the original is nearly gone, which is exactly why \(x_T\) is indistinguishable from static. Reversing the chain requires <em>predicting the noise</em> at each step — and that, not "un-adding," is the only thing the network learns.</p>
+      </div>
 
       <figure class="figure">
         <svg viewBox="0 0 560 200" aria-label="The diffusion forward-noising and reverse-denoising chain">
@@ -214,5 +233,6 @@ print("final std ~", round(float(x.std()), 2))   # close to 1.0  -> pure N(0, I)
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

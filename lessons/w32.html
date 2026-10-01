@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lesson 32 · Self-Attention &amp; Multi-Head Attention — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+<script src="../assets/js/interactive-widgets.js"></script>
 </head>
 <body data-lesson="w32">
 <div class="topbar">
@@ -146,6 +149,121 @@
         <figcaption>Multi-head attention: each head is its own little attention with separate Q/K/V projections. Outputs are concatenated and blended by W_O.</figcaption>
       </figure>
 
+      <figure class="figure">
+        <div style="max-width: 520px; margin: 0 auto; overflow-x: auto;">
+          <svg viewBox="0 0 520 320" aria-label="Self-attention heatmap showing which tokens attend to which">
+            <style>
+              .attn-cell { transition: fill 0.3s ease; cursor: pointer; }
+              .attn-cell:hover { stroke: #f59e0b; stroke-width: 2; }
+              .attn-label { font-size: 11px; fill: #767c93; font-family: sans-serif; }
+            </style>
+            <!-- Tokens -->
+            <text x="55" y="25" class="attn-label" text-anchor="middle">The</text>
+            <text x="105" y="25" class="attn-label" text-anchor="middle">cat</text>
+            <text x="155" y="25" class="attn-label" text-anchor="middle">sat</text>
+            <text x="205" y="25" class="attn-label" text-anchor="middle">on</text>
+            <text x="255" y="25" class="attn-label" text-anchor="middle">the</text>
+            <text x="305" y="25" class="attn-label" text-anchor="middle">mat</text>
+            <text x="355" y="25" class="attn-label" text-anchor="middle">and</text>
+            <text x="405" y="25" class="attn-label" text-anchor="middle">purred</text>
+            <!-- Row labels -->
+            <text x="45" y="65" class="attn-label" text-anchor="end">The</text>
+            <text x="45" y="95" class="attn-label" text-anchor="end">cat</text>
+            <text x="45" y="125" class="attn-label" text-anchor="end">sat</text>
+            <text x="45" y="155" class="attn-label" text-anchor="end">on</text>
+            <text x="45" y="185" class="attn-label" text-anchor="end">the</text>
+            <text x="45" y="215" class="attn-label" text-anchor="end">mat</text>
+            <text x="45" y="245" class="attn-label" text-anchor="end">and</text>
+            <text x="45" y="275" class="attn-label" text-anchor="end">purred</text>
+            <!-- Heatmap cells -->
+            <g id="attn-heatmap">
+              <rect class="attn-cell" x="50" y="50" width="40" height="25" fill="#4f46e5" opacity="0.9"/>
+              <rect class="attn-cell" x="100" y="50" width="40" height="25" fill="#4f46e5" opacity="0.15"/>
+              <rect class="attn-cell" x="150" y="50" width="40" height="25" fill="#4f46e5" opacity="0.2"/>
+              <rect class="attn-cell" x="200" y="50" width="40" height="25" fill="#4f46e5" opacity="0.1"/>
+              <rect class="attn-cell" x="250" y="50" width="40" height="25" fill="#4f46e5" opacity="0.15"/>
+              <rect class="attn-cell" x="300" y="50" width="40" height="25" fill="#4f46e5" opacity="0.1"/>
+              <rect class="attn-cell" x="350" y="50" width="40" height="25" fill="#4f46e5" opacity="0.1"/>
+              <rect class="attn-cell" x="400" y="50" width="40" height="25" fill="#4f46e5" opacity="0.08"/>
+
+              <rect class="attn-cell" x="50" y="80" width="40" height="25" fill="#14b8a6" opacity="0.2"/>
+              <rect class="attn-cell" x="100" y="80" width="40" height="25" fill="#14b8a6" opacity="0.85"/>
+              <rect class="attn-cell" x="150" y="80" width="40" height="25" fill="#14b8a6" opacity="0.3"/>
+              <rect class="attn-cell" x="200" y="80" width="40" height="25" fill="#14b8a6" opacity="0.15"/>
+              <rect class="attn-cell" x="250" y="80" width="40" height="25" fill="#14b8a6" opacity="0.1"/>
+              <rect class="attn-cell" x="300" y="80" width="40" height="25" fill="#14b8a6" opacity="0.1"/>
+              <rect class="attn-cell" x="350" y="80" width="40" height="25" fill="#14b8a6" opacity="0.08"/>
+              <rect class="attn-cell" x="400" y="80" width="40" height="25" fill="#14b8a6" opacity="0.1"/>
+
+              <rect class="attn-cell" x="50" y="110" width="40" height="25" fill="#f59e0b" opacity="0.15"/>
+              <rect class="attn-cell" x="100" y="110" width="40" height="25" fill="#f59e0b" opacity="0.25"/>
+              <rect class="attn-cell" x="150" y="110" width="40" height="25" fill="#f59e0b" opacity="0.9"/>
+              <rect class="attn-cell" x="200" y="110" width="40" height="25" fill="#f59e0b" opacity="0.2"/>
+              <rect class="attn-cell" x="250" y="110" width="40" height="25" fill="#f59e0b" opacity="0.15"/>
+              <rect class="attn-cell" x="300" y="110" width="40" height="25" fill="#f59e0b" opacity="0.1"/>
+              <rect class="attn-cell" x="350" y="110" width="40" height="25" fill="#f59e0b" opacity="0.08"/>
+              <rect class="attn-cell" x="400" y="110" width="40" height="25" fill="#f59e0b" opacity="0.1"/>
+
+              <rect class="attn-cell" x="50" y="140" width="40" height="25" fill="#f43f5e" opacity="0.1"/>
+              <rect class="attn-cell" x="100" y="140" width="40" height="25" fill="#f43f5e" opacity="0.15"/>
+              <rect class="attn-cell" x="150" y="140" width="40" height="25" fill="#f43f5e" opacity="0.2"/>
+              <rect class="attn-cell" x="200" y="140" width="40" height="25" fill="#f43f5e" opacity="0.85"/>
+              <rect class="attn-cell" x="250" y="140" width="40" height="25" fill="#f43f5e" opacity="0.15"/>
+              <rect class="attn-cell" x="300" y="140" width="40" height="25" fill="#f43f5e" opacity="0.1"/>
+              <rect class="attn-cell" x="350" y="140" width="40" height="25" fill="#f43f5e" opacity="0.08"/>
+              <rect class="attn-cell" x="400" y="140" width="40" height="25" fill="#f43f5e" opacity="0.1"/>
+
+              <rect class="attn-cell" x="50" y="170" width="40" height="25" fill="#4f46e5" opacity="0.15"/>
+              <rect class="attn-cell" x="100" y="170" width="40" height="25" fill="#4f46e5" opacity="0.1"/>
+              <rect class="attn-cell" x="150" y="170" width="40" height="25" fill="#4f46e5" opacity="0.15"/>
+              <rect class="attn-cell" x="200" y="170" width="40" height="25" fill="#4f46e5" opacity="0.2"/>
+              <rect class="attn-cell" x="250" y="170" width="40" height="25" fill="#4f46e5" opacity="0.9"/>
+              <rect class="attn-cell" x="300" y="170" width="40" height="25" fill="#4f46e5" opacity="0.25"/>
+              <rect class="attn-cell" x="350" y="170" width="40" height="25" fill="#4f46e5" opacity="0.1"/>
+              <rect class="attn-cell" x="400" y="170" width="40" height="25" fill="#4f46e5" opacity="0.08"/>
+
+              <rect class="attn-cell" x="50" y="200" width="40" height="25" fill="#14b8a6" opacity="0.1"/>
+              <rect class="attn-cell" x="100" y="200" width="40" height="25" fill="#14b8a6" opacity="0.1"/>
+              <rect class="attn-cell" x="150" y="200" width="40" height="25" fill="#14b8a6" opacity="0.1"/>
+              <rect class="attn-cell" x="200" y="200" width="40" height="25" fill="#14b8a6" opacity="0.15"/>
+              <rect class="attn-cell" x="250" y="200" width="40" height="25" fill="#14b8a6" opacity="0.2"/>
+              <rect class="attn-cell" x="300" y="200" width="40" height="25" fill="#14b8a6" opacity="0.85"/>
+              <rect class="attn-cell" x="350" y="200" width="40" height="25" fill="#14b8a6" opacity="0.15"/>
+              <rect class="attn-cell" x="400" y="200" width="40" height="25" fill="#14b8a6" opacity="0.1"/>
+
+              <rect class="attn-cell" x="50" y="230" width="40" height="25" fill="#f59e0b" opacity="0.08"/>
+              <rect class="attn-cell" x="100" y="230" width="40" height="25" fill="#f59e0b" opacity="0.1"/>
+              <rect class="attn-cell" x="150" y="230" width="40" height="25" fill="#f59e0b" opacity="0.08"/>
+              <rect class="attn-cell" x="200" y="230" width="40" height="25" fill="#f59e0b" opacity="0.1"/>
+              <rect class="attn-cell" x="250" y="230" width="40" height="25" fill="#f59e0b" opacity="0.15"/>
+              <rect class="attn-cell" x="300" y="230" width="40" height="25" fill="#f59e0b" opacity="0.2"/>
+              <rect class="attn-cell" x="350" y="230" width="40" height="25" fill="#f59e0b" opacity="0.85"/>
+              <rect class="attn-cell" x="400" y="230" width="40" height="25" fill="#f59e0b" opacity="0.15"/>
+
+              <rect class="attn-cell" x="50" y="260" width="40" height="25" fill="#f43f5e" opacity="0.1"/>
+              <rect class="attn-cell" x="100" y="260" width="40" height="25" fill="#f43f5e" opacity="0.08"/>
+              <rect class="attn-cell" x="150" y="260" width="40" height="25" fill="#f43f5e" opacity="0.1"/>
+              <rect class="attn-cell" x="200" y="260" width="40" height="25" fill="#f43f5e" opacity="0.1"/>
+              <rect class="attn-cell" x="250" y="260" width="40" height="25" fill="#f43f5e" opacity="0.08"/>
+              <rect class="attn-cell" x="300" y="260" width="40" height="25" fill="#f43f5e" opacity="0.15"/>
+              <rect class="attn-cell" x="350" y="260" width="40" height="25" fill="#f43f5e" opacity="0.2"/>
+              <rect class="attn-cell" x="400" y="260" width="40" height="25" fill="#f43f5e" opacity="0.85"/>
+            </g>
+            <!-- Color bar -->
+            <rect x="460" y="50" width="15" height="235" fill="url(#attn-gradient)"/>
+            <defs>
+              <linearGradient id="attn-gradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#4f46e5" stop-opacity="0.9"/>
+                <stop offset="100%" stop-color="#4f46e5" stop-opacity="0.05"/>
+              </linearGradient>
+            </defs>
+            <text x="480" y="55" font-size="10" fill="#767c93">high</text>
+            <text x="480" y="285" font-size="10" fill="#767c93">low</text>
+          </svg>
+        </div>
+        <figcaption><strong>Self-attention heatmap:</strong> Each row is a query token, each column is a key token. Darker = more attention. "The" attends broadly; "cat" attends to itself and "sat"; "mat" attends to "the" and "on." Hover over any cell to highlight it.</figcaption>
+      </figure>
+
       <h2>32.4 The encoder block</h2>
       <p>A single attention layer is powerful but shallow. Real transformers stack <strong>blocks</strong>. The encoder block (used by BERT, and by the encoder half of translation models) has two sub-layers, each wrapped in tricks you already know:</p>
       <ol>
@@ -168,7 +286,33 @@
       <p>GPT-style models use <strong>only the decoder stack</strong> with masked self-attention — no encoder, no cross-attention — and that turns out to be all you need for a language model. We'll meet that beast in Lesson 34.</p>
 
       <h2>32.6 Attention in NumPy — a tiny runnable example</h2>
-      <p>Let's make it concrete. Three tokens, made-up embeddings, and we'll compute attention by hand with NumPy. The code prints the attention weights (each row sums to 1) and the blended outputs.</p>
+
+      <h3>Self-attention on three tokens, by hand</h3>
+      <p>Before we run code, let's push real numbers through the formula once so you can <em>see</em> a weighted blend of values appear. Three tokens, \(d_k = 2\), Q/K/V given directly, and we'll compute the output for query token 1.</p>
+      <table>
+        <thead><tr><th>token \(j\)</th><th>key \(\mathbf{k}_j\)</th><th>value \(\mathbf{v}_j\)</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>[1, 0]</td><td>[10, 0]</td></tr>
+          <tr><td>2</td><td>[1, 1]</td><td>[0, 10]</td></tr>
+          <tr><td>3</td><td>[0, 1]</td><td>[5, 5]</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Step 1 — score relevance.</strong> Our query is \(\mathbf{q}_1 = [1,0]\). Dot it with each key: \(\mathbf{q}_1 \cdot \mathbf{k}_1 = 1\), \(\mathbf{q}_1 \cdot \mathbf{k}_2 = 1\), \(\mathbf{q}_1 \cdot \mathbf{k}_3 = 0\). So raw scores are \([1, 1, 0]\).</p>
+      <p><strong>Step 2 — scale by \(\sqrt{d_k}\).</strong> Here \(\sqrt{d_k} = \sqrt{2} \approx 1.414\), so the scaled scores are \([0.707,\, 0.707,\, 0]\).</p>
+      <p>\[ \frac{[1,\,1,\,0]}{\sqrt{2}} = [0.707,\; 0.707,\; 0] \]</p>
+      <p><strong>Step 3 — softmax over the keys.</strong> Exponentiate: \(\exp([0.707, 0.707, 0]) = [2.028,\, 2.028,\, 1.000]\), which sums to \(5.056\). Dividing gives the attention weights:</p>
+      <p>\[ \mathbf{w} = \left[\tfrac{2.028}{5.056},\; \tfrac{2.028}{5.056},\; \tfrac{1.000}{5.056}\right] = [0.401,\; 0.401,\; 0.198] \]</p>
+      <p>Notice they sum to 1 — tokens 1 and 2 each win \(40.1\%\) of the attention, token 3 only \(19.8\%\).</p>
+      <p><strong>Step 4 — blend the values.</strong> The output is \(\sum_j w_j \mathbf{v}_j\), done one coordinate at a time:</p>
+      <p>\[ x = 0.401\times 10 + 0.401\times 0 + 0.198\times 5 = 5.00, \qquad y = 0.401\times 0 + 0.401\times 10 + 0.198\times 5 = 5.00 \]</p>
+      <p>So the output for token 1 is <strong>[5.0, 5.0]</strong> — a genuine blend, pulled toward the values of the two relevant tokens.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Softmax over the keys, not the dimensions</div>
+        <p style="margin-bottom:0">The softmax runs across the <em>row of scores</em> — one weight per key — so the weights sum to 1 (\(0.401 + 0.401 + 0.198 = 1\)). It does <em>not</em> normalise across a vector's components. That mix-up is the classic beginner trap. And the \(\sqrt{d_k}\) scaling matters: without it, large \(d_k\) makes the raw dot products huge, softmax saturates so one weight \(\approx 1\), and the gradient through the others dies.</p>
+      </div>
+
+      <p>Now the same computation in code, with learned projections and a causal mask. It prints the attention weights (each row sums to 1) and the blended outputs.</p>
 
       <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">numpy — scaled dot-product attention</span></div>
 <pre><code class="language-python">import numpy as np
@@ -256,5 +400,6 @@ print("masked weights (upper triangle is 0):\n", np.round(attn_m, 3))</code></pr
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

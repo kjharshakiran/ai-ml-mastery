@@ -6,7 +6,8 @@
 <title>Lesson 29 · CNNs II: ResNets, Transfer Learning &amp; Segmentation — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
 </head>
 <body data-lesson="w29">
@@ -51,6 +52,23 @@
       <p>Kaiming He and colleagues fixed this with a stunningly simple idea: add a <strong>skip connection</strong> (or shortcut) that lets the input <em>bypass</em> a block and be added back to its output. Instead of asking a block to learn the full desired mapping \(H(x)\), we ask it to learn only the <strong>residual</strong> — the leftover difference \(F(x) = H(x)-x\) — and then add the input back:</p>
       <p>\[ y \;=\; F(x,\{W_i\}) \;+\; x \]</p>
       <p>Here \(F\) is the usual couple of conv layers with weights \(\{W_i\}\), and the bare \(+\,x\) is the shortcut. Why does this help so much? Two reasons. First, if a layer has nothing useful to add, learning \(F(x)\approx 0\) (driving the weights toward zero) is far easier than learning \(H(x)\approx x\) (an exact identity through nonlinear layers). The block can always "do nothing" cheaply. Second — and this is the magic — when you differentiate \(y=F(x)+x\), the \(+x\) contributes a clean \(+1\) to the gradient. There is now a <strong>gradient highway</strong> that carries the learning signal straight back to early layers, no matter how deep the network. The whisper becomes a shout again.</p>
+
+      <h3>Why the skip connection saves the gradient</h3>
+      <p>Let's push a tiny number through both designs to feel the \(+1\) in action. Take a scalar \(x = 2\) and a block \(F(x) = w\,x\) with \(w = 0.5\), stacked deep.</p>
+      <table>
+        <thead><tr><th></th><th>per-layer derivative</th><th>after 10 layers</th></tr></thead>
+        <tbody>
+          <tr><td>plain stack \(F(x)\)</td><td>\(w = 0.5\)</td><td>\(0.5^{10} \approx 0.00098\)</td></tr>
+          <tr><td>residual \(F(x)+x\)</td><td>\(F'(x)+1 = 1.5\)</td><td>\(1.5^{10} \approx 57.7\)</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Plain stack.</strong> Each layer multiplies the back-flowing gradient by \(F'(x) = w = 0.5\). Chain ten of them and the gradient is scaled by \(0.5^{10} \approx 0.00098\) — it has all but <strong>vanished</strong> before reaching the early layers.</p>
+      <p><strong>Residual block.</strong> Differentiating \(F(x)+x\) gives \(F'(x) + 1 = 0.5 + 1 = 1.5\). The \(+1\) puts a <strong>floor under the derivative</strong>: it can never drop below 1, no matter how small \(w\) becomes. The signal can't decay to zero.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> The +1 is a floor, not a booster</div>
+        <p style="margin-bottom:0">The point isn't that the residual gradient is <em>bigger</em> — here \(1.5^{10} \approx 57.7\), which over many layers could actually <em>explode</em> (that's what <strong>batch norm</strong> from Week 27 tames). The point is the guaranteed \(+1\) <em>floor</em>: the gradient can no longer vanish to nothing, so even very deep stacks keep learning in their early layers.</p>
+      </div>
 
       <div class="callout eli5">
         <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
@@ -211,5 +229,6 @@ print("trainable tensors:", len(trainable))# -> just the head (weight + bias)
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

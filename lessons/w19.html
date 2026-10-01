@@ -6,7 +6,8 @@
 <title>Lesson 19 · Normalisation &amp; Data Reduction — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
 </head>
 <body data-lesson="w19">
@@ -106,6 +107,16 @@
       <p>\[ z = \frac{x - \mu}{\sigma}, \qquad \mu = \frac{1}{n}\sum_i x_i, \qquad \sigma = \sqrt{\frac{1}{n}\sum_i (x_i - \mu)^2} \]</p>
       <p>Subtract the mean (now the feature is <strong>centred</strong> at 0) and divide by the standard deviation (now its <strong>spread</strong> is exactly 1). The result, the <strong>z-score</strong>, literally answers: "how many standard deviations above or below average is this value?" A \(z=+2\) means "two standard deviations above the mean" — a rare, large value. A \(z=0\) means "exactly average."</p>
       <p>Unlike min–max, z-scores aren't bounded to [0, 1] — they can be any real number. But they're far more <strong>robust to outliers</strong>, because \(\sigma\) summarises typical spread rather than depending on a single extreme. When a feature looks roughly bell-shaped (Gaussian, Week 4), standardisation is usually the right default — and it's what PCA expects next week.</p>
+
+      <h3>One z-score, by hand</h3>
+      <p>Take a tiny Age column \([30, 45, 22, 38]\). <strong>Step 1 — mean:</strong> \(\mu = \tfrac{30+45+22+38}{4} = 33.75\). <strong>Step 2 — std:</strong> the squared deviations sum to \(296.75\), so \(\sigma = \sqrt{296.75/4} = \sqrt{74.19} \approx 8.61\). <strong>Step 3 — standardise the value 45:</strong></p>
+      <p>\[ z = \frac{45 - 33.75}{8.61} \approx +1.31 \]</p>
+      <p>So <strong>45 sits about 1.31 standard deviations above average</strong> — exactly what the z-score is meant to tell you.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Population vs sample std</div>
+        <p style="margin-bottom:0">We divided by \(n\) (population std, <code>ddof=0</code>) — the convention <code>np.std</code> and scikit-learn's <code>StandardScaler</code> both use. If you instead divide by \(n-1\) (sample std, <code>ddof=1</code>, the default in <code>pandas.std</code>), you get a slightly different \(\sigma\) and a slightly different z. Pick one and stay consistent, or train and test will be scaled by mismatched rulers.</p>
+      </div>
 
       <div class="callout key">
         <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
@@ -220,5 +231,6 @@ print(X_train_mm.round(2))</code></pre>
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

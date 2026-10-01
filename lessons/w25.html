@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lesson 25 · Backpropagation — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+<script src="../assets/js/interactive-widgets.js"></script>
 </head>
 <body data-lesson="w25">
 <div class="topbar">
@@ -103,6 +106,66 @@
         <figcaption>Forward (teal): inputs flow right to produce the prediction ŷ and loss L. Backward (rose, dashed): the gradient of L flows left, telling each weight how much it contributed to the error.</figcaption>
       </figure>
 
+      <figure class="figure">
+        <div class="bp-container" style="max-width: 600px; margin: 0 auto;">
+          <svg viewBox="0 0 600 240" aria-label="Animated backpropagation: gradients flowing backward through layers">
+            <defs>
+              <marker id="bp-fh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill="#14b8a6"/>
+              </marker>
+              <marker id="bp-bh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill="#f43f5e"/>
+              </marker>
+            </defs>
+            <style>
+              .bp-forward-flow { stroke: #14b8a6; stroke-width: 2; fill: none; stroke-dasharray: 8 4; animation: bp-flow-forward 2s linear infinite; }
+              @keyframes bp-flow-forward { to { stroke-dashoffset: -24; } }
+              .bp-backward-flow { stroke: #f43f5e; stroke-width: 2; fill: none; stroke-dasharray: 8 4; animation: bp-flow-backward 2s linear infinite; }
+              @keyframes bp-flow-backward { to { stroke-dashoffset: 24; } }
+              .bp-node { transition: all 0.3s ease; }
+              .bp-node:hover { filter: drop-shadow(0 0 8px rgba(79, 70, 229, 0.4)); transform: scale(1.1); }
+            </style>
+            <!-- Layer labels -->
+            <text x="80" y="30" font-size="13" fill="#767c93" text-anchor="middle">Input</text>
+            <text x="240" y="30" font-size="13" fill="#767c93" text-anchor="middle">Hidden</text>
+            <text x="400" y="30" font-size="13" fill="#767c93" text-anchor="middle">Output</text>
+            <text x="520" y="30" font-size="13" fill="#767c93" text-anchor="middle">Loss</text>
+            <!-- Nodes -->
+            <circle class="bp-node" cx="80" cy="80" r="18" fill="#e3e6f0" stroke="#4f46e5" stroke-width="2"/>
+            <circle class="bp-node" cx="80" cy="140" r="18" fill="#e3e6f0" stroke="#4f46e5" stroke-width="2"/>
+            <circle class="bp-node" cx="240" cy="60" r="18" fill="#fff" stroke="#4f46e5" stroke-width="2"/>
+            <circle class="bp-node" cx="240" cy="110" r="18" fill="#fff" stroke="#4f46e5" stroke-width="2"/>
+            <circle class="bp-node" cx="240" cy="160" r="18" fill="#fff" stroke="#4f46e5" stroke-width="2"/>
+            <circle class="bp-node" cx="400" cy="110" r="18" fill="#fff" stroke="#14b8a6" stroke-width="2"/>
+            <circle class="bp-node" cx="520" cy="110" r="16" fill="#fff" stroke="#f43f5e" stroke-width="2"/>
+            <!-- Forward edges -->
+            <line class="bp-forward-flow" x1="98" y1="75" x2="222" y2="60" marker-end="url(#bp-fh)"/>
+            <line class="bp-forward-flow" x1="98" y1="85" x2="222" y2="100" marker-end="url(#bp-fh)"/>
+            <line class="bp-forward-flow" x1="98" y1="140" x2="222" y2="115" marker-end="url(#bp-fh)"/>
+            <line class="bp-forward-flow" x1="98" y1="150" x2="222" y2="165" marker-end="url(#bp-fh)"/>
+            <line class="bp-forward-flow" x1="258" y1="80" x2="382" y2="105" marker-end="url(#bp-fh)"/>
+            <line class="bp-forward-flow" x1="258" y1="110" x2="382" y2="110" marker-end="url(#bp-fh)"/>
+            <line class="bp-forward-flow" x1="258" y1="140" x2="382" y2="115" marker-end="url(#bp-fh)"/>
+            <line class="bp-forward-flow" x1="418" y1="110" x2="504" y2="110" marker-end="url(#bp-fh)"/>
+            <!-- Backward edges -->
+            <line class="bp-backward-flow" x1="504" y1="125" x2="418" y2="125" marker-end="url(#bp-bh)"/>
+            <line class="bp-backward-flow" x1="382" y1="125" x2="258" y2="100" marker-end="url(#bp-bh)"/>
+            <line class="bp-backward-flow" x1="382" y1="125" x2="258" y2="130" marker-end="url(#bp-bh)"/>
+            <line class="bp-backward-flow" x1="382" y1="125" x2="258" y2="160" marker-end="url(#bp-bh)"/>
+            <line class="bp-backward-flow" x1="222" y1="80" x2="98" y2="95" marker-end="url(#bp-bh)"/>
+            <line class="bp-backward-flow" x1="222" y1="130" x2="98" y2="140" marker-end="url(#bp-bh)"/>
+            <!-- Labels -->
+            <text x="80" y="200" font-size="11" fill="#4f46e5" text-anchor="middle">x₁, x₂</text>
+            <text x="240" y="200" font-size="11" fill="#4f46e5" text-anchor="middle">a⁽¹⁾</text>
+            <text x="400" y="200" font-size="11" fill="#14b8a6" text-anchor="middle">ŷ</text>
+            <text x="520" y="200" font-size="11" fill="#f43f5e" text-anchor="middle">L</text>
+            <text x="300" y="225" font-size="12" fill="#14b8a6">Forward → (teal, animated)</text>
+            <text x="300" y="235" font-size="12" fill="#f43f5e">← Backward (rose, animated)</text>
+          </svg>
+        </div>
+        <figcaption><strong>Backpropagation in motion:</strong> Watch the forward pass (teal dashed arrows) flow left-to-right, computing predictions. Then the backward pass (rose dashed arrows) carries the error gradient back, layer by layer. Hover over any node to highlight it. This is the chain rule from Week 3, automated.</figcaption>
+      </figure>
+
       <p><strong>Forward pass.</strong> Run the equations of §25.1 left to right. Save every \(\mathbf{z}^{(\ell)}\) and \(\mathbf{a}^{(\ell)}\) — we'll need them on the way back.</p>
       <p><strong>Loss.</strong> Compare the prediction to the target with a loss \(L\). For a regression-style output we might use squared error \(L=\tfrac12(\hat{y}-y)^2\); for classification we use cross-entropy (§25.6).</p>
       <p><strong>Backward pass.</strong> We want \(\dfrac{\partial L}{\partial W^{(\ell)}}\) for every layer — how a tiny change in each weight changes the loss. Computing this directly for a deep net looks hopeless. The rescue is the <strong>chain rule from Week 3</strong>: the loss depends on \(W^{(\ell)}\) only <em>through</em> \(\mathbf{z}^{(\ell)}\), which feeds \(\mathbf{a}^{(\ell)}\), which feeds the next layer, and so on to \(L\). So we multiply the local derivatives along that path.</p>
@@ -143,6 +206,29 @@
       <p>Run backprop on this one-neuron net and something beautiful happens: the gradient simplifies to</p>
       <p>\[ \frac{\partial L}{\partial \mathbf{w}} = (\hat{y}-y)\,\mathbf{x} \]</p>
       <p>The messy sigmoid derivative and the messy log derivative cancel exactly, leaving "prediction minus truth, times the input." This is why sigmoid pairs with cross-entropy and softmax pairs with cross-entropy — the pairing makes gradients clean and learning stable. Logistic regression, then, isn't a separate algorithm to memorise: it's a deep network with the depth dialled down to one. Stack many such neurons with non-linearities between them and you get the full MLFFNN.</p>
+
+      <h3>Backprop on one neuron, by hand</h3>
+      <p>Abstract \(\boldsymbol{\delta}\)'s and \(\odot\)'s land best once you run a single neuron through the whole forward → loss → backward → update cycle with real numbers.</p>
+      <table>
+        <thead><tr><th>Quantity</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>inputs \(\mathbf{x}\)</td><td>\([1,\,2]\)</td></tr>
+          <tr><td>weights \(\mathbf{w}\)</td><td>\([0.2,\,0.4]\)</td></tr>
+          <tr><td>bias \(b\)</td><td>\(0\)</td></tr>
+          <tr><td>target \(y\)</td><td>\(1\)</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Step 1 — forward.</strong> Weighted sum then sigmoid: \(z = 0.2\times 1 + 0.4\times 2 + 0 = 1.0\), and \(a = \sigma(1.0)\).</p>
+      <p>\[ a = \frac{1}{1+\exp(-1.0)} \approx 0.731 \]</p>
+      <p><strong>Step 2 — loss.</strong> Binary cross-entropy with \(y=1\) keeps only the first term: \(L = -\log(0.731) \approx \mathbf{0.313}\).</p>
+      <p><strong>Step 3 — backward.</strong> The clean cancellation gives the error directly: \(\delta = a - y = 0.731 - 1 = -0.269\). The gradients fall out as error times input:</p>
+      <p>\[ \frac{\partial L}{\partial \mathbf{w}} = \delta\,\mathbf{x} = [-0.269,\,-0.538], \qquad \frac{\partial L}{\partial b} = \delta = -0.269 \]</p>
+      <p><strong>Step 4 — update.</strong> Step downhill with \(\eta=0.1\): \(\mathbf{w} \leftarrow [0.2,0.4] - 0.1\times[-0.269,-0.538] = \mathbf{[0.227,\,0.454]}\). Both weights <strong>grew</strong>, which raises \(z\), which pushes \(a\) up toward the target of 1 — exactly the right direction.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> Why \(\delta=a-y\) just works</div>
+        <p style="margin-bottom:0">Notice we never differentiated the sigmoid or the log by hand — the \(\sigma+\)BCE pairing collapses the whole output-layer derivative to <strong>prediction minus truth</strong>. Its sign alone steers the update the correct way: when the prediction is too low (\(a&lt;y\)) the gradient is negative, so subtracting it <em>increases</em> the weights. That self-correcting sign is the reason these two functions are always paired.</p>
+      </div>
 
       <h2>25.7 A working 2-layer net for XOR, in NumPy</h2>
       <p>Time to make it real. We'll hand-write backprop for a tiny 2-layer network (one hidden layer of 4 sigmoid units, one sigmoid output) and train it on XOR — the problem from Week 24 that no single line can solve. Every line below maps directly to the equations above. Run it: the loss falls and the four XOR cases get classified correctly.</p>
@@ -251,5 +337,6 @@ print("rounded    :", (pred.ravel() > 0.5).astype(int))  # -> [0 1 1 0]  XOR sol
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

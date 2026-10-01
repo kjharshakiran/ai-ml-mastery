@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 6 · Hospital Risk Intelligence I: Data Foundations — AI &amp; ML Mastery</title>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
+<link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+</head>
+<body data-project="p6">
+<div class="topbar">
+  <button class="icon-btn" onclick="toggleNav()">☰</button>
+  <strong>Project 6</strong>
+  <button class="icon-btn" style="margin-left:auto" onclick="toggleTheme()"><span data-theme-icon>🌙</span></button>
+</div>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="content">
+    <main class="page">
+
+      <header class="lesson-head">
+        <div class="crumbs"><a href="../index.html">Home</a> › Capstone Projects › Project 6</div>
+        <span class="eyebrow">🏥 Applied MLOps Capstone · Part I of IV</span>
+        <h1>Hospital Risk Intelligence I — From Raw Tables to a Modeling Dataset</h1>
+        <div class="lesson-meta"><span>🔴 Difficulty: Advanced</span><span>🎯 Mimics a real hospital analytics team's first two weeks</span><span>🧰 SQL · EDA · Feature Engineering</span></div>
+      </header>
+
+      <div class="objectives">
+        <h4>What you'll build</h4>
+        <ul>
+          <li>A realistic <strong>three-table hospital schema</strong> (patients, visits, billing) and the SQL to interrogate it like an analyst would, before a single model is trained.</li>
+          <li>A full <strong>EDA pass</strong> that finds two genuine data-quality bugs hiding in the tables — the same two a real capstone project shipped with.</li>
+          <li>A defensible <strong>missing-value strategy</strong> that reasons about <em>why</em> a value is missing (MCAR / MAR / MNAR), not just fills it in.</li>
+          <li>An engineered <strong>feature set</strong> — patient history, provider behaviour, time-of-visit — built the way a production feature store would build it.</li>
+          <li>A <strong>time-based train/test split</strong>, and the reasoning for why a hospital (or any company shipping a model into the future) never uses a random shuffle.</li>
+        </ul>
+      </div>
+
+      <div class="bigq">
+        <div class="q-label">The Big Question</div>
+        <div class="q-text">A hospital hands you three raw tables and one ask — "tell us which visits are high-risk and which claims will get rejected, before they happen." Where do you even start, and how do you know your starting point isn't already lying to you?</div>
+      </div>
+
+      <div class="prose">
+
+      <h2>6.1 The brief</h2>
+      <p>This two-part project (Project 6 + Project 7) rebuilds — concept by concept, with real numbers — an actual production-style system: <strong>Hospital Operations &amp; Revenue Risk Intelligence</strong>. A hospital group wants two predictions made automatically, the moment a visit and its bill are recorded:</p>
+      <ul>
+        <li><strong>Visit risk</strong> (<code>risk_score</code>: Low / Medium / High) — so clinical staff can prioritise attention.</li>
+        <li><strong>Claim outcome</strong> (<code>claim_status</code>: Paid / Pending / Rejected) — so the revenue team can chase the claims most likely to be rejected, before they're rejected.</li>
+      </ul>
+      <p>Project 6 covers the part that takes 70% of real project time and gets none of the glory: turning three raw tables into one trustworthy modeling dataset. Project 7 takes that dataset to trained models, a live API, and a monitoring loop. This is, in miniature, exactly what a data team does in their first sprint on any tabular ML problem — be it hospital claims, e-commerce churn, or (Projects 8–9) private-jet reservations.</p>
+
+      <div class="callout eli5">
+        <div class="c-title"><span class="c-emoji">🧒</span> Explain Like I'm 10</div>
+        <p style="margin-bottom:0">Imagine three notebooks on a hospital reception desk: one lists <em>patients</em> (who they are), one lists <em>visits</em> (who came in, when, why), and one lists <em>bills</em> (how much, did the insurance pay). Before you can teach a computer to guess "is this visit risky?" you first have to staple the right pages from all three notebooks together for every single visit — and check that nobody wrote something impossible, like a bill dated before the patient ever walked in.</p>
+      </div>
+
+      <h2>6.2 The data model: three tables, one patient journey</h2>
+      <p>Every row in <strong>visits</strong> is one hospital visit. It points at exactly one row in <strong>patients</strong> (who) via <code>patient_id</code>, and exactly one row in <strong>billing</strong> (the money) via <code>visit_id</code>. This is a textbook <strong>one-to-many</strong> relationship (Week 5): one patient, many visits; one visit, one bill.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 720 220" aria-label="Entity relationship diagram of patients, visits and billing tables">
+          <g font-family="sans-serif" font-size="11">
+            <rect x="20" y="30" width="190" height="140" rx="8" fill="#eef0fb" stroke="#4f46e5"/>
+            <text x="115" y="50" text-anchor="middle" font-weight="bold" fill="#4f46e5">patients</text>
+            <text x="34" y="70">🔑 patient_id</text>
+            <text x="34" y="88" fill="#767c93">age, gender, city</text>
+            <text x="34" y="104" fill="#767c93">insurance_provider</text>
+            <text x="34" y="120" fill="#767c93">chronic_flag</text>
+            <text x="34" y="136" fill="#767c93">registration_date</text>
+
+            <rect x="270" y="10" width="190" height="160" rx="8" fill="#e7faf6" stroke="#14b8a6"/>
+            <text x="365" y="30" text-anchor="middle" font-weight="bold" fill="#14b8a6">visits</text>
+            <text x="284" y="50">🔑 visit_id</text>
+            <text x="284" y="66" fill="#767c93">↳ patient_id (FK)</text>
+            <text x="284" y="82" fill="#767c93">visit_date, department</text>
+            <text x="284" y="98" fill="#767c93">visit_type, doctor_id</text>
+            <text x="284" y="114" fill="#767c93">length_of_stay_hours</text>
+            <text x="284" y="130" fill="#767c93">risk_score ← TARGET A</text>
+
+            <rect x="520" y="30" width="190" height="140" rx="8" fill="#fff4e0" stroke="#f59e0b"/>
+            <text x="615" y="50" text-anchor="middle" font-weight="bold" fill="#f59e0b">billing</text>
+            <text x="534" y="70">🔑 bill_id</text>
+            <text x="534" y="86" fill="#767c93">↳ visit_id (FK)</text>
+            <text x="534" y="102" fill="#767c93">billed_amount</text>
+            <text x="534" y="118" fill="#767c93">approved_amount</text>
+            <text x="534" y="134" fill="#767c93">claim_status ← TARGET B</text>
+          </g>
+          <g stroke="#767c93" stroke-width="1.5" fill="none">
+            <path d="M210,100 H270" marker-end="url(#ar2)"/>
+            <path d="M460,90 H520" marker-end="url(#ar2)"/>
+          </g>
+          <text x="240" y="94" font-size="10" fill="#767c93" text-anchor="middle">1 : many</text>
+          <text x="490" y="84" font-size="10" fill="#767c93" text-anchor="middle">1 : 1</text>
+          <defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#767c93"/></marker></defs>
+        </svg>
+        <figcaption>One patient → many visits → one bill each. Two columns are starred: <code>risk_score</code> and <code>claim_status</code> are the two things we'll eventually predict — everything else is a feature candidate.</figcaption>
+      </figure>
+
+      <h2>6.3 SQL first — ask the business questions before you open Python</h2>
+      <p>A production data team never opens a notebook first. They open SQL, because the database already has the answers to the questions a hospital administrator actually asks: <em>which department sees the most volume, which insurer rejects the most claims, who are our highest-billed patients?</em> This is Week 5's relational model, put to work.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — build an in-memory SQL database</span></div>
+<pre><code class="language-python">import sqlite3, pandas as pd
+
+# In production this would be Postgres/Snowflake; sqlite3 (Python's
+# built-in) is the same SQL for learning purposes, no server needed.
+conn = sqlite3.connect(":memory:")
+
+# `patients`, `visits`, `billing` are the three DataFrames we'll build
+# in section 6.4 below. Loading them as real SQL tables lets us write
+# real SQL against them -- copy this cell AFTER running 6.4 once.
+patients.to_sql("patients", conn, index=False)
+visits.to_sql("visits", conn, index=False)
+billing.to_sql("billing", conn, index=False)
+print("3 tables loaded into SQL.")</code></pre>
+
+      <p><strong>Question 1 — where's the volume, and what does it cost?</strong> A simple <code>JOIN</code> + <code>GROUP BY</code>, the bread and butter of analytics SQL:</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">sql — visits and average bill by department</span></div>
+<pre><code class="language-python">q1 = """
+SELECT department, COUNT(*) AS n_visits, ROUND(AVG(b.billed_amount),2) AS avg_bill
+FROM visits v JOIN billing b ON v.visit_id = b.visit_id
+GROUP BY department ORDER BY n_visits DESC;
+"""
+print(pd.read_sql(q1, conn))
+# Orthopedics / ICU / General / ER / Cardiology / Neurology all land
+# within a few hundred visits of each other -- no department dominates,
+# which matters later: a model can't just learn "always predict the
+# busiest department's typical outcome."</code></pre>
+
+      <p><strong>Question 2 — which insurer is riskiest to bill?</strong> A <code>CASE WHEN</code> inside an aggregate turns a row-level flag into a rate — one of the most useful SQL patterns there is:</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">sql — rejection rate by insurer</span></div>
+<pre><code class="language-python">q2 = """
+SELECT insurance_provider,
+       ROUND(100.0 * SUM(CASE WHEN claim_status='Rejected' THEN 1 ELSE 0 END)
+             / COUNT(*), 1) AS rejection_pct
+FROM visits v
+JOIN billing b ON v.visit_id = b.visit_id
+JOIN patients p ON v.patient_id = p.patient_id
+GROUP BY insurance_provider ORDER BY rejection_pct DESC;
+"""
+print(pd.read_sql(q2, conn))
+# Typical output: every insurer sits within a few points of ~15%.
+# That's the FIRST clue for Project 7 -- if every insurer rejects at
+# roughly the same rate, "insurance_provider" alone won't be a strong
+# predictor of rejection. Good models need this kind of honest signal
+# check before you ever fit one.</code></pre>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> SQL answers "what happened." ML answers "what's next."</div>
+        <p style="margin-bottom:0">Notice neither query above involved any machine learning — they're pure aggregation, and they already told us something a model will need to know (insurers reject at similar rates, so rejection isn't simply "blame the insurer"). Always exhaust the SQL questions first. It's faster, it's exact, and it tells you what a model even has a chance of learning.</p>
+        </div>
+
+      <p><strong>Question 3 — who are our highest-billed patients, and how does revenue trend month to month?</strong> Two more patterns you'll reuse constantly: a multi-table <code>JOIN</code> with <code>ORDER BY … LIMIT</code>, and SQLite's date function for a monthly rollup.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">sql — top patients by spend, and revenue by month</span></div>
+<pre><code class="language-python">q3 = """
+SELECT p.patient_id, COUNT(*) AS n_visits, ROUND(SUM(b.billed_amount),2) AS total_billed
+FROM visits v JOIN billing b ON v.visit_id=b.visit_id
+              JOIN patients p ON v.patient_id=p.patient_id
+GROUP BY p.patient_id ORDER BY total_billed DESC LIMIT 5;
+"""
+print(pd.read_sql(q3, conn))
+
+q4 = """
+SELECT strftime('%Y-%m', visit_date) AS month, COUNT(*) AS n_visits,
+       ROUND(SUM(b.billed_amount),2) AS revenue
+FROM visits v JOIN billing b ON v.visit_id=b.visit_id
+GROUP BY month ORDER BY month LIMIT 6;
+"""
+print(pd.read_sql(q4, conn))
+# This monthly view is exactly what later powers the time-based
+# train/test split in 6.8 -- SQL already shows the data has a calendar
+# axis you must respect, not shuffle away.</code></pre>
+
+      <h2>6.4 Generate a working dataset</h2>
+      <p>The real version of this project runs on hospital records that can't be published. So — exactly like a course should — we'll generate a <strong>seeded synthetic dataset</strong> with the same shape, the same realistic messiness, and (because the seed is fixed) the same bugs. Everything from here on runs on data you can reproduce yourself, in this page, right now.</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — synthetic hospital data generator</span></div>
+<pre><code class="language-python">import numpy as np
+import pandas as pd
+
+rng = np.random.default_rng(7)
+N_PAT, N_VIS = 600, 3000
+
+cities    = ["Hyderabad","Pune","Bangalore","Mumbai","Delhi","Chennai"]
+insurers  = ["MediCareX","CareOne","HealthPlus","SecureLife"]
+depts     = ["General","ER","Neurology","Orthopedics","Cardiology","ICU"]
+vtypes    = ["ER","OPD","ICU"]
+
+start, end = pd.Timestamp("2025-01-01"), pd.Timestamp("2026-01-01")
+def rand_dates(n):
+    return start + pd.to_timedelta(rng.integers(0, (end-start).days, n), unit="D")
+
+patients = pd.DataFrame({
+    "patient_id": range(1, N_PAT+1),
+    "age": rng.integers(1, 90, N_PAT),
+    "gender": rng.choice(["M","F"], N_PAT),
+    "city": rng.choice(cities, N_PAT),
+    "insurance_provider": rng.choice(insurers, N_PAT),
+    "chronic_flag": rng.integers(0, 2, N_PAT),
+    "registration_date": rand_dates(N_PAT),
+})
+
+visits = pd.DataFrame({
+    "visit_id": range(1, N_VIS+1),
+    "patient_id": rng.choice(patients.patient_id, N_VIS),
+    "visit_date": np.sort(rand_dates(N_VIS)),
+    "department": rng.choice(depts, N_VIS),
+    "visit_type": rng.choice(vtypes, N_VIS),
+    "length_of_stay_hours": np.round(rng.gamma(4, 5, N_VIS), 1),
+    "doctor_id": rng.integers(1, 40, N_VIS),
+})
+joined = visits.merge(patients, on="patient_id")
+risk_logit = (0.01*(joined.age - 45) + 0.3*joined.chronic_flag
+              + rng.normal(0, 1.5, N_VIS))
+visits["risk_score"] = pd.cut(risk_logit, bins=[-np.inf,-0.3,0.6,np.inf],
+                               labels=["Low","Medium","High"])
+
+billing = pd.DataFrame({"bill_id": range(1, N_VIS+1), "visit_id": visits.visit_id,
+                         "billed_amount": np.round(rng.gamma(6, 3500, N_VIS), 2)})
+rej_p = 0.15 + rng.normal(0, 0.01, N_VIS)
+u = rng.random(N_VIS)
+billing["claim_status"] = np.where(u &lt; rej_p, "Rejected",
+                            np.where(u &lt; rej_p+0.25, "Pending", "Paid"))
+billing["approved_amount"] = np.where(billing.claim_status == "Rejected", np.nan,
+                                       billing.billed_amount * rng.uniform(0.7, 1.0, N_VIS))
+billing["payment_days"] = np.where(billing.claim_status == "Paid",
+                                    rng.integers(3, 30, N_VIS).astype(float), np.nan)
+
+print(patients.shape, visits.shape, billing.shape)
+# (600, 7) (3000, 7) (3000, 5) -- three independent tables, ready to join.</code></pre>
+
+      <div class="callout analogy">
+        <div class="c-title"><span class="c-emoji">🎲</span> Real-World Analogy</div>
+        <p style="margin-bottom:0">A <strong>seed</strong> (<code>default_rng(7)</code>) is like a recipe number, not a dice roll. Anyone who runs this exact cell gets the exact same "random" hospital, down to the last decimal. That's why companies seed their synthetic test fixtures and why this lesson can promise "you'll see a 49% something-is-wrong rate" several paragraphs from now — it isn't a coincidence, it's the same seed producing the same data, every time.</p>
+      </div>
+
+      <h2>6.5 EDA: missing values, and reasoning about <em>why</em></h2>
+      <p>Week 8 taught you to check <code>.isna().sum()</code>. A junior analyst stops there. A senior one asks <em>why</em> a value is missing, because the fix depends entirely on the mechanism:</p>
+      <ul>
+        <li><strong>MCAR</strong> (missing completely at random) — a sensor glitch, no pattern. Safe to drop or impute simply.</li>
+        <li><strong>MAR</strong> (missing at random, but predictable from other columns) — e.g. older patients skip an optional field more often.</li>
+        <li><strong>MNAR</strong> (missing <em>not</em> at random) — the missingness <em>is</em> the information. This is what we have here.</li>
+      </ul>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — merge the tables, then audit missingness by reason</span></div>
+<pre><code class="language-python">df = (visits.merge(patients, on="patient_id")
+            .merge(billing, on="visit_id")
+            .sort_values("visit_date").reset_index(drop=True))
+print(df.shape)   # (3000, 19) -- a clean inner join, no orphan rows
+
+print(df[["approved_amount","payment_days"]].isna().sum())
+
+# THE question: does the null line up with WHY it should be null?
+print(df.groupby("claim_status")["approved_amount"].apply(lambda x: x.isna().sum()))
+print(df.groupby("claim_status")["payment_days"].apply(lambda x: x.isna().sum()))
+# approved_amount is null ONLY for Rejected claims -- a rejected claim
+# was never approved, so null here secretly means "zero". That's MNAR:
+# the fact that it's missing tells you the value would have been 0.
+# payment_days is null for Pending/Rejected -- nothing has been paid
+# yet, so there ARE no days-to-pay. Also MNAR, also expected.</code></pre>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> A bug this exact dataset really shipped with</div>
+        <p style="margin-bottom:0">Run the cell below. In the real capstone project this course is based on, <strong>48.6% of visits</strong> had a <code>visit_date</code> earlier than the patient's own <code>registration_date</code> — a patient "visiting" a hospital before they'd registered with it. The synthetic generator above reproduces the same bug on purpose (registration dates are drawn independently of visit dates), because spotting it is the whole lesson: EDA's job is to find exactly this kind of impossible row <em>before</em> it quietly poisons a feature in section 6.7.</p>
+      </div>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — the timeline sanity check most teams skip</span></div>
+<pre><code class="language-python">impossible = (df.visit_date &lt; df.registration_date).mean()
+print(f"visits before the patient registered: {impossible:.1%}")
+# ~49% here. In production this is the single highest-value EDA check
+# you can run on any dataset with two dates: does the story they tell,
+# told in order, even make sense?</code></pre>
+
+      <h2>6.6 Outlier detection — a question, not a verdict</h2>
+      <p>Week 8's IQR rule, applied to the three numeric columns that matter most for risk and revenue:</p>
+      <p>\[ \text{outlier if } x < Q_1 - 1.5\,\text{IQR} \ \text{ or } \ x > Q_3 + 1.5\,\text{IQR} \]</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — IQR outliers on billed_amount, LOS, payment_days</span></div>
+<pre><code class="language-python">for col in ["billed_amount", "length_of_stay_hours", "payment_days"]:
+    q1, q3 = df[col].quantile([0.25, 0.75])
+    iqr = q3 - q1
+    lo, hi = q1 - 1.5*iqr, q3 + 1.5*iqr
+    n_out = ((df[col] &lt; lo) | (df[col] &gt; hi)).sum()
+    print(f"{col}: {n_out} outliers, bounds=[{lo:.1f}, {hi:.1f}]")
+
+# Winsorise (cap, don't delete) the longest stays at the 99th percentile --
+# keeps the shape of the distribution, removes the extreme tail's leverage
+# on a model, and throws away zero rows.
+cap = df["length_of_stay_hours"].quantile(0.99)
+df["los_winsorized"] = df["length_of_stay_hours"].clip(upper=cap)</code></pre>
+
+      <p>Every flagged value here is on the <em>high</em> side — long stays, big bills, slow payments — which is exactly what you'd expect in a hospital: nothing is naturally negative, so the long tail is real ICU stays and large procedures, not data corruption. That's a judgement call EDA forces you to make, every time.</p>
+
+      <h2>6.7 Feature engineering, with reasoning</h2>
+      <p>A feature isn't "a column" — it's a <em>claim</em> about what predicts the target. Each one below is engineered because of a specific hypothesis a hospital analyst would actually have:</p>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — build the feature set</span></div>
+<pre><code class="language-python"># Hypothesis: patients with a longer visit history have an established
+# pattern -- frequency and average stay say something a single visit can't.
+agg = df.groupby("patient_id").agg(
+    patient_visit_freq=("visit_id", "count"),
+    patient_avg_los=("length_of_stay_hours", "mean"),
+)
+df = df.merge(agg, on="patient_id")
+
+# Hypothesis: time-of-visit matters (weekend staffing, month-end billing
+# pushes, etc.) -- cheap to compute, often surprisingly predictive.
+df["visit_month"]      = df.visit_date.dt.month
+df["visit_quarter"]    = df.visit_date.dt.quarter
+df["visit_dayofweek"]  = df.visit_date.dt.dayofweek
+df["is_weekend_visit"] = (df.visit_dayofweek &gt;= 5).astype(int)
+
+# Hypothesis: how long someone has been a patient changes their risk
+# profile. NOTE: we deliberately do NOT clip this at zero yet -- Project 7
+# section 7.6 shows you exactly what that omission costs you in production.
+df["days_since_registration"] = (df.visit_date - df.registration_date).dt.days
+
+print(df[["patient_visit_freq","patient_avg_los","visit_month",
+          "is_weekend_visit","days_since_registration"]].describe().round(1))</code></pre>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Leakage lives in aggregate features</div>
+        <p style="margin-bottom:0">A feature like "this insurer's overall rejection rate" is enormously useful — and enormously dangerous if computed on the <em>whole</em> dataset before splitting. Computing it on data that includes the future (relative to a given training cutoff) lets the model quietly see outcomes it shouldn't know yet. Project 7 computes this feature, and explicitly recomputes it on the training split only — note the warning baked into the real project's code: <code># NOTE: this is computed on the full dataset here for EDA only.</code></p>
+      </div>
+
+      <h2>6.8 The time-based split — why production never shuffles</h2>
+      <p><code>train_test_split(shuffle=True)</code> (Week 13) is the right call when rows are independent and unordered. A hospital's visits are <strong>not</strong> — they have a calendar, and the whole point of the model is to predict the future from the past. A random shuffle would let the model train on tomorrow's pattern to predict yesterday: a leak that makes your validation score lie to you.</p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 700 130" aria-label="Time-based split vs random split">
+          <g font-family="sans-serif" font-size="11">
+            <text x="10" y="22" fill="#767c93">Random shuffle (wrong for time series):</text>
+            <g>
+              <rect x="10" y="30" width="40" height="20" fill="#4f46e5"/><rect x="55" y="30" width="40" height="20" fill="#f59e0b"/>
+              <rect x="100" y="30" width="40" height="20" fill="#4f46e5"/><rect x="145" y="30" width="40" height="20" fill="#f59e0b"/>
+              <rect x="190" y="30" width="40" height="20" fill="#4f46e5"/><rect x="235" y="30" width="40" height="20" fill="#f59e0b"/>
+              <rect x="280" y="30" width="40" height="20" fill="#4f46e5"/>
+            </g>
+            <text x="335" y="44" font-size="10" fill="#f43f5e">train (indigo) and test (amber) interleave through time →leak</text>
+
+            <text x="10" y="82" fill="#767c93">Time-based split (right):</text>
+            <rect x="10" y="90" width="490" height="20" fill="#4f46e5"/>
+            <rect x="500" y="90" width="130" height="20" fill="#f59e0b"/>
+            <text x="255" y="104" font-size="10" fill="#fff" text-anchor="middle">train — earliest 80%</text>
+            <text x="565" y="104" font-size="10" fill="#fff" text-anchor="middle">test — latest 20%</text>
+            <text x="10" y="124" font-size="10" fill="#767c93">2025-01-20 ────────────────────────────────────────────▶ 2026-01-20</text>
+          </g>
+        </svg>
+        <figcaption>A time-based split trains only on the past and tests only on the future — the same arrangement the model will face the day it goes live.</figcaption>
+      </figure>
+
+      <div class="code-head"><span class="dot" style="background:#f43f5e"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#14b8a6"></span><span class="code-label">python — split by time, not by chance</span></div>
+<pre><code class="language-python">df = df.sort_values("visit_date").reset_index(drop=True)
+split = int(len(df) * 0.8)
+train, test = df.iloc[:split], df.iloc[split:]
+
+print(f"train: {len(train)} rows, {train.visit_date.min().date()} -&gt; {train.visit_date.max().date()}")
+print(f"test:  {len(test)} rows,  {test.visit_date.min().date()} -&gt; {test.visit_date.max().date()}")
+# Every feature that aggregates across patients/insurers/departments
+# (section 6.7) should, in a real production build, be RE-fit on `train`
+# only. We carry the modeling dataset into Project 7 exactly this way.</code></pre>
+
+      <div class="callout connect">
+        <div class="c-title"><span class="c-emoji">🔗</span> Connect the Dots</div>
+        <p style="margin-bottom:0">This project leaned on <strong>Week 5 (SQL &amp; relational data)</strong>, <strong>Week 8 (EDA: missingness, outliers, correlation)</strong>, and the train/test discipline from <strong>Week 13</strong> — and it deliberately surfaced two real bugs (the registration-date timeline and the leakage trap) instead of hiding them, because production data always has both. <strong>Project 7</strong> picks up exactly where this left off: the same <code>train</code> / <code>test</code> DataFrames go straight into model training, a live FastAPI service, and a drift-monitoring loop that will, in fact, re-discover the registration-date bug on its own — proof that good monitoring catches what good EDA already warned you about.</p>
+      </div>
+
+      </div><!-- /prose -->
+
+      <h2>🧰 Concepts you're reusing</h2>
+      <ul class="refs">
+        <li><span class="r-ic">🗄️</span><div><a href="../lessons/w05.html">Week 5 · SQL &amp; Databases</a><span class="r-src">Joins, GROUP BY, and the relational model behind the three-table schema.</span></div></li>
+        <li><span class="r-ic">📊</span><div><a href="../lessons/w08.html">Week 8 · Exploratory Data Analysis</a><span class="r-src">Missingness, IQR outliers, and correlation — the listening step, applied for real this time.</span></div></li>
+        <li><span class="r-ic">📈</span><div><a href="../lessons/w13.html">Week 13 · Regression &amp; the train/test split</a><span class="r-src">Why splitting before fitting matters — extended here to a <em>time-based</em> split.</span></div></li>
+      </ul>
+
+      <h2>🚀 Make it your own</h2>
+      <ul>
+        <li><strong>Find a third bug.</strong> Check whether <code>billing_date</code> (if you add one) ever precedes <code>visit_date</code> — the real project found this too (49.6% of rows).</li>
+        <li><strong>Change the seed.</strong> Re-run section 6.4 with <code>default_rng(123)</code> and confirm the ~15% rejection rate and ~49% timeline bug reappear — that's the signal these aren't flukes of one random draw.</li>
+        <li><strong>Add a feature.</strong> Engineer <code>dept_avg_bill</code> and <code>bill_to_dept_ratio</code> (this visit's bill ÷ its department's average) — Project 7's claim model leans on exactly this pair.</li>
+      </ul>
+
+      <h2>✅ Check Yourself</h2>
+      <div class="quiz" data-answer="2">
+        <div class="q"><code>approved_amount</code> is null only when <code>claim_status == "Rejected"</code>. What kind of missingness is this?</div>
+        <button class="opt">MCAR — missing completely at random.</button>
+        <button class="opt">MAR — missing at random, predictable from age.</button>
+        <button class="opt">MNAR — the fact that it's missing IS the information (a rejected claim has no approved amount, which means it's effectively zero).</button>
+        <button class="opt">It isn't missing data at all.</button>
+        <div class="explain">The null lines up perfectly with a business reason (rejection), not chance. That's MNAR — and it tells you the correct fix is to fill with 0, not a mean or median.</div>
+      </div>
+      <div class="quiz" data-answer="1">
+        <div class="q">Why split a hospital dataset by time (earliest 80% / latest 20%) instead of a random shuffle?</div>
+        <button class="opt">Random splits are always wrong for every dataset.</button>
+        <button class="opt">Because the model will be used to predict the future from the past in production — a random shuffle lets it "see" future patterns during training, which it'll never have access to at prediction time.</button>
+        <button class="opt">Time-based splits give higher accuracy.</button>
+        <button class="opt">It's only a stylistic preference.</button>
+        <div class="explain">A random shuffle interleaves future and past rows into both train and test, leaking information about the future into training. A time-based split mirrors exactly how the model will be used the day it ships.</div>
+      </div>
+      <div class="quiz" data-answer="0">
+        <div class="q">What does the IQR outlier check on <code>billed_amount</code>, <code>length_of_stay_hours</code>, and <code>payment_days</code> reveal in this dataset?</div>
+        <button class="opt">Every flagged outlier is on the high side — long stays, big bills, slow payments — consistent with real (not corrupted) extreme cases, since none of these can be negative.</button>
+        <button class="opt">The data is full of negative-value errors that must be deleted.</button>
+        <button class="opt">There are no outliers in any hospital dataset.</button>
+        <button class="opt">Outliers should always be removed before modeling.</button>
+        <div class="explain">All three columns are naturally bounded at zero, so the IQR rule only ever flags the high tail — and that tail is exactly where the real signal (ICU stays, big procedures, slow claims) tends to live. Investigate, don't auto-delete.</div>
+      </div>
+
+      <nav class="pager"><a class="prev" href="p5.html">← Project 5: Ship It (RAG Chatbot)</a><a class="next" href="p7.html">Project 7: Hospital Risk Intelligence II →</a></nav>
+
+    </main>
+  </div>
+</div>
+
+<script src="../assets/js/curriculum.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/vendor/highlight/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
+</body>
+</html>

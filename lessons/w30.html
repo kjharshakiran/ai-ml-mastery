@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lesson 30 · RNNs I: Sequences, LSTM &amp; GRU — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+  <script src="../assets/js/interactive-widgets.js"></script>
 </head>
 <body data-lesson="w30">
 <div class="topbar">
@@ -111,6 +114,49 @@
         <figcaption>One RNN cell unrolled over four words. The blue arrows carry the hidden state (memory) forward with shared weight \(W\); each word \(x_t\) (amber) updates it. By \(h_4\) the state has seen the whole sentence — including the meaning-flipping "not".</figcaption>
       </figure>
 
+      <figure class="figure">
+        <div style="max-width: 600px; margin: 0 auto;">
+          <svg viewBox="0 0 600 160" aria-label="Vanishing gradient in RNNs: gradient bars shrink as they travel back in time">
+            <style>
+              .rnn-grad-bar { animation: rnn-grad-shrink 2s ease-out forwards; transform-origin: bottom; }
+              @keyframes rnn-grad-shrink {
+                from { transform: scaleY(1); }
+                to { transform: scaleY(var(--target-scale)); }
+              }
+            </style>
+            <!-- Time step labels -->
+            <text x="60" y="145" font-size="11" fill="#767c93" text-anchor="middle">t=10</text>
+            <text x="120" y="145" font-size="11" fill="#767c93" text-anchor="middle">t=9</text>
+            <text x="180" y="145" font-size="11" fill="#767c93" text-anchor="middle">t=8</text>
+            <text x="240" y="145" font-size="11" fill="#767c93" text-anchor="middle">t=7</text>
+            <text x="300" y="145" font-size="11" fill="#767c93" text-anchor="middle">t=6</text>
+            <text x="360" y="145" font-size="11" fill="#767c93" text-anchor="middle">t=5</text>
+            <text x="420" y="145" font-size="11" fill="#767c93" text-anchor="middle">t=4</text>
+            <text x="480" y="145" font-size="11" fill="#767c93" text-anchor="middle">t=3</text>
+            <text x="540" y="145" font-size="11" fill="#767c93" text-anchor="middle">t=2</text>
+            <!-- Gradient bars -->
+            <rect class="rnn-grad-bar" x="50" y="20" width="20" height="110" fill="#f43f5e" opacity="0.9" style="--target-scale: 1;"/>
+            <rect class="rnn-grad-bar" x="110" y="20" width="20" height="110" fill="#f43f5e" opacity="0.8" style="--target-scale: 0.7; animation-delay: 0.2s;"/>
+            <rect class="rnn-grad-bar" x="170" y="20" width="20" height="110" fill="#f43f5e" opacity="0.7" style="--target-scale: 0.5; animation-delay: 0.4s;"/>
+            <rect class="rnn-grad-bar" x="230" y="20" width="20" height="110" fill="#f43f5e" opacity="0.6" style="--target-scale: 0.35; animation-delay: 0.6s;"/>
+            <rect class="rnn-grad-bar" x="290" y="20" width="20" height="110" fill="#f43f5e" opacity="0.5" style="--target-scale: 0.24; animation-delay: 0.8s;"/>
+            <rect class="rnn-grad-bar" x="350" y="20" width="20" height="110" fill="#f43f5e" opacity="0.4" style="--target-scale: 0.17; animation-delay: 1.0s;"/>
+            <rect class="rnn-grad-bar" x="410" y="20" width="20" height="110" fill="#f43f5e" opacity="0.3" style="--target-scale: 0.12; animation-delay: 1.2s;"/>
+            <rect class="rnn-grad-bar" x="470" y="20" width="20" height="110" fill="#f43f5e" opacity="0.2" style="--target-scale: 0.08; animation-delay: 1.4s;"/>
+            <rect class="rnn-grad-bar" x="530" y="20" width="20" height="110" fill="#f43f5e" opacity="0.1" style="--target-scale: 0.05; animation-delay: 1.6s;"/>
+            <!-- Arrow -->
+            <line x1="560" y1="30" x2="80" y2="30" stroke="#767c93" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#rnn-arrow)"/>
+            <text x="320" y="22" font-size="11" fill="#767c93" text-anchor="middle">gradient flows backward</text>
+            <defs>
+              <marker id="rnn-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill="#767c93"/>
+              </marker>
+            </defs>
+          </svg>
+        </div>
+        <figcaption><strong>The vanishing gradient problem:</strong> Watch the gradient bars shrink as they travel back in time. By the time the error signal reaches the early time steps, it's nearly zero — so the early words learn almost nothing. This is why plain RNNs struggle with long sentences. LSTMs fix this with a separate "conveyor belt" memory.</figcaption>
+      </figure>
+
       <p>This unrolled picture also gives us the <strong>RNN shapes</strong>, defined by how many inputs map to how many outputs:</p>
       <ul>
         <li><strong>Many-to-one</strong> — read a whole sequence, emit one answer. Sentiment classification (read a review → positive/negative), as drawn above.</li>
@@ -129,6 +175,29 @@
       <p>\[ f_t = \sigma(W_f[h_{t-1},x_t]+b_f), \quad i_t = \sigma(W_i[h_{t-1},x_t]+b_i), \quad o_t = \sigma(W_o[h_{t-1},x_t]+b_o) \]</p>
       <p>\[ c_t = f_t \odot c_{t-1} \;+\; i_t \odot \tilde{c}_t, \qquad h_t = o_t \odot \tanh(c_t) \]</p>
       <p>Read it in plain words: the <strong>forget gate</strong> \(f_t\) decides what fraction of the old memory \(c_{t-1}\) to keep; the <strong>input gate</strong> \(i_t\) decides how much of the new candidate \(\tilde{c}_t = \tanh(W_c[h_{t-1},x_t]+b_c)\) to write in; the <strong>output gate</strong> \(o_t\) decides how much of the memory to expose as this step's hidden state. The symbol \(\odot\) is element-wise multiplication. Because \(c_t\) is updated mostly by <em>addition</em> (keep some old + add some new), gradients flow through it without repeatedly multiplying by \(W\) — so the memory of word 1 can survive to word 100.</p>
+      <h3>One LSTM step, by hand</h3>
+      <p>Let's push real numbers through those gate equations once. Take a 1-D cell whose prior memory is \(c_{t-1} = 0.8\) — imagine it's holding the fact "the subject is plural." (Here \([h_{t-1}, x_t]\) just means the previous hidden state and current input stacked into one vector before each gate's weights act on it.) Suppose this step's pre-activations give:</p>
+      <table>
+        <thead><tr><th>gate</th><th>pre-activation</th><th>value</th></tr></thead>
+        <tbody>
+          <tr><td>forget \(f_t\)</td><td>\(\sigma(2.2)\)</td><td>0.900</td></tr>
+          <tr><td>input \(i_t\)</td><td>\(\sigma(-1.4)\)</td><td>0.198</td></tr>
+          <tr><td>candidate \(\tilde{c}_t\)</td><td>\(\tanh(0.5)\)</td><td>0.462</td></tr>
+          <tr><td>output \(o_t\)</td><td>\(\sigma(1.0)\)</td><td>0.731</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Step 1 — update the memory.</strong> The new cell state keeps a fraction of the old memory and adds a fraction of the new candidate:</p>
+      <p>\[ c_t = f_t \cdot c_{t-1} + i_t \cdot \tilde{c}_t = 0.900\times 0.8 + 0.198\times 0.462 = 0.720 + 0.091 = 0.812 \]</p>
+      <p>The old value \(0.8\) survives almost <strong>intact</strong> — the forget gate chose to keep \(90\%\) of it, so "plural" is still remembered.</p>
+      <p><strong>Step 2 — expose the hidden state.</strong> The output gate decides how much of the (squashed) memory to reveal:</p>
+      <p>\[ h_t = o_t \cdot \tanh(c_t) = 0.731 \cdot \tanh(0.812) = 0.731 \times 0.670 = 0.490 \]</p>
+      <p>So this step emits <strong>\(h_t \approx 0.490\)</strong> while quietly carrying \(c_t \approx 0.812\) forward.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> Why the old memory doesn't vanish</div>
+        <p style="margin-bottom:0">A plain RNN overwrites its memory every step with \(\tanh(Wh+Ux)\), so the \(0.8\) would be gone in a single update. The LSTM's \(f_t \cdot c_{t-1}\) term <em>protects</em> it, and because the update is <em>additive</em>, the gradient flowing back through \(c\) is roughly \(f_t \approx 0.9\) per step — not a fresh \(W\) multiply that could shrink toward zero. That additive highway is exactly why the signal doesn't vanish.</p>
+      </div>
+
       <p>The <strong>GRU</strong> (Gated Recurrent Unit) is a streamlined cousin: it merges the cell and hidden state and uses just two gates (reset and update). Fewer parameters, often just as good, and faster to train. As a rule of thumb: reach for an LSTM or GRU rather than a vanilla RNN whenever sequences are long.</p>
 
       <div class="callout key">
@@ -221,5 +290,6 @@ print("final summary -> output:", np.round(y, 3))
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

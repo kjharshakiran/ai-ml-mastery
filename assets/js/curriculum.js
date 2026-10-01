@@ -133,6 +133,18 @@ const CURRICULUM = {
     { id: "p5", n: "5", emoji: "☁️", title: "Ship It: Deploy a Model + RAG Chatbot to the Cloud", file: "projects/p5.html",
       blurb: "Wrap a model in an API, add a RAG layer, containerise and deploy with monitoring. Uses Parts 6–7.",
       uses: ["MLOps", "RAG", "Docker", "Cloud", "APIs"] },
+    { id: "p6", n: "6", emoji: "🏥", title: "Hospital Risk Intelligence I: Data Foundations", file: "projects/p6.html",
+      blurb: "Applied MLOps capstone, part I. SQL → EDA → feature engineering on a real-shaped 3-table hospital schema, with two genuine data bugs found along the way. Uses Parts 2 &amp; 4.",
+      uses: ["SQL", "EDA", "Feature Engineering", "Data Quality", "Time-based split"] },
+    { id: "p7", n: "7", emoji: "🏥", title: "Hospital Risk Intelligence II: Models, API &amp; Monitoring", file: "projects/p7.html",
+      blurb: "Applied MLOps capstone, part II. Train Random Forest + Gradient Boosting, evaluate honestly, ship a validated FastAPI service, and catch a real drift false-alarm with PSI. Uses Parts 4 &amp; 7.",
+      uses: ["Random Forest", "Gradient Boosting", "FastAPI", "Drift (PSI)", "Fairness", "MLOps"] },
+    { id: "p8", n: "8", emoji: "✈️", title: "Wheels Up I: Private Aviation Data Foundations", file: "projects/p8.html",
+      blurb: "The Project 6 spine, applied from scratch to a private-aviation customers/reservations/billing business. Uses Parts 2 &amp; 4.",
+      uses: ["SQL", "EDA", "Feature Engineering", "Data Quality"] },
+    { id: "p9", n: "9", emoji: "✈️", title: "Wheels Up II: Models, API &amp; Monitoring", file: "projects/p9.html",
+      blurb: "The Project 7 spine on the aviation dataset — including a real, severe fairness gap on the highest-value customer segment. Uses Parts 4 &amp; 7.",
+      uses: ["Random Forest", "Gradient Boosting", "FastAPI", "Drift (PSI)", "Fairness", "MLOps"] },
   ]
 };
 

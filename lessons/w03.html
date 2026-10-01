@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lesson 3 · Calculus &amp; Optimisation — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+<script src="../assets/js/interactive-widgets.js"></script>
 </head>
 <body data-lesson="w03">
 <div class="topbar">
@@ -110,6 +113,61 @@
           <text x="150" y="135" font-size="12" fill="#4f46e5">−∇f (downhill)</text>
         </svg>
         <figcaption>A "bowl" loss seen from above as contour rings. The gradient (rose) points outward/uphill; we walk the opposite way (indigo) toward the minimum.</figcaption>
+      </figure>
+
+      <figure class="figure">
+        <div class="gd-container" style="max-width: 500px; margin: 0 auto;">
+          <svg viewBox="0 0 500 280" aria-label="Animated gradient descent: a ball rolls down a parabolic loss surface">
+            <defs>
+              <marker id="gd-arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill="#14b8a6"/>
+              </marker>
+              <linearGradient id="gd-surface" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#eef2ff"/>
+                <stop offset="100%" stop-color="#f7f7fb"/>
+              </linearGradient>
+            </defs>
+            <rect width="500" height="280" fill="url(#gd-surface)" rx="12"/>
+            <!-- Grid lines -->
+            <g stroke="#e3e6f0" stroke-width="1">
+              <line x1="50" y1="240" x2="450" y2="240"/>
+              <line x1="50" y1="20" x2="50" y2="240"/>
+              <line x1="150" y1="20" x2="150" y2="240" stroke-dasharray="4 4"/>
+              <line x1="250" y1="20" x2="250" y2="240" stroke-dasharray="4 4"/>
+              <line x1="350" y1="20" x2="350" y2="240" stroke-dasharray="4 4"/>
+              <line x1="50" y1="140" x2="450" y2="140" stroke-dasharray="4 4"/>
+              <line x1="50" y1="80" x2="450" y2="80" stroke-dasharray="4 4"/>
+            </g>
+            <!-- Parabola -->
+            <path class="gd-parabola" d="M 80 40 Q 250 250 420 40" style="animation: gd-draw-parabola 2s ease-out forwards;"/>
+            <style>
+              @keyframes gd-draw-parabola { to { stroke-dashoffset: 0; } }
+              @keyframes gd-roll {
+                0%   { transform: translate(420px, 40px); }
+                30%  { transform: translate(330px, 90px); }
+                60%  { transform: translate(250px, 160px); }
+                100% { transform: translate(200px, 210px); }
+              }
+            </style>
+            <!-- Gradient arrows along path -->
+            <g class="gd-gradient-arrow" style="opacity: 0; animation: gd-fade-in 0.5s ease-out 1.5s forwards;">
+              <line x1="380" y1="55" x2="340" y2="80" marker-end="url(#gd-arrowhead)"/>
+              <line x1="300" y1="105" x2="270" y2="130" marker-end="url(#gd-arrowhead)"/>
+              <line x1="230" y1="155" x2="210" y2="185" marker-end="url(#gd-arrowhead)"/>
+            </g>
+            <style>
+              @keyframes gd-fade-in { to { opacity: 1; } }
+            </style>
+            <!-- Ball -->
+            <circle class="gd-ball" r="8" style="animation: gd-roll 3s ease-in-out 2s infinite alternate;"/>
+            <!-- Labels -->
+            <text x="250" y="265" font-size="12" fill="#767c93" text-anchor="middle">Parameter value →</text>
+            <text x="15" y="140" font-size="12" fill="#767c93" transform="rotate(-90 15,140)">Loss →</text>
+            <text x="420" y="30" font-size="11" fill="#f43f5e" font-weight="bold">High loss</text>
+            <text x="200" y="265" font-size="11" fill="#14b8a6" font-weight="bold">Minimum</text>
+          </svg>
+        </div>
+        <figcaption style="margin-top: 12px;"><strong>Gradient descent in motion:</strong> The ball (parameter) starts at high loss and rolls downhill, following the negative gradient (teal arrows). Each step is proportional to the steepness — bigger steps where it's steep, tiny steps near the flat bottom. This is exactly how a model learns.</figcaption>
       </figure>
 
       <h2>3. Vector-in, vector-out: the Jacobian</h2>
@@ -235,5 +293,6 @@ for step in range(5):
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

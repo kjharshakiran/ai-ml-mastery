@@ -6,7 +6,8 @@
 <title>Lesson 27 · Dropout &amp; Batch Normalisation — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
 </head>
 <body data-lesson="w27">
@@ -104,6 +105,20 @@
       <p>Then — crucially — apply two <em>learnable</em> parameters, a scale \(\gamma\) and a shift \(\beta\), so the network can undo the normalisation if that turns out to help:</p>
       <p>\[ y_i = \gamma\,\hat{z}_i + \beta \]</p>
       <p>Why the last step? Forcing every activation to mean 0, variance 1 might be too rigid; \(\gamma\) and \(\beta\) give the layer the freedom to choose the best scale and offset, learned by backprop like any other weight. BatchNorm lets you use higher learning rates, makes training far less sensitive to weight initialisation, and adds a mild regularising effect (the batch statistics inject a little noise). At <strong>test time</strong> there's no batch, so we use running averages of \(\mu\) and \(\sigma^2\) collected during training. This is also why batchnorm's behaviour depends on batch size: with very small batches the per-batch statistics become noisy and unreliable, which is one reason transformers prefer layer normalisation instead. Placed after each layer's linear step (and usually before the activation), batchnorm became standard equipment in the deep convolutional networks of the late 2010s — it was a big part of why such networks suddenly trained in hours rather than weeks.</p>
+
+      <h3>Batch-normalising one feature, by hand</h3>
+      <p>The three-line recipe — mean-centre, scale to unit variance, then \(\gamma,\beta\) — is clearest with one feature watched across a batch of four examples: \(z=[10,12,8,14]\).</p>
+      <p><strong>Step 1 — batch statistics.</strong> Mean \(\mu_B = \tfrac{10+12+8+14}{4} = 11\). Variance averages the squared deviations \([1,1,9,9]\):</p>
+      <p>\[ \sigma_B^2 = \frac{1+1+9+9}{4} = 5, \qquad \sigma_B = \sqrt{5} \approx 2.236 \]</p>
+      <p><strong>Step 2 — normalise.</strong> Subtract the mean, divide by the std: \(\hat{z} = [-0.447,\,0.447,\,-1.342,\,1.342]\). Check — this set has <strong>mean 0 and variance 1</strong>, exactly as designed.</p>
+      <p><strong>Step 3 — scale and shift.</strong> Apply learnable \(\gamma=2\) and \(\beta=1\):</p>
+      <p>\[ y = 2\,\hat{z} + 1 = [0.106,\,1.894,\,-1.683,\,3.683] \]</p>
+      <p>The output now has <strong>mean 1 and standard deviation 2</strong> — the layer re-widened (\(\gamma=2\)) and re-centred (\(\beta=1\)) the forced unit-Gaussian into whatever shape best serves the next layer.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> What \(\gamma\) and \(\beta\) are for</div>
+        <p style="margin-bottom:0">Steps 1–2 always crush the feature to mean 0, variance 1 — but that rigid shape might not be what the next layer wants. Step 3 hands the control back: \(\gamma\) and \(\beta\) let the network re-scale and re-shift to <em>any</em> mean and variance it likes (here, mean 1, std 2), learned by backprop. If the identity were optimal, the layer could even set \(\gamma=\sigma_B,\ \beta=\mu_B\) and undo the whole thing. That's the entire reason the last step exists.</p>
+      </div>
 
       <div class="callout key">
         <div class="c-title"><span class="c-emoji">🔑</span> The one thing to remember</div>
@@ -220,5 +235,6 @@ print("post-BN std :", np.round(Y.std(axis=0), 3))   # -> [1. 1. 1.]  (each feat
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

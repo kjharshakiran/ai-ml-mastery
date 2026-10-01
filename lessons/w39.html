@@ -6,7 +6,8 @@
 <title>Lesson 39 · Cloud Deployment — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
 </head>
 <body data-lesson="w39">
@@ -206,6 +207,7 @@ def health():
         <li><strong>Cost</strong> — an LLM might need a GPU costing several dollars per hour, and generation cost scales with the number of tokens. Smart deployment means right-sizing the model (do you need 70B parameters, or will a quantised 7B do?), caching common answers, and batching aggressively.</li>
       </ul>
       <p>The rough cost model that haunts every LLM product: total cost \(\approx N_{\text{requests}} \times \big(T_{\text{in}} + T_{\text{out}}\big) \times c_{\text{token}}\), where \(T_{\text{in}}\) and \(T_{\text{out}}\) are input and output tokens and \(c_{\text{token}}\) is the cost per token. Every word the model reads or writes is on the meter.</p>
+      <p>Put real numbers in. Say \(100{,}000\) requests/day, each with \(500\) input + \(300\) output tokens, at \$2 per million tokens (\(c_{\text{token}}=\$0.000002\)): \(100{,}000 \times 800 \times \$0.000002 = \$160\)/day, about \$4,800/month. Notice that <strong>halving the output length halves the bill</strong> — which is why "be concise" is a cost lever, not just a style choice.</p>
 
       <div class="callout warn">
         <div class="c-title"><span class="c-emoji">⚠️</span> The bill is the boss</div>
@@ -265,5 +267,6 @@ def health():
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script src="../assets/vendor/highlight/dockerfile.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lesson 26 · Gradient Descent &amp; Adaptive Optimisers — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+<script src="../assets/js/interactive-widgets.js"></script>
 </head>
 <body data-lesson="w26">
 <div class="topbar">
@@ -89,6 +92,18 @@
         <figcaption>Descending a loss valley. With a good learning rate (teal) steps shrink as the slope flattens and settle at the minimum. Too large a rate (rose) leaps across the valley and climbs the far wall.</figcaption>
       </figure>
 
+      <div class="interactive-widget" id="w26-lr-widget" data-widget="lr">
+        <div class="widget-title">⚡ Interactive: Learning Rate Explorer</div>
+        <p>Adjust the learning rate to see how step size affects convergence. Too small = crawls. Too large = oscillates and diverges. Just right = smooth landing.</p>
+        <input type="range" class="widget-slider" min="0.01" max="0.50" value="0.10" step="0.01">
+        <div class="widget-labels"><span>Too small (0.01)</span><span>Too large (0.50)</span></div>
+        <div class="widget-value">Learning rate: 0.10</div>
+        <canvas class="widget-canvas"></canvas>
+        <div class="widget-description">
+          The loss curve shows how quickly (and whether) the optimizer finds the minimum. Watch what happens at the extremes!
+        </div>
+      </div>
+
       <p><strong>The loss surface &amp; local minima.</strong> For a simple model the surface is a clean bowl with one bottom (convex). Deep networks are non-convex: the surface has many dips, saddle points (flat in some directions, sloped in others), and long narrow ravines. Happily, in very high dimensions most "bad" stuck points turn out to be saddles, not true traps, and good optimisers slide off them. Different starting weights can lead to different — but usually similarly good — solutions, which is why we rarely worry about finding <em>the</em> global minimum; any of the many good valleys will do. The real enemies in practice are not local minima but ravines (where plain gradient descent zig-zags, as below) and plateaus (where the gradient is nearly flat and progress stalls). The optimisers in §26.3 are designed precisely to power through both.</p>
       <p><strong>Batch vs. stochastic (recap, Week 25).</strong> Full-batch gradient descent gives the exact slope but is slow per step. Stochastic gradient descent (SGD) estimates the slope from one example (or a mini-batch) — noisier, but far more steps per second, and the noise itself helps jiggle the optimiser out of shallow dips. Mini-batch SGD is the workhorse.</p>
 
@@ -103,6 +118,24 @@
       <p><strong>Momentum.</strong> Keep a running "velocity" \(\mathbf{v}\) that accumulates past gradients, and step with the velocity instead of the raw gradient. A friction term \(\beta\) (≈ 0.9) decays old gradients:</p>
       <p>\[ \mathbf{v}_{t+1} = \beta\,\mathbf{v}_t + \nabla L(\theta_t), \qquad \theta_{t+1} = \theta_t - \eta\,\mathbf{v}_{t+1} \]</p>
       <p>Consistent gradient directions add up (acceleration); oscillating directions cancel (damping). Momentum is the ball rolling downhill.</p>
+
+      <h3>Momentum vs plain SGD, two steps by hand</h3>
+      <p>The velocity equation is easiest to trust when you race the two optimisers for just two steps on the ravine \(L=x^2+10y^2\), whose gradient is \([2x,\,20y]\). Both start at \((9,1)\) with \(\eta=0.02\); momentum uses \(\beta=0.9\) and \(\mathbf{v}_0=0\).</p>
+      <table>
+        <thead><tr><th></th><th>Plain SGD</th><th>Momentum</th></tr></thead>
+        <tbody>
+          <tr><td>after step 1</td><td>(8.64, 0.60)</td><td>(8.64, 0.60)</td></tr>
+          <tr><td>after step 2</td><td>(8.29, 0.36)</td><td>(7.97, 0.00)</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Step 1 (identical).</strong> Gradient at \((9,1)\) is \([18,20]\). SGD steps to \([9,1]-0.02[18,20]=(8.64,0.60)\). Momentum sets \(\mathbf{v}_1=0.9\cdot 0+[18,20]=[18,20]\) and lands in the same place.</p>
+      <p><strong>Step 2 (they diverge).</strong> The new gradient is \([2\cdot 8.64,\,20\cdot 0.60]=[17.28,12]\). Plain SGD just steps again: \((8.29,\,0.36)\). Momentum instead accumulates: \(\mathbf{v}_2=0.9[18,20]+[17.28,12]=[33.48,30]\), so \(\theta=(8.64,0.60)-0.02[33.48,30]=(7.97,\,\mathbf{0.00})\).</p>
+      <p>After only two steps <strong>momentum has driven \(y\) to 0.00 while SGD is still stuck at 0.36</strong>. The \(y\)-gradient pointed the same way both times, so momentum <em>added</em> the two pushes and killed the steep-axis zig-zag — exactly the ravine win the skier analogy promised.</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> Velocity can overshoot</div>
+        <p style="margin-bottom:0">That same accumulation is double-edged: a velocity built up over many consistent steps can carry you <em>past</em> the minimum before it reverses, so the loss may briefly tick up. The friction term \(\beta\) is what damps this controlled roll-past — set it too close to 1 and the ball coasts forever; the usual \(\beta=0.9\) keeps the overshoot small and self-correcting.</p>
+      </div>
 
       <p><strong>RMSProp.</strong> Scale each weight's step by the recent <em>size</em> of its gradients, so steep directions take small steps and flat directions take big ones. Keep a running average of squared gradients \(\mathbf{s}\):</p>
       <p>\[ \mathbf{s}_{t+1} = \rho\,\mathbf{s}_t + (1-\rho)\,\nabla L(\theta_t)^2, \qquad \theta_{t+1} = \theta_t - \frac{\eta}{\sqrt{\mathbf{s}_{t+1}}+\epsilon}\,\nabla L(\theta_t) \]</p>
@@ -239,5 +272,6 @@ print("momentum   after 60 steps: loss = %.5f" % loss(p))
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

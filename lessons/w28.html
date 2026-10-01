@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lesson 28 · CNNs I: Convolution &amp; Pooling — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
+<link rel="stylesheet" href="../assets/css/visual-enhancements.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
+  <script src="../assets/js/interactive-widgets.js"></script>
 </head>
 <body data-lesson="w28">
 <div class="topbar">
@@ -59,6 +62,19 @@
       <p>Stack all those answers back into a grid and you get a <strong>feature map</strong>: a new image that lights up wherever the filter's pattern appears. Formally, for an input \(I\) and a \(K\times K\) kernel \(W\), the value of the feature map at position \((i,j)\) is:</p>
       <p>\[ S(i,j) \;=\; \sum_{m=0}^{K-1}\sum_{n=0}^{K-1} I(i+m,\; j+n)\,\cdot\,W(m,n) \;+\; b \]</p>
       <p>That double sum is one dot product between the kernel and the patch it covers, plus a bias \(b\). A filter whose weights look like \(\begin{smallmatrix}-1&0&1\\-1&0&1\\-1&0&1\end{smallmatrix}\) responds strongly to a vertical edge (bright on the right, dark on the left) and ignores flat regions. The magic of deep learning: <strong>we don't hand-design these filters — backprop (Week 25) learns them.</strong></p>
+
+      <h3>One convolution window, by hand</h3>
+      <p>The double sum is abstract until you slide it across a real picture. Take the lesson's striped image (dark 0s with a bright band of 9s) and the vertical-edge kernel \(W=\begin{smallmatrix}-1&0&1\\-1&0&1\\-1&0&1\end{smallmatrix}\).</p>
+      <p><strong>Step 1 — the dark→bright edge.</strong> Place the kernel on the top-left \(3\times3\) patch, where each row reads \([0,0,9]\):</p>
+      <p>\[ \sum (\text{patch}\odot W) = \big(0\cdot(-1) + 0\cdot 0 + 9\cdot 1\big)\times 3 \text{ rows} = 9\times 3 = \mathbf{27} \]</p>
+      <p><strong>Step 2 — the bright→dark edge.</strong> Slide right to the patch whose rows read \([9,9,0]\):</p>
+      <p>\[ \big(9\cdot(-1) + 9\cdot 0 + 0\cdot 1\big)\times 3 = -9\times 3 = \mathbf{-27} \]</p>
+      <p><strong>Step 3 — read the feature map.</strong> Every row of this image is identical, so each output column repeats. Across the four output columns the map reads \([27,\,27,\,-27,\,-27]\): a strong \(+27\) where dark turns to bright, \(-27\) where bright turns back to dark, and \(0\) in the flat stretches the kernel never straddles. Max-pooling over \(\lvert\text{feature}\rvert\) then keeps the 27s — its verdict is simply "<strong>an edge lives here</strong>."</p>
+
+      <div class="callout warn">
+        <div class="c-title"><span class="c-emoji">⚠️</span> It's actually cross-correlation</div>
+        <p style="margin-bottom:0">Textbook convolution first <em>flips</em> the kernel before the multiply-and-sum; what we (and PyTorch, TensorFlow, every framework) actually compute skips the flip. That unflipped version is technically <strong>cross-correlation</strong> — but since the filter weights are learned anyway, the flip makes no practical difference and everyone just calls it "convolution." Don't be thrown when the math textbook and the code library disagree by a 180° rotation.</p>
+      </div>
 
       <figure class="figure">
         <svg viewBox="0 0 520 240" aria-label="A 3x3 filter sliding over an input grid to produce a feature map">
@@ -231,5 +247,6 @@ print("pooled (|edge| strength):\n", pooled)
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

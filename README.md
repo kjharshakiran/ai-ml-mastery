@@ -2,9 +2,10 @@
 
 A complete, beginner-to-pro learning site for Applied Artificial Intelligence &amp; Machine Learning,
 rebuilt from the IITM Pravartak Advanced Certificate curriculum (40 weeks) as **40 crystal-clear
-lessons + 5 hands-on capstone projects**. Every concept is explained simply enough for a curious
+lessons + 9 hands-on capstone projects**. Every concept is explained simply enough for a curious
 10-year-old, yet technically complete — building strictly from *"how data becomes a vector"* all the
-way to *"how an LLM like ChatGPT works."*
+way to *"how an LLM like ChatGPT works,"* then on to two full applied MLOps systems (Projects 6–9)
+built the way a real company ships and monitors a tabular ML product.
 
 ## How to use it
 
@@ -33,7 +34,9 @@ It's a **static site — no build step, no install — and it works 100% offline
 | `assets/js/app.js` | Sidebar, search, progress tracking, prev/next pager, quizzes, theme |
 | `assets/vendor/` | Locally bundled MathJax (SVG) + highlight.js — this is what makes it work offline |
 | `lessons/w01.html … w40.html` | The 40 weekly lessons |
-| `projects/p1.html … p5.html` | The 5 capstone projects |
+| `projects/p1.html … p5.html` | The first 5 capstone projects (regression → RAG chatbot) |
+| `projects/p6.html, p7.html` | Applied MLOps capstone I — Hospital Risk Intelligence (data foundations, then models/API/monitoring) |
+| `projects/p8.html, p9.html` | Applied MLOps capstone II — Wheels Up private aviation (same spine, new business, built from scratch) |
 | `BUILD_SPEC.md` | The authoring spec every lesson follows (use it to add or edit lessons consistently) |
 
 ## The learning arc
@@ -47,7 +50,10 @@ It's a **static site — no build step, no install — and it works 100% offline
 7. **Transformers &amp; Generative AI** (W32–37) — attention, LLMs, RAG, GANs, diffusion.
 8. **Production &amp; RL** (W38–40) — MLOps, cloud deployment, reinforcement learning.
 
-**Projects:** Tabular ML pipeline → Text classifier → CNN image classifier → **Mini-GPT from scratch** → Deploy a RAG chatbot.
+**Projects:** Tabular ML pipeline → Text classifier → CNN image classifier → **Mini-GPT from scratch** →
+Deploy a RAG chatbot → **Hospital Risk Intelligence I/II** (SQL/EDA/features, then RF+GBM/FastAPI/PSI drift
+monitoring/fairness) → **Wheels Up I/II** (the same applied-MLOps spine, rebuilt from scratch on a private
+aviation customers/reservations/billing business).
 
 ## Adding or editing a lesson
 

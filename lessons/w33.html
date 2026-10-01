@@ -6,7 +6,8 @@
 <title>Lesson 33 · Positional Encoding &amp; Pre-training — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
 </head>
 <body data-lesson="w33">
@@ -93,6 +94,24 @@
         <li><strong>Every position gets a unique vector</strong>, yet nearby positions get <em>similar</em> vectors — so "distance in the sentence" maps to "distance in encoding space."</li>
         <li>Because of trig identities, \(PE_{pos+k}\) is a fixed linear function of \(PE_{pos}\). The model can learn <em>relative</em> offsets ("the word three slots back") with a simple linear operation, and it extrapolates gracefully to sentence lengths never seen in training.</li>
       </ul>
+
+      <h3>Two positional-encoding cells, by hand</h3>
+      <p>Let's evaluate the formula for real to watch the fast and slow clock hands tick. Take \(d = 4\), so we have two sine/cosine pairs. For \(2i = 0\) the denominator is \(10000^{0} = 1\); for \(2i = 2\) it is \(10000^{2/4} = 100\). Plugging in positions 1 and 2:</p>
+      <table>
+        <thead><tr><th>position</th><th>dim 0 \(\sin(pos/1)\)</th><th>dim 1 \(\cos(pos/1)\)</th><th>dim 2 \(\sin(pos/100)\)</th><th>dim 3 \(\cos(pos/100)\)</th></tr></thead>
+        <tbody>
+          <tr><td>\(pos = 1\)</td><td>0.841</td><td>0.540</td><td>0.010</td><td>1.000</td></tr>
+          <tr><td>\(pos = 2\)</td><td>0.909</td><td>-0.416</td><td>0.020</td><td>1.000</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Step 1 — the fast pair (left).</strong> Dim 0 uses \(\sin(pos)\) directly, so it leaps from \(\sin(1) = 0.841\) to \(\sin(2) = 0.909\), and dim 1 swings from \(\cos(1)=0.540\) to \(\cos(2)=-0.416\) — a big change for a single step.</p>
+      <p><strong>Step 2 — the slow pair (right).</strong> Dim 2 is \(\sin(pos/100)\), so \(\sin(0.01)=0.010\) creeps to \(\sin(0.02)=0.020\), and dim 3 stays pinned at \(\cos \approx 1.000\). The right pair barely moves.</p>
+      <p>So \(\mathbf{p}_1 \approx [0.841,\, 0.540,\, 0.010,\, 1.000]\) and \(\mathbf{p}_2 \approx [0.909,\, -0.416,\, 0.020,\, 1.000]\) — <strong>literal fast and slow clock hands</strong>: the left pair races, the right pair crawls.</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> Different dimensions tick at different speeds</div>
+        <p style="margin-bottom:0">Each dimension oscillates at its own frequency — fast on the left, glacial on the right. The <em>combination</em> of all these hand-positions gives every slot a unique fingerprint the model can read and compare, so it can tell position 1 from position 2 from position 200.</p>
+      </div>
 
       <div class="callout analogy">
         <div class="c-title"><span class="c-emoji">🕰️</span> Real-World Analogy: a wall of clocks</div>
@@ -272,5 +291,6 @@ print("sim(pos 0, pos 5):", round(cos_sim(PE[0], PE[5]), 3))   # lower -> far ap
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>

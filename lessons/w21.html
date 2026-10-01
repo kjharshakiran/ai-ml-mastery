@@ -6,7 +6,8 @@
 <title>Lesson 21 · Decision Trees &amp; CART — AI &amp; ML Mastery</title>
 <link rel="stylesheet" href="../assets/css/styles.css">
 <link rel="stylesheet" href="../assets/vendor/highlight/atom-one-dark.min.css">
-<script>window.MathJax={tex:{inlineMath:[['\(','\)']],displayMath:[['\[','\]']]},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
+<link rel="stylesheet" href="../assets/css/code-runner.css">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],macros:{boldsymbol:['{\\mathbf{#1}}',1]}},svg:{fontCache:'global'},options:{enableMenu:false}};</script>
 <script src="../assets/vendor/mathjax/tex-mml-svg.js" async></script>
 </head>
 <body data-lesson="w21">
@@ -100,6 +101,29 @@
       <p>Both are 0 for a pure node and peak for an even mix (for two classes, Gini peaks at 0.5, entropy at 1 bit). CART then scores a split by how much it <strong>reduces</strong> impurity. With entropy, that reduction has a famous name — <strong>information gain</strong>:</p>
       <p>\[ \text{IG} = H_{\text{parent}} - \sum_{\text{child}} \frac{n_{\text{child}}}{n_{\text{parent}}}\,H_{\text{child}} \]</p>
       <p>In words: parent's disorder minus the weighted average disorder of the children. The split with the highest information gain (or biggest Gini drop) wins.</p>
+
+      <h3>Information gain on one split, by hand</h3>
+      <p>The formula is abstract until you watch disorder actually drop, so let's score a single split end-to-end. The parent node holds 10 samples, evenly mixed: 5 positive, 5 negative.</p>
+      <table>
+        <thead><tr><th>Node</th><th>Positive</th><th>Negative</th></tr></thead>
+        <tbody>
+          <tr><td>Parent</td><td>5</td><td>5</td></tr>
+          <tr><td>Left child</td><td>4</td><td>1</td></tr>
+          <tr><td>Right child</td><td>1</td><td>4</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Step 1 — parent entropy.</strong> A 50/50 mix is maximally disordered, \(p=0.5\) for each class:</p>
+      <p>\[ H_{\text{parent}} = -\bigl(0.5\log_2 0.5 + 0.5\log_2 0.5\bigr) = 1.0 \text{ bit} \]</p>
+      <p><strong>Step 2 — child entropies.</strong> Each child is an 80/20 mix, so \(p=0.8\) and \(p=0.2\):</p>
+      <p>\[ H_{\text{left}} = H_{\text{right}} = -\bigl(0.8\log_2 0.8 + 0.2\log_2 0.2\bigr) \approx 0.722 \text{ bit} \]</p>
+      <p><strong>Step 3 — weighted child entropy and gain.</strong> Each child holds half the samples, so the weighted average is \(0.5(0.722)+0.5(0.722)=0.722\). The information gain is the drop:</p>
+      <p>\[ \text{IG} = 1.0 - 0.722 = 0.278 \text{ bit} \]</p>
+      <p><strong>This split earns \(0.278\) bit of gain.</strong> Compare a useless split whose children are still 50/50: their weighted entropy is \(1.0\), so \(\text{IG}=0\) — no tidying at all. (Gini agrees on the ranking: parent Gini \(=0.5\), each child \(1-(0.8^2+0.2^2)=0.32\), a drop of \(0.18\); Gini and entropy pick the same winning splits.)</p>
+
+      <div class="callout key">
+        <div class="c-title"><span class="c-emoji">🔑</span> Gain is the feature's credit</div>
+        <p style="margin-bottom:0">CART tries every feature and threshold and keeps the split with the largest IG — here \(0.278\) bit. That same number is also what gets tallied into the feature's <strong>importance</strong>: a feature that repeatedly delivers big gains near the top of the tree is exactly the one the model leans on most.</p>
+      </div>
 
       <div class="callout analogy">
         <div class="c-title"><span class="c-emoji">🗂️</span> Real-World Analogy</div>
@@ -215,5 +239,6 @@ print(export_text(clf, feature_names=names))   # the learned if/else rules</code
 <script src="../assets/js/app.js"></script>
 <script src="../assets/vendor/highlight/highlight.min.js"></script>
 <script>hljs.highlightAll();</script>
+<script src="../assets/js/code-runner.js"></script>
 </body>
 </html>
